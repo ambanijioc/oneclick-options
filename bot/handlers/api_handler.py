@@ -6,10 +6,8 @@ from telegram import Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
-    ConversationHandler
+    CommandHandler,
+    ContextTypes
 )
 
 from bot.utils.logger import setup_logger, log_user_action
@@ -141,6 +139,42 @@ async def add_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     log_user_action(user.id, "add_api_start", "Started API addition")
+
+
+@error_handler
+async def handle_skip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle /skip command during conversations.
+    
+    Args:
+        update: Telegram update object
+        context: Callback context
+    """
+    user = update.effective_user
+    state = await state_manager.get_state(user.id)
+    
+    if state is None:
+        return  # No active conversation
+    
+    # Handle skip for API description
+    if state == ConversationState.API_ADD_DESCRIPTION:
+        # Skip description, move to API key
+        await state_manager.update_data(user.id, {'api_description': ''})
+        await state_manager.set_state(user.id, ConversationState.API_ADD_KEY)
+        
+        # Get current data
+        data = await state_manager.get_data(user.id)
+        
+        # Ask for API key
+        text = (
+            "<b>➕ Add New API</b>\n\n"
+            f"<b>Name:</b> {escape_html(data.get('api_name', ''))}\n"
+            f"<b>Description:</b> <i>None</i>\n\n"
+            "Please enter your Delta Exchange <b>API Key</b>:"
+        )
+        
+        await update.message.reply_text(text, parse_mode='HTML')
+        log_user_action(user.id, "api_description_skipped", "Skipped API description")
 
 
 @error_handler
@@ -314,6 +348,20 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
     api_key = data.get('api_key')
     api_secret = result.value
     
+    # Check if api_key exists
+    if not api_key:
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=format_error_message(
+                "API Key not found in conversation data.",
+                "Please start over with /start"
+            ),
+            parse_mode='HTML'
+        )
+        await state_manager.clear_state(user.id)
+        logger.error(f"API key missing for user {user.id}. Data: {data}")
+        return
+    
     # Send processing message
     processing_msg = await context.bot.send_message(
         chat_id=user.id,
@@ -395,6 +443,7 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
     finally:
         # Clear conversation state
         await state_manager.clear_state(user.id)
+        logger.info(f"Cleared conversation state for user {user.id}")
 
 
 def register_api_handlers(application: Application):
@@ -404,43 +453,23 @@ def register_api_handlers(application: Application):
     Args:
         application: Bot application instance
     """
-    # Manage API menu callback
+    # Command handlers
+    application.add_handler(CommandHandler("skip", handle_skip_command))
+    
+    # Callback query handlers
     application.add_handler(CallbackQueryHandler(
         manage_api_callback,
         pattern="^menu_manage_api$"
     ))
     
-    # API list callback
     application.add_handler(CallbackQueryHandler(
         api_list_callback,
         pattern="^api_list$"
     ))
     
-    # Add API callback
     application.add_handler(CallbackQueryHandler(
         add_api_callback,
         pattern="^api_add$"
-    ))
-    
-    # Create a combined message handler that checks state
-    async def handle_api_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle all API-related text input based on state."""
-        user = update.effective_user
-        state = await state_manager.get_state(user.id)
-        
-        if state == ConversationState.API_ADD_NAME:
-            await handle_api_name_input(update, context)
-        elif state == ConversationState.API_ADD_DESCRIPTION:
-            await handle_api_description_input(update, context)
-        elif state == ConversationState.API_ADD_KEY:
-            await handle_api_key_input(update, context)
-        elif state == ConversationState.API_ADD_SECRET:
-            await handle_api_secret_input(update, context)
-    
-    # Register the combined handler
-    application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        handle_api_conversation
     ))
     
     logger.info("API handlers registered")
@@ -448,4 +477,4 @@ def register_api_handlers(application: Application):
 
 if __name__ == "__main__":
     print("API handler module loaded")
-  
+    
