@@ -1,387 +1,225 @@
 """
 Main application entry point.
-FastAPI application with Telegram webhook integration.
+Initializes FastAPI app, sets up webhook, and starts the server.
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from datetime import datetime
 
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import JSONResponse
-import uvicorn
-
+from fastapi import FastAPI, Request, Response
 from telegram import Update
 from telegram.ext import Application
 
-from config import config
-from logger import logger, log_function_call
-from database.connection import db_manager, shutdown_database
-from scheduler.job_scheduler import start_scheduler, stop_scheduler
-from scheduler.tasks import start_background_tasks, stop_background_tasks
+from config import settings
+from bot.application import create_application
+from database.connection import connect_db, close_db
+from scheduler.job_scheduler import init_scheduler, shutdown_scheduler
+from bot.utils.logger import setup_logger, log_to_telegram
+
+# Setup logging
+logger = setup_logger(__name__)
 
 
-# Global telegram application instance
-telegram_app: Application = None
+# Global bot application instance
+bot_app: Application = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Application lifespan manager.
-    Handles startup and shutdown events.
+    Lifespan context manager for startup and shutdown events.
     """
+    global bot_app
+    
     # Startup
-    logger.info("[lifespan] Application starting up...")
+    logger.info("=" * 50)
+    logger.info("Starting Telegram Trading Bot...")
+    logger.info("=" * 50)
     
     try:
-        # Initialize database connection
-        logger.info("[lifespan] Connecting to database...")
-        await db_manager.connect()
-        logger.info("[lifespan] Database connected successfully")
+        # Connect to database
+        logger.info("Connecting to MongoDB...")
+        await connect_db()
+        logger.info("✓ MongoDB connected successfully")
         
-        # Initialize Telegram bot
-        logger.info("[lifespan] Initializing Telegram bot...")
-        await initialize_telegram_bot()
-        logger.info("[lifespan] Telegram bot initialized")
+        # Initialize bot application
+        logger.info("Initializing bot application...")
+        bot_app = await create_application()
+        await bot_app.initialize()
+        logger.info("✓ Bot application initialized")
         
-        # Start scheduler
-        logger.info("[lifespan] Starting scheduler...")
-        await start_scheduler()
-        logger.info("[lifespan] Scheduler started")
+        # Delete existing webhook
+        logger.info("Deleting existing webhook...")
+        await bot_app.bot.delete_webhook(drop_pending_updates=True)
+        logger.info("✓ Existing webhook deleted")
         
-        # Start background tasks
-        logger.info("[lifespan] Starting background tasks...")
-        await start_background_tasks()
-        logger.info("[lifespan] Background tasks started")
+        # Set new webhook
+        webhook_url = settings.get_webhook_endpoint()
+        logger.info(f"Setting webhook: {webhook_url}")
+        await bot_app.bot.set_webhook(
+            url=webhook_url,
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=False
+        )
         
-        logger.info("[lifespan] ✅ Application startup completed successfully")
+        # Verify webhook
+        webhook_info = await bot_app.bot.get_webhook_info()
+        if webhook_info.url == webhook_url:
+            logger.info(f"✓ Webhook set successfully: {webhook_info.url}")
+            logger.info(f"  Pending updates: {webhook_info.pending_update_count}")
+        else:
+            logger.error(f"✗ Webhook verification failed. Expected: {webhook_url}, Got: {webhook_info.url}")
+            await log_to_telegram(f"🔴 CRITICAL: Webhook verification failed!")
+        
+        # Initialize scheduler
+        logger.info("Initializing job scheduler...")
+        await init_scheduler(bot_app)
+        logger.info("✓ Job scheduler initialized")
+        
+        logger.info("=" * 50)
+        logger.info("Bot started successfully! Ready to receive updates.")
+        logger.info("=" * 50)
+        await log_to_telegram(
+            f"🟢 Bot started successfully!\n"
+            f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}\n"
+            f"Webhook: {webhook_url}"
+        )
         
     except Exception as e:
-        logger.critical(f"[lifespan] Failed to start application: {e}", exc_info=True)
+        logger.critical(f"Failed to start bot: {e}", exc_info=True)
+        await log_to_telegram(f"🔴 CRITICAL: Failed to start bot!\nError: {str(e)}")
         raise
     
     yield
     
     # Shutdown
-    logger.info("[lifespan] Application shutting down...")
+    logger.info("=" * 50)
+    logger.info("Shutting down bot...")
+    logger.info("=" * 50)
     
     try:
-        # Stop background tasks
-        logger.info("[lifespan] Stopping background tasks...")
-        await stop_background_tasks()
+        # Shutdown scheduler
+        logger.info("Shutting down scheduler...")
+        await shutdown_scheduler()
+        logger.info("✓ Scheduler shutdown complete")
         
-        # Stop scheduler
-        logger.info("[lifespan] Stopping scheduler...")
-        await stop_scheduler()
-        
-        # Shutdown Telegram bot
-        logger.info("[lifespan] Shutting down Telegram bot...")
-        await shutdown_telegram_bot()
+        # Shutdown bot
+        if bot_app:
+            logger.info("Shutting down bot application...")
+            await bot_app.shutdown()
+            logger.info("✓ Bot shutdown complete")
         
         # Close database connection
-        logger.info("[lifespan] Closing database connection...")
-        await shutdown_database()
+        logger.info("Closing database connection...")
+        await close_db()
+        logger.info("✓ Database connection closed")
         
-        logger.info("[lifespan] ✅ Application shutdown completed successfully")
+        logger.info("=" * 50)
+        logger.info("Bot shutdown complete")
+        logger.info("=" * 50)
+        await log_to_telegram(
+            f"🔴 Bot shutting down\n"
+            f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}"
+        )
         
     except Exception as e:
-        logger.error(f"[lifespan] Error during shutdown: {e}", exc_info=True)
+        logger.error(f"Error during shutdown: {e}", exc_info=True)
 
 
 # Create FastAPI application
 app = FastAPI(
-    title="Delta Exchange Trading Bot",
-    description="Telegram bot for automated options trading on Delta Exchange India",
+    title="Telegram Trading Bot",
+    description="Options trading bot with Delta Exchange India API",
     version="1.0.0",
     lifespan=lifespan
 )
 
 
-@log_function_call
-async def initialize_telegram_bot():
-    """Initialize Telegram bot application."""
-    global telegram_app
-    
-    try:
-        from telegram.bot import create_application
-        
-        # Create application
-        telegram_app = await create_application()
-        
-        # Initialize the application
-        await telegram_app.initialize()
-        
-        # Set webhook
-        webhook_url = config.render.webhook_url
-        logger.info(f"[initialize_telegram_bot] Setting webhook to: {webhook_url}")
-        
-        await telegram_app.bot.set_webhook(
-            url=webhook_url,
-            drop_pending_updates=True
-        )
-        
-        # Start the application (without polling)
-        await telegram_app.start()
-        
-        logger.info("[initialize_telegram_bot] Telegram bot initialized successfully")
-        
-    except Exception as e:
-        logger.error(f"[initialize_telegram_bot] Error initializing bot: {e}", exc_info=True)
-        raise
-
-
-@log_function_call
-async def shutdown_telegram_bot():
-    """Shutdown Telegram bot application."""
-    global telegram_app
-    
-    try:
-        if telegram_app:
-            # Delete webhook
-            await telegram_app.bot.delete_webhook()
-            
-            # Stop application
-            await telegram_app.stop()
-            
-            # Shutdown
-            await telegram_app.shutdown()
-            
-            logger.info("[shutdown_telegram_bot] Telegram bot shut down successfully")
-        
-    except Exception as e:
-        logger.error(f"[shutdown_telegram_bot] Error shutting down bot: {e}")
-
-
 @app.get("/")
-@log_function_call
 async def root():
     """Root endpoint - basic info."""
     return {
-        "name": "Delta Exchange Trading Bot",
         "status": "running",
-        "version": "1.0.0"
+        "service": "Telegram Trading Bot",
+        "version": "1.0.0",
+        "timestamp": datetime.now().isoformat()
     }
 
 
 @app.get("/health")
-@log_function_call
 async def health_check():
     """
-    Health check endpoint for monitoring services like UptimeRobot.
-    
-    Returns:
-        Health status JSON
+    Health check endpoint for UptimeRobot monitoring.
     """
-    try:
-        # Check database health
-        db_healthy = await db_manager.health_check()
-        
-        # Check if bot is initialized
-        bot_healthy = telegram_app is not None
-        
-        health_status = {
-            "status": "healthy" if (db_healthy and bot_healthy) else "unhealthy",
-            "database": "connected" if db_healthy else "disconnected",
-            "telegram_bot": "initialized" if bot_healthy else "not_initialized",
-            "timestamp": None
-        }
-        
-        # Import datetime here to avoid circular imports
-        from datetime import datetime
-        import pytz
-        health_status["timestamp"] = datetime.now(pytz.UTC).isoformat()
-        
-        status_code = 200 if health_status["status"] == "healthy" else 503
-        
-        logger.info(f"[health_check] Health check: {health_status['status']}")
-        
-        return JSONResponse(content=health_status, status_code=status_code)
-        
-    except Exception as e:
-        logger.error(f"[health_check] Health check failed: {e}")
-        return JSONResponse(
-            content={
-                "status": "unhealthy",
-                "error": str(e)
-            },
-            status_code=503
-        )
+    return {
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "service": "telegram_trading_bot"
+    }
 
 
 @app.post("/webhook")
-@log_function_call
-async def telegram_webhook(request: Request):
+async def webhook_handler(request: Request):
     """
-    Telegram webhook endpoint.
-    Receives updates from Telegram and processes them.
-    
-    Args:
-        request: FastAPI request object
-    
-    Returns:
-        Response confirming receipt
+    Webhook endpoint to receive Telegram updates.
     """
     try:
-        # Get update data
+        # Parse incoming update
         update_data = await request.json()
+        update = Update.de_json(update_data, bot_app.bot)
         
-        logger.debug(f"[telegram_webhook] Received update: {update_data.get('update_id')}")
+        # Log incoming update
+        update_id = update.update_id if update else "unknown"
+        logger.debug(f"Received update: {update_id}")
         
-        # Create Update object
-        update = Update.de_json(update_data, telegram_app.bot)
+        # Process update asynchronously
+        if update:
+            asyncio.create_task(bot_app.process_update(update))
         
-        # Process update
-        await telegram_app.process_update(update)
-        
+        # Return 200 OK immediately
         return Response(status_code=200)
         
     except Exception as e:
-        logger.error(f"[telegram_webhook] Error processing webhook: {e}", exc_info=True)
-        # Return 200 to prevent Telegram from retrying
+        logger.error(f"Error processing webhook update: {e}", exc_info=True)
+        # Still return 200 to prevent Telegram from retrying
         return Response(status_code=200)
 
 
-@app.get("/api/status")
-@log_function_call
-async def api_status():
+@app.get("/webhook/info")
+async def webhook_info():
     """
-    Get detailed API status.
-    
-    Returns:
-        Detailed status information
+    Get current webhook information (for debugging).
     """
     try:
-        from scheduler.job_scheduler import get_scheduler
-        
-        scheduler = get_scheduler()
-        
-        # Get active schedules count
-        schedules = await scheduler.schedule_ops.get_active_schedules()
-        
-        status = {
-            "application": "running",
-            "database": "connected" if await db_manager.health_check() else "disconnected",
-            "telegram_bot": "active" if telegram_app else "inactive",
-            "scheduler": "running" if scheduler.is_running else "stopped",
-            "active_schedules": len(schedules),
-            "webhook_url": config.render.webhook_url
-        }
-        
-        logger.info("[api_status] Status check completed")
-        
-        return status
-        
+        if bot_app:
+            webhook_info = await bot_app.bot.get_webhook_info()
+            return {
+                "url": webhook_info.url,
+                "has_custom_certificate": webhook_info.has_custom_certificate,
+                "pending_update_count": webhook_info.pending_update_count,
+                "last_error_date": webhook_info.last_error_date,
+                "last_error_message": webhook_info.last_error_message,
+                "max_connections": webhook_info.max_connections,
+                "allowed_updates": webhook_info.allowed_updates
+            }
+        else:
+            return {"error": "Bot not initialized"}
     except Exception as e:
-        logger.error(f"[api_status] Error getting status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/schedules")
-@log_function_call
-async def get_all_schedules():
-    """
-    Get all active schedules (admin endpoint).
-    
-    Returns:
-        List of active schedules
-    """
-    try:
-        from scheduler.job_scheduler import get_scheduler
-        
-        scheduler = get_scheduler()
-        schedules = await scheduler.schedule_ops.get_active_schedules()
-        
-        logger.info(f"[get_all_schedules] Retrieved {len(schedules)} schedules")
-        
-        return {
-            "count": len(schedules),
-            "schedules": schedules
-        }
-        
-    except Exception as e:
-        logger.error(f"[get_all_schedules] Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/manual-cleanup")
-@log_function_call
-async def manual_cleanup():
-    """
-    Manually trigger database cleanup (admin endpoint).
-    
-    Returns:
-        Cleanup result
-    """
-    try:
-        from scheduler.tasks import get_background_tasks
-        
-        tasks = get_background_tasks()
-        await tasks.run_manual_cleanup()
-        
-        logger.info("[manual_cleanup] Manual cleanup completed")
-        
-        return {
-            "status": "success",
-            "message": "Cleanup completed successfully"
-        }
-        
-    except Exception as e:
-        logger.error(f"[manual_cleanup] Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """
-    Global exception handler for unhandled errors.
-    
-    Args:
-        request: Request that caused the error
-        exc: Exception that was raised
-    
-    Returns:
-        JSON error response
-    """
-    logger.error(
-        f"[global_exception_handler] Unhandled exception: {exc}",
-        exc_info=True
-    )
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "detail": str(exc)
-        }
-    )
-
-
-@app.on_event("startup")
-async def log_startup_info():
-    """Log startup information."""
-    logger.info("=" * 80)
-    logger.info("DELTA EXCHANGE TRADING BOT")
-    logger.info("=" * 80)
-    logger.info(f"Host: {config.render.host}")
-    logger.info(f"Port: {config.render.port}")
-    logger.info(f"Webhook URL: {config.render.webhook_url}")
-    logger.info(f"Database: {config.mongodb.database_name}")
-    logger.info("=" * 80)
+        logger.error(f"Error getting webhook info: {e}", exc_info=True)
+        return {"error": str(e)}
 
 
 if __name__ == "__main__":
-    """
-    Run the application directly (for local development).
-    In production, use: gunicorn main:app --worker-class uvicorn.workers.UvicornWorker
-    """
-    logger.info("[main] Starting application in development mode...")
+    import uvicorn
     
+    # Run the server
     uvicorn.run(
         "main:app",
-        host=config.render.host,
-        port=config.render.port,
-        reload=True,  # Enable auto-reload for development
-        log_level="info"
+        host=settings.HOST,
+        port=settings.PORT,
+        log_level=settings.LOG_LEVEL.lower(),
+        access_log=True
     )
-  
+    
