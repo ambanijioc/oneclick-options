@@ -73,7 +73,7 @@ class StrategyPreset(BaseModel):
         """Convert model to dictionary."""
         data = self.model_dump(by_alias=True, exclude={'id'})
         if self.id:
-            data['_id'] = str(self.id)
+            data['_id'] = ObjectId(self.id) if isinstance(self.id, str) else self.id
         return data
 
 
@@ -134,43 +134,4 @@ class StrategyPresetCreate(BaseModel):
         if info.data.get('strategy_type') == 'strangle' and v is None:
             raise ValueError("OTM selection is required for strangle strategies")
         return v
-
-
-if __name__ == "__main__":
-    # Test models
-    straddle = StraddlePreset(
-        user_id=12345,
-        name="BTC Weekly Straddle",
-        description="Weekly BTC straddle strategy",
-        asset="BTC",
-        expiry_code="W",
-        direction="long",
-        lot_size=10,
-        sl_trigger_pct=50.0,
-        sl_limit_pct=55.0,
-        target_trigger_pct=100.0,
-        target_limit_pct=95.0,
-        atm_offset=0
-    )
-    print("Straddle Preset:")
-    print(straddle.model_dump_json(indent=2))
-    
-    print("\n" + "="*50 + "\n")
-    
-    strangle = StranglePreset(
-        user_id=12345,
-        name="ETH Monthly Strangle",
-        description="Monthly ETH strangle strategy",
-        asset="ETH",
-        expiry_code="M",
-        direction="long",
-        lot_size=20,
-        sl_trigger_pct=50.0,
-        sl_limit_pct=55.0,
-        target_trigger_pct=100.0,
-        target_limit_pct=95.0,
-        otm_selection=OTMSelection(type="percentage", value=5.0)
-    )
-    print("Strangle Preset:")
-    print(strangle.model_dump_json(indent=2))
-  
+        
