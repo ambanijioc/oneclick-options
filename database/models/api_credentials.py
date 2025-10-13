@@ -3,27 +3,35 @@ Pydantic models for API credentials.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel, Field, field_validator
 from bson import ObjectId
 
 
-class PyObjectId(ObjectId):
-    """Custom ObjectId type for Pydantic."""
+class PyObjectId(str):
+    """Custom ObjectId type for Pydantic v2."""
     
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler):
+        from pydantic_core import core_schema
+        
+        return core_schema.union_schema([
+            core_schema.is_instance_schema(ObjectId),
+            core_schema.chain_schema([
+                core_schema.str_schema(),
+                core_schema.no_info_plain_validator_function(cls.validate),
+            ])
+        ])
     
     @classmethod
     def validate(cls, v):
-        if not ObjectId.is_valid(v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        if isinstance(v, str):
+            if ObjectId.is_valid(v):
+                return v
             raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-    
-    @classmethod
-    def __get_pydantic_json_schema__(cls, field_schema):
-        field_schema.update(type="string")
+        raise ValueError("Invalid ObjectId type")
 
 
 class APICredential(BaseModel):
@@ -60,7 +68,7 @@ class APICredential(BaseModel):
         """Convert model to dictionary."""
         data = self.model_dump(by_alias=True, exclude={'id'})
         if self.id:
-            data['_id'] = str(self.id)
+            data['_id'] = ObjectId(self.id) if isinstance(self.id, str) else self.id
         return data
 
 
@@ -90,16 +98,4 @@ class APICredentialUpdate(BaseModel):
     api_key: Optional[str] = Field(None, min_length=10)
     api_secret: Optional[str] = Field(None, min_length=10)
     is_active: Optional[bool] = None
-
-
-if __name__ == "__main__":
-    # Test model
-    api_cred = APICredential(
-        user_id=12345,
-        api_name="Test API",
-        api_description="Test API for development",
-        encrypted_api_key="encrypted_key_here",
-        encrypted_api_secret="encrypted_secret_here"
-    )
     
-    print(api_cred.model_dump_json(indent=2))
