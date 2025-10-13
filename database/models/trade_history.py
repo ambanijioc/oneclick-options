@@ -71,7 +71,7 @@ class TradeHistory(BaseModel):
         """Convert model to dictionary."""
         data = self.model_dump(by_alias=True, exclude={'id'})
         if self.id:
-            data['_id'] = str(self.id)
+            data['_id'] = ObjectId(self.id) if isinstance(self.id, str) else self.id
         return data
     
     def calculate_net_pnl(self):
@@ -98,44 +98,4 @@ class TradeHistoryCreate(BaseModel):
     entry_price: float
     lot_size: int
     commission: float = 0
-
-
-if __name__ == "__main__":
-    # Test model
-    trade = TradeHistory(
-        user_id=12345,
-        api_id="507f1f77bcf86cd799439011",
-        strategy_type="straddle",
-        asset="BTC",
-        expiry="2025-10-20",
-        entry_orders=[
-            OrderInfo(
-                order_id="order_123",
-                symbol="BTCUSD-20OCT25-65000-C",
-                side="buy",
-                order_type="limit",
-                size=10,
-                price=1000.0,
-                status="filled",
-                filled_size=10,
-                avg_fill_price=1000.0
-            ),
-            OrderInfo(
-                order_id="order_124",
-                symbol="BTCUSD-20OCT25-65000-P",
-                side="buy",
-                order_type="limit",
-                size=10,
-                price=1000.0,
-                status="filled",
-                filled_size=10,
-                avg_fill_price=1000.0
-            )
-        ],
-        entry_price=2000.0,
-        lot_size=10,
-        commission=5.0
-    )
     
-    print(trade.model_dump_json(indent=2))
-  
