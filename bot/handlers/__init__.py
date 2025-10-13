@@ -2,6 +2,7 @@
 Bot command and callback handlers.
 """
 
+from .message_router import route_message
 from telegram.ext import Application, MessageHandler, filters
 from bot.utils.logger import setup_logger
 
