@@ -356,11 +356,19 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
     
     # Get stored data
     data = await state_manager.get_data(user.id)
+    logger.info(f"Retrieved data in handle_api_secret_input: {data}")
+    logger.info(f"API key from data: {data.get('api_key')}")
+    logger.info(f"API name from data: {data.get('api_name')}")
+    
     api_key = data.get('api_key')
     api_secret = result.value
     
     # Check if api_key exists
     if not api_key:
+        logger.error(f"API key missing for user {user.id}. Full data dump: {data}")
+        logger.error(f"Data keys: {list(data.keys())}")
+        logger.error(f"Data values: {list(data.values())}")
+        
         await context.bot.send_message(
             chat_id=user.id,
             text=format_error_message(
@@ -370,8 +378,9 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
             parse_mode='HTML'
         )
         await state_manager.clear_state(user.id)
-        logger.error(f"API key missing for user {user.id}. Data: {data}")
         return
+    
+    # Rest of the function remains the same...
     
     # Send processing message
     processing_msg = await context.bot.send_message(
