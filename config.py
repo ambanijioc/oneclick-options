@@ -1,175 +1,121 @@
 """
-Configuration module for loading and validating environment variables.
-All application settings are centralized here using Pydantic.
+Centralized configuration management using pydantic-settings.
+Loads and validates all environment variables required for the application.
 """
 
-import os
-from typing import List, Optional
-from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from typing import List
+import os
 from cryptography.fernet import Fernet
 
 
-class TelegramConfig(BaseSettings):
-    """Telegram bot configuration settings."""
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
     
-    bot_token: str = Field(..., alias='TELEGRAM_BOT_TOKEN')
-    log_bot_token: str = Field(..., alias='TELEGRAM_LOG_BOT_TOKEN')
-    log_chat_id: str = Field(..., alias='TELEGRAM_LOG_CHAT_ID')
-    authorized_user_ids: str = Field(..., alias='AUTHORIZED_USER_IDS')
+    # Telegram Bot Configuration
+    BOT_TOKEN: str = Field(..., description="Main Telegram bot token")
+    LOG_BOT_TOKEN: str = Field(..., description="Telegram bot token for logging")
+    LOG_CHAT_ID: str = Field(..., description="Chat ID for log messages")
     
-    model_config = SettingsConfigDict(
-        env_file='.env',
-        env_file_encoding='utf-8',
-        case_sensitive=False,
-        extra='ignore'
+    # MongoDB Configuration
+    MONGO_URI: str = Field(..., description="MongoDB connection string")
+    MONGO_DB_NAME: str = Field(default="trading_bot", description="MongoDB database name")
+    
+    # Render.com Configuration
+    WEBHOOK_URL: str = Field(..., description="Public webhook URL for Telegram")
+    HOST: str = Field(default="0.0.0.0", description="Host to bind the server")
+    PORT: int = Field(default=10000, description="Port to bind the server")
+    
+    # Security Configuration
+    ENCRYPTION_KEY: str = Field(..., description="Fernet encryption key for API secrets")
+    ALLOWED_USER_IDS: str = Field(..., description="Comma-separated list of allowed user IDs")
+    
+    # Delta Exchange Configuration
+    DELTA_BASE_URL: str = Field(
+        default="https://api.india.delta.exchange",
+        description="Delta Exchange India API base URL"
     )
     
-    @field_validator('authorized_user_ids')
+    # Application Settings
+    LOG_LEVEL: str = Field(default="INFO", description="Logging level")
+    MAX_RETRIES: int = Field(default=3, description="Maximum API retry attempts")
+    RETRY_DELAY: int = Field(default=2, description="Delay between retries in seconds")
+    RATE_LIMIT_PER_MINUTE: int = Field(default=50, description="Max requests per user per minute")
+    
+    # Cache TTL Settings (in seconds)
+    SPOT_PRICE_CACHE_TTL: int = Field(default=5, description="Spot price cache TTL")
+    OPTION_CHAIN_CACHE_TTL: int = Field(default=60, description="Option chain cache TTL")
+    USER_SETTINGS_CACHE_TTL: int = Field(default=300, description="User settings cache TTL")
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
+    
+    @field_validator("ALLOWED_USER_IDS")
     @classmethod
-    def parse_user_ids(cls, v: str) -> List[int]:
-        """Parse comma-separated user IDs into list of integers."""
+    def validate_user_ids(cls, v: str) -> str:
+        """Validate that user IDs are comma-separated integers."""
         try:
-            return [int(uid.strip()) for uid in v.split(',') if uid.strip()]
+            user_ids = [int(uid.strip()) for uid in v.split(",")]
+            if not user_ids:
+                raise ValueError("At least one user ID must be provided")
+            return v
         except ValueError as e:
-            raise ValueError(f"Invalid user ID format: {e}")
+            raise ValueError(f"Invalid ALLOWED_USER_IDS format: {e}")
     
-    def is_authorized(self, user_id: int) -> bool:
-        """Check if user ID is authorized."""
-        authorized_ids = self.parse_user_ids(self.authorized_user_ids)
-        return user_id in authorized_ids
-
-
-class MongoDBConfig(BaseSettings):
-    """MongoDB database configuration settings."""
-    
-    uri: str = Field(..., alias='MONGODB_URI')
-    database_name: str = Field(default='trading_bot', alias='MONGODB_DATABASE')
-    
-    model_config = SettingsConfigDict(
-        env_file='.env',
-        env_file_encoding='utf-8',
-        case_sensitive=False,
-        extra='ignore'
-    )
-
-
-class DeltaExchangeConfig(BaseSettings):
-    """Delta Exchange API configuration settings."""
-    
-    base_url: str = Field(
-        default='https://api.india.delta.exchange',
-        alias='DELTA_BASE_URL'
-    )
-    timeout: int = Field(default=30, alias='DELTA_TIMEOUT')
-    max_retries: int = Field(default=3, alias='DELTA_MAX_RETRIES')
-    
-    model_config = SettingsConfigDict(
-        env_file='.env',
-        env_file_encoding='utf-8',
-        case_sensitive=False,
-        extra='ignore'
-    )
-
-
-class RenderConfig(BaseSettings):
-    """Render.com deployment configuration settings."""
-    
-    external_url: str = Field(..., alias='RENDER_EXTERNAL_URL')
-    host: str = Field(default='0.0.0.0', alias='HOST')
-    port: int = Field(default=10000, alias='PORT')
-    
-    model_config = SettingsConfigDict(
-        env_file='.env',
-        env_file_encoding='utf-8',
-        case_sensitive=False,
-        extra='ignore'
-    )
-    
-    @property
-    def webhook_url(self) -> str:
-        """Get the full webhook URL."""
-        return f"{self.external_url}/webhook"
-
-
-class EncryptionConfig(BaseSettings):
-    """Encryption configuration for sensitive data."""
-    
-    encryption_key: str = Field(..., alias='ENCRYPTION_KEY')
-    
-    model_config = SettingsConfigDict(
-        env_file='.env',
-        env_file_encoding='utf-8',
-        case_sensitive=False,
-        extra='ignore'
-    )
-    
-    @field_validator('encryption_key')
+    @field_validator("ENCRYPTION_KEY")
     @classmethod
-    def validate_key(cls, v: str) -> str:
-        """Validate that the encryption key is a valid Fernet key."""
+    def validate_encryption_key(cls, v: str) -> str:
+        """Validate that encryption key is a valid Fernet key."""
         try:
             Fernet(v.encode())
             return v
-        except Exception as e:
-            raise ValueError(f"Invalid Fernet encryption key: {e}")
+        except Exception:
+            raise ValueError("Invalid ENCRYPTION_KEY. Generate a new key using Fernet.generate_key()")
     
-    def get_fernet(self) -> Fernet:
-        """Get Fernet cipher instance."""
-        return Fernet(self.encryption_key.encode())
-
-
-class AppConfig:
-    """Main application configuration aggregator."""
+    @field_validator("PORT")
+    @classmethod
+    def validate_port(cls, v: int) -> int:
+        """Validate port number is within valid range."""
+        if not 1 <= v <= 65535:
+            raise ValueError("Port must be between 1 and 65535")
+        return v
     
-    def __init__(self):
-        """Initialize all configuration sections."""
-        self.telegram = TelegramConfig()
-        self.mongodb = MongoDBConfig()
-        self.delta = DeltaExchangeConfig()
-        self.render = RenderConfig()
-        self.encryption = EncryptionConfig()
+    def get_allowed_user_ids(self) -> List[int]:
+        """Parse and return list of allowed user IDs."""
+        return [int(uid.strip()) for uid in self.ALLOWED_USER_IDS.split(",")]
     
-    def validate_all(self) -> bool:
-        """Validate all configurations are loaded correctly."""
-        try:
-            # Test each config section
-            assert self.telegram.bot_token, "Telegram bot token missing"
-            assert self.mongodb.uri, "MongoDB URI missing"
-            assert self.render.external_url, "Render external URL missing"
-            assert self.encryption.encryption_key, "Encryption key missing"
-            return True
-        except AssertionError as e:
-            print(f"Configuration validation failed: {e}")
-            return False
+    def get_fernet_cipher(self) -> Fernet:
+        """Return Fernet cipher instance for encryption/decryption."""
+        return Fernet(self.ENCRYPTION_KEY.encode())
+    
+    def get_webhook_endpoint(self) -> str:
+        """Return full webhook endpoint URL."""
+        return f"{self.WEBHOOK_URL}/webhook"
 
 
-# Global configuration instance
-config = AppConfig()
+# Global settings instance
+settings = Settings()
 
 
+# Utility function to generate new encryption key
 def generate_encryption_key() -> str:
-    """
-    Utility function to generate a new Fernet encryption key.
-    Run this once and store the key in your .env file.
-    """
-    key = Fernet.generate_key()
-    return key.decode()
+    """Generate a new Fernet encryption key."""
+    return Fernet.generate_key().decode()
 
 
 if __name__ == "__main__":
-    # Test configuration loading
-    print("Testing configuration loading...")
+    # For testing: print settings (masked sensitive data)
+    print("Configuration loaded successfully!")
+    print(f"MongoDB Database: {settings.MONGO_DB_NAME}")
+    print(f"Webhook URL: {settings.get_webhook_endpoint()}")
+    print(f"Allowed Users: {len(settings.get_allowed_user_ids())} user(s)")
+    print(f"Delta Base URL: {settings.DELTA_BASE_URL}")
+    print(f"Host: {settings.HOST}:{settings.PORT}")
+    print("\nTo generate a new encryption key, run:")
+    print(f"python -c 'from config import generate_encryption_key; print(generate_encryption_key())'")
     
-    if config.validate_all():
-        print("✅ All configurations loaded successfully!")
-        print(f"Telegram Bot Token: {config.telegram.bot_token[:10]}...")
-        print(f"MongoDB URI: {config.mongodb.uri[:30]}...")
-        print(f"Webhook URL: {config.render.webhook_url}")
-        print(f"Delta Exchange Base URL: {config.delta.base_url}")
-    else:
-        print("❌ Configuration validation failed!")
-    
-    # Generate new encryption key (uncomment if needed)
-    # print(f"\nNew Encryption Key: {generate_encryption_key()}")
-  
