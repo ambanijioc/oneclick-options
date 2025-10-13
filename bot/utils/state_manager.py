@@ -105,23 +105,33 @@ class StateManager:
     ):
         """
         Set conversation state for a user.
+        PRESERVES existing data and merges with new data.
         
         Args:
             user_id: User ID
             state: Conversation state
-            data: Additional data to store
+            data: Additional data to store (merged with existing)
         """
         async with self._lock:
             if user_id not in self._states:
-                self._states[user_id] = {}
+                self._states[user_id] = {
+                    'state': None,
+                    'data': {},
+                    'timestamp': datetime.now()
+                }
             
-            self._states[user_id].update({
-                'state': state,
-                'data': data or {},
-                'timestamp': datetime.now()
-            })
+            # Preserve existing data and merge with new data
+            existing_data = self._states[user_id].get('data', {})
+            new_data = {**existing_data, **(data or {})}
             
-            logger.debug(f"Set state for user {user_id}: {state.value}")
+            self._states[user_id]['state'] = state
+            self._states[user_id]['data'] = new_data
+            self._states[user_id]['timestamp'] = datetime.now()
+            
+            logger.debug(
+                f"Set state for user {user_id}: {state.value}, "
+                f"data keys: {list(new_data.keys())}"
+            )
     
     async def get_state(self, user_id: int) -> Optional[ConversationState]:
         """
@@ -161,6 +171,7 @@ class StateManager:
             user_data = self._states.get(user_id)
             
             if not user_data:
+                logger.warning(f"No state found for user {user_id}")
                 return {}
             
             # Check if expired
@@ -169,7 +180,12 @@ class StateManager:
                 del self._states[user_id]
                 return {}
             
-            return user_data.get('data', {})
+            # Update timestamp on access
+            user_data['timestamp'] = datetime.now()
+            
+            data = user_data.get('data', {})
+            logger.debug(f"Retrieved data for user {user_id}: {list(data.keys())}")
+            return data
     
     async def update_data(self, user_id: int, data: Dict[str, Any]):
         """
@@ -187,10 +203,15 @@ class StateManager:
                     'timestamp': datetime.now()
                 }
             
-            self._states[user_id]['data'].update(data)
+            # Merge with existing data
+            existing_data = self._states[user_id].get('data', {})
+            self._states[user_id]['data'] = {**existing_data, **data}
             self._states[user_id]['timestamp'] = datetime.now()
             
-            logger.debug(f"Updated data for user {user_id}")
+            logger.debug(
+                f"Updated data for user {user_id}, "
+                f"keys: {list(self._states[user_id]['data'].keys())}"
+            )
     
     async def clear_state(self, user_id: int):
         """
@@ -247,43 +268,6 @@ class StateManager:
                 logger.error(f"Error in state cleanup task: {e}")
 
 
-# Global state manager instance (don't start cleanup task here)
+# Global state manager instance
 state_manager = StateManager(timeout_minutes=10)
-
-
-if __name__ == "__main__":
-    # Test state manager
-    async def test():
-        # Start cleanup task manually
-        await state_manager.start_cleanup_task()
-        
-        # Set state
-        await state_manager.set_state(
-            user_id=12345,
-            state=ConversationState.API_ADD_NAME,
-            data={'step': 1}
-        )
-        
-        # Get state
-        state = await state_manager.get_state(12345)
-        print(f"Current state: {state}")
-        
-        # Update data
-        await state_manager.update_data(12345, {'step': 2, 'name': 'Test API'})
-        
-        # Get data
-        data = await state_manager.get_data(12345)
-        print(f"Current data: {data}")
-        
-        # Clear state
-        await state_manager.clear_state(12345)
-        
-        # Check if has state
-        has_state = await state_manager.has_state(12345)
-        print(f"Has state: {has_state}")
-        
-        # Stop cleanup task
-        await state_manager.stop_cleanup_task()
-    
-    asyncio.run(test())
             
