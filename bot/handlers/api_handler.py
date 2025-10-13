@@ -292,8 +292,19 @@ async def handle_api_key_input(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception:
         pass
     
-    # Store key and move to next step
+    # Get existing data BEFORE updating
+    existing_data = await state_manager.get_data(user.id)
+    logger.info(f"Existing data before storing API key: {existing_data}")
+    
+    # Store key
     await state_manager.update_data(user.id, {'api_key': result.value})
+    
+    # Verify data was stored
+    updated_data = await state_manager.get_data(user.id)
+    logger.info(f"Data after storing API key: {updated_data}")
+    logger.info(f"API key stored: {updated_data.get('api_key')[:10]}..." if updated_data.get('api_key') else "API key NOT stored!")
+    
+    # Move to next step
     await state_manager.set_state(user.id, ConversationState.API_ADD_SECRET)
     
     # Ask for API secret
