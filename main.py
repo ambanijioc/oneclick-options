@@ -49,6 +49,12 @@ async def lifespan(app: FastAPI):
         bot_app = await create_application()
         await bot_app.initialize()
         logger.info("✓ Bot application initialized")
+
+        # Start state manager cleanup task
+        logger.info("Starting state manager...")
+        from bot.utils.state_manager import state_manager
+        await state_manager.start_cleanup_task()
+        logger.info("✓ State manager started")
         
         # Delete existing webhook
         logger.info("Deleting existing webhook...")
@@ -100,6 +106,12 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 50)
     
     try:
+        # Stop state manager cleanup task
+        logger.info("Stopping state manager...")
+        from bot.utils.state_manager import state_manager
+        await state_manager.stop_cleanup_task()
+        logger.info("✓ State manager stopped")
+        
         # Shutdown scheduler
         logger.info("Shutting down scheduler...")
         await shutdown_scheduler()
