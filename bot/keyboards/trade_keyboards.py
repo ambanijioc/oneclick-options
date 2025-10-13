@@ -2,7 +2,7 @@
 Keyboards specific to trade execution.
 """
 
-from typing import List
+from typing import List, Dict, Any  # Add Dict here
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database.models.api_credentials import APICredential
@@ -107,7 +107,7 @@ def get_auto_execution_time_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_auto_execution_list_keyboard(
-    auto_executions: List[Dict[str, Any]]
+    auto_executions: List[Dict[str, Any]]  # Dict is now imported
 ) -> InlineKeyboardMarkup:
     """
     Get keyboard showing list of auto executions.
@@ -184,4 +184,4 @@ if __name__ == "__main__":
     for row in keyboard.inline_keyboard:
         for button in row:
             print(f"- {button.text}: {button.callback_data}")
-          
+            
