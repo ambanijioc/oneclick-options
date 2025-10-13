@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
+# Import PyObjectId from api_credentials (it's already defined there)
 from .api_credentials import PyObjectId
 
 
@@ -48,7 +49,7 @@ class UserSettings(BaseModel):
         """Convert model to dictionary."""
         data = self.model_dump(by_alias=True, exclude={'id'})
         if self.id:
-            data['_id'] = str(self.id)
+            data['_id'] = ObjectId(self.id) if isinstance(self.id, str) else self.id
         return data
     
     def can_trade_today(self) -> bool:
@@ -91,22 +92,4 @@ class UserSettingsUpdate(BaseModel):
     log_trades: Optional[bool] = None
     daily_trade_limit: Optional[int] = None
     metadata: Optional[Dict[str, Any]] = None
-
-
-if __name__ == "__main__":
-    # Test model
-    settings = UserSettings(
-        user_id=12345,
-        username="testuser",
-        first_name="Test",
-        last_name="User",
-        default_api_id="507f1f77bcf86cd799439011"
-    )
     
-    print(settings.model_dump_json(indent=2))
-    
-    # Test trade limit
-    print(f"\nCan trade today: {settings.can_trade_today()}")
-    settings.increment_trade_count()
-    print(f"Trades today: {settings.trades_today}")
-  
