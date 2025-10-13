@@ -422,25 +422,25 @@ def register_api_handlers(application: Application):
         pattern="^api_add$"
     ))
     
-    # Message handlers for API addition flow
-    application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        handle_api_name_input
-    ))
+    # Create a combined message handler that checks state
+    async def handle_api_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle all API-related text input based on state."""
+        user = update.effective_user
+        state = await state_manager.get_state(user.id)
+        
+        if state == ConversationState.API_ADD_NAME:
+            await handle_api_name_input(update, context)
+        elif state == ConversationState.API_ADD_DESCRIPTION:
+            await handle_api_description_input(update, context)
+        elif state == ConversationState.API_ADD_KEY:
+            await handle_api_key_input(update, context)
+        elif state == ConversationState.API_ADD_SECRET:
+            await handle_api_secret_input(update, context)
     
+    # Register the combined handler
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
-        handle_api_description_input
-    ))
-    
-    application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        handle_api_key_input
-    ))
-    
-    application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        handle_api_secret_input
+        handle_api_conversation
     ))
     
     logger.info("API handlers registered")
