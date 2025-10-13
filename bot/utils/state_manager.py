@@ -76,11 +76,26 @@ class StateManager:
         self._states: Dict[int, Dict[str, Any]] = {}
         self._timeout = timedelta(minutes=timeout_minutes)
         self._lock = asyncio.Lock()
-        
-        # Start cleanup task
-        asyncio.create_task(self._cleanup_expired_states())
+        self._cleanup_task = None
         
         logger.info(f"StateManager initialized with {timeout_minutes} minute timeout")
+    
+    async def start_cleanup_task(self):
+        """Start the cleanup task. Call this after event loop is running."""
+        if self._cleanup_task is None:
+            self._cleanup_task = asyncio.create_task(self._cleanup_expired_states())
+            logger.info("State cleanup task started")
+    
+    async def stop_cleanup_task(self):
+        """Stop the cleanup task."""
+        if self._cleanup_task:
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+            self._cleanup_task = None
+            logger.info("State cleanup task stopped")
     
     async def set_state(
         self,
@@ -225,17 +240,23 @@ class StateManager:
                     if expired_users:
                         logger.info(f"Cleaned up {len(expired_users)} expired state(s)")
             
+            except asyncio.CancelledError:
+                logger.info("Cleanup task cancelled")
+                break
             except Exception as e:
                 logger.error(f"Error in state cleanup task: {e}")
 
 
-# Global state manager instance
+# Global state manager instance (don't start cleanup task here)
 state_manager = StateManager(timeout_minutes=10)
 
 
 if __name__ == "__main__":
     # Test state manager
     async def test():
+        # Start cleanup task manually
+        await state_manager.start_cleanup_task()
+        
         # Set state
         await state_manager.set_state(
             user_id=12345,
@@ -260,6 +281,9 @@ if __name__ == "__main__":
         # Check if has state
         has_state = await state_manager.has_state(12345)
         print(f"Has state: {has_state}")
+        
+        # Stop cleanup task
+        await state_manager.stop_cleanup_task()
     
     asyncio.run(test())
-  
+            
