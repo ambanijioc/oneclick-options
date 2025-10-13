@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: trading-telegram-bot
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:10000 --timeout 120
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_LOG_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_LOG_CHAT_ID
+        sync: false
+      - key: AUTHORIZED_USER_IDS
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        sync: false
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 10000
+        
