@@ -456,7 +456,7 @@ def register_api_handlers(application: Application):
     # Command handlers
     application.add_handler(CommandHandler("skip", handle_skip_command))
     
-    # Callback query handlers
+    # Callback query handlers  
     application.add_handler(CallbackQueryHandler(
         manage_api_callback,
         pattern="^menu_manage_api$"
@@ -471,6 +471,9 @@ def register_api_handlers(application: Application):
         add_api_callback,
         pattern="^api_add$"
     ))
+    
+    # DON'T ADD ANY MESSAGE HANDLERS HERE
+    # Messages are handled by message_router.py
     
     logger.info("API handlers registered")
 
