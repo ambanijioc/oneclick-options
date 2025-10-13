@@ -2,7 +2,6 @@
 Bot command and callback handlers.
 """
 
-from .message_router import route_message
 from telegram.ext import Application, MessageHandler, filters
 from bot.utils.logger import setup_logger
 
@@ -19,76 +18,84 @@ def register_all_handlers(application: Application):
     try:
         logger.info("Registering all handlers...")
         
-        # Import handlers
+        # Import command handlers
         from .start_handler import register_start_handler
         from .help_handler import register_help_handler
-        from .message_router import route_message
         
-        # Register command handlers first (highest priority)
+        # Register command handlers FIRST (highest priority)
         register_start_handler(application)
-        register_help_handler(application)
+        logger.info("✓ Start handler registered")
         
-        # Register callback handlers
+        register_help_handler(application)
+        logger.info("✓ Help handler registered")
+        
+        # Register callback query handlers
         try:
             from .api_handler import register_api_handlers
             register_api_handlers(application)
-        except ImportError:
-            logger.warning("API handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"API handler not found: {e}")
         
         try:
             from .balance_handler import register_balance_handlers
             register_balance_handlers(application)
-        except ImportError:
-            logger.warning("Balance handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Balance handler not found: {e}")
         
         try:
             from .position_handler import register_position_handlers
             register_position_handlers(application)
-        except ImportError:
-            logger.warning("Position handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Position handler not found: {e}")
         
         try:
             from .order_handler import register_order_handlers
             register_order_handlers(application)
-        except ImportError:
-            logger.warning("Order handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Order handler not found: {e}")
         
         try:
             from .trade_history_handler import register_trade_history_handlers
             register_trade_history_handlers(application)
-        except ImportError:
-            logger.warning("Trade history handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Trade history handler not found: {e}")
         
         try:
             from .options_list_handler import register_options_list_handlers
             register_options_list_handlers(application)
-        except ImportError:
-            logger.warning("Options list handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Options list handler not found: {e}")
         
         try:
             from .strategy_handler import register_strategy_handlers
             register_strategy_handlers(application)
-        except ImportError:
-            logger.warning("Strategy handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Strategy handler not found: {e}")
         
         try:
             from .manual_trade_handler import register_manual_trade_handlers
             register_manual_trade_handlers(application)
-        except ImportError:
-            logger.warning("Manual trade handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Manual trade handler not found: {e}")
         
         try:
             from .auto_trade_handler import register_auto_trade_handlers
             register_auto_trade_handlers(application)
-        except ImportError:
-            logger.warning("Auto trade handler not found, skipping")
+        except ImportError as e:
+            logger.warning(f"Auto trade handler not found: {e}")
         
-        # Register message router LAST (lowest priority, catches all text)
-        application.add_handler(MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            route_message
-        ))
-        logger.info("Message router registered")
+        # Register message router LAST (lowest priority)
+        # This catches all text messages and routes based on conversation state
+        from .message_router import route_message
+        
+        application.add_handler(
+            MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                route_message
+            ),
+            group=999  # Use high group number to ensure it runs last
+        )
+        logger.info("✓ Message router registered")
         
         logger.info("✓ All available handlers registered successfully")
     
