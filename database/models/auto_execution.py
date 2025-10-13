@@ -60,7 +60,7 @@ class AutoExecution(BaseModel):
         """Convert model to dictionary."""
         data = self.model_dump(by_alias=True, exclude={'id'})
         if self.id:
-            data['_id'] = str(self.id)
+            data['_id'] = ObjectId(self.id) if isinstance(self.id, str) else self.id
         return data
 
 
@@ -102,27 +102,4 @@ class AutoExecutionUpdate(BaseModel):
     execution_time: Optional[str] = None
     enabled: Optional[bool] = None
     last_execution_status: Optional[str] = None
-
-
-if __name__ == "__main__":
-    # Test model
-    auto_exec = AutoExecution(
-        user_id=12345,
-        api_id="507f1f77bcf86cd799439011",
-        strategy_preset_id="507f1f77bcf86cd799439012",
-        execution_time="09:15"
-    )
     
-    print(auto_exec.model_dump_json(indent=2))
-    
-    # Test validation
-    try:
-        invalid_time = AutoExecution(
-            user_id=12345,
-            api_id="507f1f77bcf86cd799439011",
-            strategy_preset_id="507f1f77bcf86cd799439012",
-            execution_time="25:99"  # Invalid
-        )
-    except ValueError as e:
-        print(f"\nValidation error (expected): {e}")
-      
