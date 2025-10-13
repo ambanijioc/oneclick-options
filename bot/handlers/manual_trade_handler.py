@@ -16,8 +16,10 @@ from bot.validators.user_validator import check_user_authorization
 from bot.keyboards.trade_keyboards import (
     get_api_selection_keyboard,
     get_strategy_preset_selection_keyboard,
-    get_strategy_type_keyboard
+    # get_strategy_type_keyboard
 )
+from bot.keyboards.strategy_keyboards import (
+    get_strategy_type_keyboard  # Import from here instead
 from bot.keyboards.confirmation_keyboards import get_trade_confirmation_keyboard
 from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
 from database.operations.strategy_ops import get_strategy_presets_by_type, get_strategy_preset_by_id
