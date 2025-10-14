@@ -456,20 +456,23 @@ class DeltaClient:
     
     # ==================== Position Endpoints ====================
     
-    async def get_positions(self, product_id: Optional[int] = None) -> Dict[str, Any]:
+    async def get_positions(self, product_id: Optional[int] = None, contract_types: Optional[str] = None) -> Dict[str, Any]:
         """
         Get all positions.
-        
+    
         Args:
             product_id: Filter by product ID
-        
+            contract_types: Filter by contract types (e.g., 'futures,call_options,put_options')
+    
         Returns:
             Positions data
         """
         params = {}
         if product_id:
             params['product_id'] = product_id
-        
+        if contract_types:
+            params['contract_types'] = contract_types
+    
         return await self._request('GET', '/v2/positions', params=params)
     
     async def get_position(self, product_id: int) -> Dict[str, Any]:
