@@ -447,23 +447,42 @@ class DeltaClient:
     
     # ==================== Position Endpoints ====================
     
-    async def get_positions(self, underlying_asset_symbol: str = "BTC") -> Dict[str, Any]:
+    async def get_positions(self, underlying_asset_symbol: Optional[str] = None) -> Dict[str, Any]:
         """
-        Get all open positions for an underlying asset.
-    
+        Get positions for an underlying asset or all assets.
+        
         Args:
-            underlying_asset_symbol: Underlying asset symbol (default: "BTC")
-                                    Options: "BTC", "ETH", etc.
+            underlying_asset_symbol: Underlying asset symbol (e.g., 'BTCUSD', 'ETHUSD')
+                                    If None, returns positions for common assets.
     
         Returns:
             Positions data
         """
-        # Delta India API requires underlying_asset_symbol parameter
-        params = {
-            'underlying_asset_symbol': underlying_asset_symbol
-        }
-    
-        return await self._request('GET', '/v2/positions', params=params)
+        if underlying_asset_symbol:
+            # Get positions for specific asset
+            params = {'underlying_asset_symbol': underlying_asset_symbol}
+            return await self._request('GET', '/v2/positions', params=params)
+        else:
+            # Get positions for all common assets
+            all_positions = []
+            assets = ['BTCUSD', 'ETHUSD']  # Add more assets as needed
+        
+            for asset in assets:
+                try:
+                    params = {'underlying_asset_symbol': asset}
+                    response = await self._request('GET', '/v2/positions', params=params)
+                
+                    if response.get('success'):
+                        positions = response.get('result', [])
+                        all_positions.extend(positions)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch positions for {asset}: {e}")
+                    continue
+        
+            return {
+                'success': True,
+                'result': all_positions
+            }
     
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
