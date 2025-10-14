@@ -447,16 +447,23 @@ class DeltaClient:
     
     # ==================== Position Endpoints ====================
     
-    async def get_positions(self) -> Dict[str, Any]:
+    async def get_positions(self, underlying_asset_symbol: str = "BTC") -> Dict[str, Any]:
         """
-        Get all open positions.
+        Get all open positions for an underlying asset.
+    
+        Args:
+            underlying_asset_symbol: Underlying asset symbol (default: "BTC")
+                                    Options: "BTC", "ETH", etc.
     
         Returns:
             Positions data
         """
-        # Delta India /v2/positions endpoint doesn't accept any parameters
-        # It returns all open positions by default
-        return await self._request('GET', '/v2/positions')
+        # Delta India API requires underlying_asset_symbol parameter
+        params = {
+            'underlying_asset_symbol': underlying_asset_symbol
+        }
+    
+        return await self._request('GET', '/v2/positions', params=params)
     
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
