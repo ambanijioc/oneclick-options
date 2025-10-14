@@ -84,13 +84,20 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                 
                 if response.get('success'):
                     result = response.get('result', [])
-                    
+
+                    # DEBUG: Log ALL positions before filtering
+                    logger.info(f"📊 API {api.api_name} - Total positions received: {len(result)}")
+                    for idx, pos in enumerate(result):
+                        logger.info(f"  Position {idx}: {pos.get('product', {}).get('symbol', 'Unknown')} | Size: {pos.get('size', 0)}")
+     
                     # Filter only active positions (non-zero size)
                     active_positions = [
                         pos for pos in result 
                         if float(pos.get('size', 0)) != 0
                     ]
-                    
+
+                    logger.info(f"📊 Active positions (non-zero size): {len(active_positions)}")
+        
                     if active_positions:
                         # Format positions
                         api_position_text = f"<b>📊 {api.api_name}</b>\n\n"
