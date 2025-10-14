@@ -2,11 +2,32 @@
 Keyboards for position management.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database.models.api_credentials import APICredential
 from .main_menu import get_back_to_main_menu_button
+
+
+def get_position_keyboard(apis: Optional[List[APICredential]] = None) -> InlineKeyboardMarkup:
+    """
+    Get keyboard for position menu.
+    
+    Args:
+        apis: Optional list of API credentials
+    
+    Returns:
+        InlineKeyboardMarkup for position view
+    """
+    keyboard = []
+    
+    # Add refresh button
+    keyboard.append([InlineKeyboardButton("🔄 Refresh Balance", callback_data="position_refresh")])
+    
+    # Add back button
+    keyboard.append(get_back_to_main_menu_button())
+    
+    return InlineKeyboardMarkup(keyboard)
 
 
 def get_position_list_keyboard(
@@ -136,7 +157,13 @@ def get_position_detail_keyboard(api_id: str) -> InlineKeyboardMarkup:
 
 if __name__ == "__main__":
     # Test keyboard generation
-    print("Position List Keyboard:")
+    print("Position Keyboard:")
+    keyboard = get_position_keyboard()
+    for row in keyboard.inline_keyboard:
+        for button in row:
+            print(f"- {button.text}: {button.callback_data}")
+    
+    print("\nPosition List Keyboard:")
     keyboard = get_position_list_keyboard([])
     for row in keyboard.inline_keyboard:
         for button in row:
@@ -147,4 +174,4 @@ if __name__ == "__main__":
     for row in keyboard.inline_keyboard:
         for button in row:
             print(f"- {button.text}: {button.callback_data}")
-          
+            
