@@ -25,10 +25,6 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle balance menu callback.
     Display wallet balance for all configured APIs.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
@@ -63,8 +59,12 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Fetch balances for all APIs
     balance_messages = []
-    total_balance = 0
+    total_balance_inr = 0
+    total_balance_usd = 0
     total_unrealized_pnl = 0
+    
+    # Fixed conversion rate: 1 USD = 85 INR
+    USD_TO_INR = 85.0
     
     for api in apis:
         try:
@@ -89,25 +89,50 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if response.get('success'):
                     result = response.get('result', [])
                     
-                    # Find USDT balance (most common quote currency)
-                    usdt_balance = None
-                    for balance_data in result:
-                        if balance_data.get('asset_symbol') == 'USDT':
-                            usdt_balance = balance_data
+                    # Try to find INR balance first (India API)
+                    balance_data = None
+                    for bal in result:
+                        asset = bal.get('asset_symbol', '')
+                        if asset in ['INR', 'USDT', 'USD']:
+                            balance_data = bal
                             break
                     
-                    if usdt_balance:
-                        # Format balance
-                        balance_text = format_balance(usdt_balance, api.api_name)
+                    if balance_data:
+                        asset_symbol = balance_data.get('asset_symbol', 'INR')
+                        balance = float(balance_data.get('balance', 0))
+                        unrealized_pnl = float(balance_data.get('unrealized_pnl', 0))
+                        available_balance = float(balance_data.get('available_balance', balance))
+                        
+                        # Convert to both INR and USD
+                        if asset_symbol == 'INR':
+                            balance_inr = balance
+                            balance_usd = balance / USD_TO_INR
+                        else:  # USD or USDT
+                            balance_usd = balance
+                            balance_inr = balance * USD_TO_INR
+                        
+                        # Format balance message
+                        balance_text = (
+                            f"<b>💼 {api.api_name}</b>\n"
+                            f"Balance: ₹{balance_inr:,.2f} (${balance_usd:,.2f})\n"
+                        )
+                        
+                        if unrealized_pnl != 0:
+                            if unrealized_pnl > 0:
+                                balance_text += f"Unrealized PnL: 🟢 +${unrealized_pnl:,.2f}\n"
+                            else:
+                                balance_text += f"Unrealized PnL: 🔴 ${unrealized_pnl:,.2f}\n"
+                        
                         balance_messages.append(balance_text)
                         
-                        # Add to totals
-                        total_balance += float(usdt_balance.get('balance', 0))
-                        total_unrealized_pnl += float(usdt_balance.get('unrealized_pnl', 0))
+                        # Add to totals (use INR as base)
+                        total_balance_inr += balance_inr
+                        total_balance_usd += balance_usd
+                        total_unrealized_pnl += unrealized_pnl
                     else:
                         balance_messages.append(
                             f"<b>⚠️ {api.api_name}</b>\n"
-                            f"No USDT balance found\n"
+                            f"No balance found\n"
                         )
                 else:
                     error_msg = response.get('error', {}).get('message', 'Unknown error')
@@ -134,12 +159,12 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Add totals if multiple APIs
         if len(apis) > 1:
             final_text += "\n" + "="*30 + "\n"
-            final_text += f"<b>Combined Total:</b> ${total_balance:,.2f}\n"
+            final_text += f"<b>Combined Total:</b> ₹{total_balance_inr:,.2f}\n"
             final_text += f"<b>Total Unrealized PnL:</b> "
             if total_unrealized_pnl > 0:
-                final_text += f"🟢 +${total_unrealized_pnl:,.2f}\n"
+                final_text += f"🟢 ${total_unrealized_pnl:,.2f}\n"
             elif total_unrealized_pnl < 0:
-                final_text += f"🔴 -${abs(total_unrealized_pnl):,.2f}\n"
+                final_text += f"🔴 ${abs(total_unrealized_pnl):,.2f}\n"
             else:
                 final_text += f"⚪ ${total_unrealized_pnl:,.2f}\n"
     else:
@@ -163,10 +188,6 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def balance_refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle balance refresh callback.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     # Refresh is the same as viewing balance
     await balance_callback(update, context)
@@ -177,9 +198,6 @@ async def balance_refresh_callback(update: Update, context: ContextTypes.DEFAULT
 def register_balance_handlers(application: Application):
     """
     Register balance handlers.
-    
-    Args:
-        application: Bot application instance
     """
     # Balance menu callback
     application.add_handler(CallbackQueryHandler(
@@ -198,4 +216,4 @@ def register_balance_handlers(application: Application):
 
 if __name__ == "__main__":
     print("Balance handler module loaded")
-  
+    
