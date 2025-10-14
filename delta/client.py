@@ -465,7 +465,7 @@ class DeltaClient:
         """
         # Delta India /v2/positions endpoint doesn't accept any parameters
         # It returns all open positions by default
-        return await self._request('GET', '/v2/positions', params={})
+        return await self._request('GET', '/v2/positions')
     
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
