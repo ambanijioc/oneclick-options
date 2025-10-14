@@ -74,29 +74,21 @@ class DeltaClient:
     ) -> Dict[str, str]:
         """
         Generate request headers with signature.
-        
-        Args:
-            method: HTTP method
-            path: API endpoint path
-            query_string: URL query string
-            payload: Request body
-        
-        Returns:
-            Dictionary of headers
         """
         timestamp = self._get_timestamp()
 
-        # DEBUG: Log current time
+        # DEBUG: Log current time - FIX THE DISPLAY BUG
         import datetime
         current_time = datetime.datetime.now()
         timestamp_int = int(timestamp)
-        timestamp_date = datetime.datetime.fromtimestamp(timestamp_int / 1000)
-        
+        # FIXED: Don't divide by 1000 since timestamp is already in seconds!
+        timestamp_date = datetime.datetime.fromtimestamp(timestamp_int)
+    
         logger.info(f"🕐 Time Debug:")
         logger.info(f"  Current server time: {current_time}")
         logger.info(f"  Generated timestamp: {timestamp}")
         logger.info(f"  Timestamp as date: {timestamp_date}")
-        
+    
         # Generate signature
         signature = generate_signature(
             self.api_secret,
@@ -107,15 +99,6 @@ class DeltaClient:
             payload
         )
 
-        # Log signature generation details
-        logger.debug(f"🔐 Signature Generation:")
-        logger.debug(f"  Method: {method}")
-        logger.debug(f"  Timestamp: {timestamp}")
-        logger.debug(f"  Path: {path}")
-        logger.debug(f"  Query: {query_string}")
-        logger.debug(f"  Payload: {payload[:50] if payload else '(empty)'}")
-        logger.debug(f"  Signature: {signature}")
-    
         headers = {
             'api-key': self.api_key,
             'timestamp': timestamp,
@@ -123,7 +106,7 @@ class DeltaClient:
             'Content-Type': 'application/json',
             'User-Agent': 'TelegramTradingBot/1.0'
         }
-        
+    
         return headers
     
     async def _request(
