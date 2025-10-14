@@ -447,29 +447,42 @@ class DeltaClient:
     
     # ==================== Position Endpoints ====================
 
-    async def get_positions(self, product_id: Optional[int] = None) -> Dict[str, Any]:
+    async def get_positions(self, underlying_asset_symbol: Optional[str] = None) -> Dict[str, Any]:
         """
-        Get open positions.
-        
-        For OPTIONS: Must provide product_id
-        For FUTURES: Can use underlying_asset_symbol
+        Get positions for underlying assets.
     
         Args:
-            product_id: Product ID to get position for specific contract
+            underlying_asset_symbol: Underlying asset (e.g., 'BTCUSD', 'ETHUSD')
+                                    If None, fetches for both BTC and ETH
     
         Returns:
-            Positions data
+            Positions data with all positions combined
         """
-        params = {}
-    
-        if product_id:
-        # Get position for specific product (required for options)
-            params['product_id'] = product_id
+        if underlying_asset_symbol:
+            # Fetch positions for specific asset
+            params = {'underlying_asset_symbol': underlying_asset_symbol}
             return await self._request('GET', '/v2/positions', params=params)
         else:
-        # Get all margined positions (only works for futures)
-        # For options, we need to query each product individually
-            return await self._request('GET', '/v2/positions')
+            # Fetch positions for both BTC and ETH assets
+            all_positions = []
+            assets = ['BTCUSD', 'ETHUSD']
+        
+            for asset in assets:
+                try:
+                    params = {'underlying_asset_symbol': asset}
+                    response = await self._request('GET', '/v2/positions', params=params)
+                
+                    if response.get('success'):
+                        positions = response.get('result', [])
+                        all_positions.extend(positions)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch {asset} positions: {e}")
+                    continue
+        
+            return {
+                'success': True,
+                'result': all_positions
+            }
 
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
