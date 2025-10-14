@@ -193,6 +193,13 @@ class DeltaClient:
                 
                     # Handle API errors
                     if response.status_code >= 400:
+                        # LOG FULL RESPONSE for debugging
+                        if response.status_code == 400:
+                            logger.error(f"❌ 400 Bad Request Details:")
+                            logger.error(f"Full Response: {response.text}")
+                            logger.error(f"Headers sent: {headers}")
+                            logger.error(f"URL: {url}")
+    
                         error_msg = response_data.get('error', {}).get('message', 'Unknown error')
                         log_api_call(
                             api_id=self.api_key[:8] + "...",
@@ -202,6 +209,7 @@ class DeltaClient:
                             error=error_msg
                         )
                         raise APIError(f"API error ({response.status_code}): {error_msg}")
+
                 
                     return response_data
             
