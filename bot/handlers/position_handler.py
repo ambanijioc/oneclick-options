@@ -80,9 +80,7 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
             
             try:
                 # Fetch positions with contract types (required for India API)
-                response = await client.get_positions(
-                    contract_types='futures,call_options,put_options,move_options'
-                )
+                response = await client.get_positions()
                 
                 if response.get('success'):
                     result = response.get('result', [])
