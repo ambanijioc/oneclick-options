@@ -114,32 +114,19 @@ class DeltaClient:
     ) -> Dict[str, Any]:
         """
         Make HTTP request to Delta Exchange API.
-        
-        Args:
-            method: HTTP method
-            endpoint: API endpoint path
-            params: URL query parameters
-            data: Request body data
-            authenticated: Whether to include authentication
-        
-        Returns:
-            Response data dictionary
-        
-        Raises:
-            APIError: If API returns an error
-            APINetworkError: If network error occurs
-            APITimeoutError: If request times out
         """
-        # Build query string
+        # Build query string with SORTED parameters (CRITICAL!)
         query_string = ""
         if params:
-            query_string = "&".join(f"{k}={v}" for k, v in params.items())
-        
-        # Build payload
+            # Sort parameters alphabetically - Delta Exchange requires this!
+            sorted_params = sorted(params.items())
+            query_string = "&".join(f"{k}={v}" for k, v in sorted_params)
+    
+        # Build payload - no spaces in JSON
         payload = ""
         if data:
-            payload = json.dumps(data)
-        
+            payload = json.dumps(data, separators=(',', ':'))
+    
         # Generate headers
         if authenticated:
             headers = self._generate_headers(method, endpoint, query_string, payload)
@@ -148,12 +135,12 @@ class DeltaClient:
                 'Content-Type': 'application/json',
                 'User-Agent': 'TelegramTradingBot/1.0'
             }
-        
+    
         # Build full URL
         url = endpoint
         if query_string:
             url += f"?{query_string}"
-        
+    
         try:
             # Make request with retry logic
             for attempt in range(settings.MAX_RETRIES):
@@ -172,25 +159,33 @@ class DeltaClient:
                         method=method,
                         status_code=response.status_code
                     )
-                    
+                
                     # Handle rate limiting
                     if response.status_code == 429:
                         retry_after = int(response.headers.get('Retry-After', settings.RETRY_DELAY))
                         logger.warning(f"Rate limited. Retry after {retry_after}s")
-                        
+                    
                         if attempt < settings.MAX_RETRIES - 1:
                             await asyncio.sleep(retry_after)
                             continue
                         else:
                             raise APIRateLimitError("Rate limit exceeded")
-                    
-                    # Handle authentication errors
+                
+                    # Handle authentication errors - LOG THE RESPONSE
                     if response.status_code == 401:
+                        logger.error(f"❌ Authentication failed!")
+                        logger.error(f"Response: {response.text}")
+                        logger.error(f"Headers sent: {headers}")
+                        logger.error(f"URL: {url}")
                         raise APIAuthenticationError("Authentication failed. Check API credentials.")
-                    
+                
                     # Parse response
-                    response_data = response.json()
-                    
+                    try:
+                        response_data = response.json()
+                    except Exception as e:
+                        logger.error(f"Failed to parse JSON: {response.text}")
+                        raise APIError(f"Invalid JSON response: {response.text}")
+                
                     # Handle API errors
                     if response.status_code >= 400:
                         error_msg = response_data.get('error', {}).get('message', 'Unknown error')
@@ -202,9 +197,9 @@ class DeltaClient:
                             error=error_msg
                         )
                         raise APIError(f"API error ({response.status_code}): {error_msg}")
-                    
-                    return response_data
                 
+                    return response_data
+            
                 except httpx.TimeoutException:
                     logger.warning(f"Request timeout (attempt {attempt + 1}/{settings.MAX_RETRIES})")
                     if attempt < settings.MAX_RETRIES - 1:
@@ -212,7 +207,7 @@ class DeltaClient:
                         continue
                     else:
                         raise APITimeoutError("Request timed out")
-                
+            
                 except httpx.NetworkError as e:
                     logger.warning(f"Network error (attempt {attempt + 1}/{settings.MAX_RETRIES}): {e}")
                     if attempt < settings.MAX_RETRIES - 1:
@@ -220,7 +215,7 @@ class DeltaClient:
                         continue
                     else:
                         raise APINetworkError(f"Network error: {str(e)}")
-        
+    
         except (APIError, APINetworkError, APITimeoutError, APIAuthenticationError, APIRateLimitError):
             raise
         except Exception as e:
