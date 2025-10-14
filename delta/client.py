@@ -122,7 +122,7 @@ class DeltaClient:
         """
         # Build query string with SORTED parameters (CRITICAL!)
         query_string = ""
-        if params:
+        if params and len(params) > 0:  # Only build if params exist
             # Sort parameters alphabetically - Delta Exchange requires this!
             sorted_params = sorted(params.items())
             query_string = "&".join(f"{k}={v}" for k, v in sorted_params)
