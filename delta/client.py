@@ -105,6 +105,17 @@ class DeltaClient:
             Dictionary of headers
         """
         timestamp = self._get_timestamp()
+
+        # DEBUG: Log current time
+        import datetime
+        current_time = datetime.datetime.now()
+        timestamp_int = int(timestamp)
+        timestamp_date = datetime.datetime.fromtimestamp(timestamp_int / 1000)
+        
+        logger.info(f"🕐 Time Debug:")
+        logger.info(f"  Current server time: {current_time}")
+        logger.info(f"  Generated timestamp: {timestamp}")
+        logger.info(f"  Timestamp as date: {timestamp_date}")
         
         # Generate signature
         signature = generate_signature(
