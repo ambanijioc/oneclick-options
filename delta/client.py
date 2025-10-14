@@ -447,59 +447,29 @@ class DeltaClient:
     
     # ==================== Position Endpoints ====================
 
-    async def get_positions(self, underlying_asset_symbol: Optional[str] = None) -> Dict[str, Any]:
+    async def get_positions(self, product_id: Optional[int] = None) -> Dict[str, Any]:
         """
-        Get positions for an underlying asset or all assets.
+        Get open positions.
         
+        For OPTIONS: Must provide product_id
+        For FUTURES: Can use underlying_asset_symbol
+    
         Args:
-            underlying_asset_symbol: Underlying asset symbol (e.g., 'BTCUSD', 'ETHUSD')
-                                    If None, fetches positions for all common assets.
+            product_id: Product ID to get position for specific contract
     
         Returns:
-            Positions data with all active positions
-        """    
-        if underlying_asset_symbol:
-            # Get positions for specific asset
-            params = {'underlying_asset_symbol': underlying_asset_symbol}
+            Positions data
+        """
+        params = {}
+    
+        if product_id:
+        # Get position for specific product (required for options)
+            params['product_id'] = product_id
             return await self._request('GET', '/v2/positions', params=params)
         else:
-            # Get positions for all common assets on Delta Exchange India
-            all_positions = []
-            assets = [
-                'BTCUSD',   # Bitcoin
-                'ETHUSD',   # Ethereum
-                'XRPUSD',   # Ripple
-                'SOLUSD',   # Solana
-                'BNBUSD',   # Binance Coin
-                'ADAUSD',   # Cardano
-                'DOGEUSD',  # Dogecoin
-                'MATICUSD', # Polygon
-                'LINKUSD',  # Chainlink
-                'AVAXUSD',  # Avalanche
-            ]
-        
-            for asset in assets:
-                try:
-                    params = {'underlying_asset_symbol': asset}
-                    response = await self._request('GET', '/v2/positions', params=params)
-                    
-                    if response.get('success'):
-                        positions = response.get('result', [])
-                        # Add all positions (filter for non-zero size will be done in handler)
-                        all_positions.extend(positions)
-                        logger.debug(f"Fetched {len(positions)} positions for {asset}")
-                except APIError as e:
-                    # Skip assets with no positions or errors
-                    logger.debug(f"Skipping {asset}: {e}")
-                    continue
-                except Exception as e:
-                    logger.warning(f"Error fetching positions for {asset}: {e}")
-                    continue
-        
-            return {
-                'success': True,
-                'result': all_positions
-            }
+        # Get all margined positions (only works for futures)
+        # For options, we need to query each product individually
+            return await self._request('GET', '/v2/positions')
 
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
