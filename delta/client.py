@@ -93,7 +93,16 @@ class DeltaClient:
             query_string,
             payload
         )
-        
+
+        # Log signature generation details
+        logger.debug(f"🔐 Signature Generation:")
+        logger.debug(f"  Method: {method}")
+        logger.debug(f"  Timestamp: {timestamp}")
+        logger.debug(f"  Path: {path}")
+        logger.debug(f"  Query: {query_string}")
+        logger.debug(f"  Payload: {payload[:50] if payload else '(empty)'}")
+        logger.debug(f"  Signature: {signature}")
+    
         headers = {
             'api-key': self.api_key,
             'timestamp': timestamp,
