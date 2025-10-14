@@ -60,30 +60,10 @@ class DeltaClient:
         logger.debug("DeltaClient closed")
     
     def _get_timestamp(self) -> str:
-        """Get current timestamp in milliseconds."""
-        return str(int(time.time() * 1000))
-
-    async def _get_server_time(self) -> int:
-        """
-        Get Delta Exchange server time.
-        Use this instead of local time to avoid clock drift issues.
-    
-        Returns:
-            Server timestamp in milliseconds
-        """
-        try:
-            response = await self.client.get('/v2/time')
-            return int(response.json().get('result', {}).get('timestamp', time.time() * 1000))
-        except Exception as e:
-            logger.warning(f"Failed to get server time, using local: {e}")
-            return int(time.time() * 1000)
-
-    def _get_timestamp(self) -> str:
-        """Get current timestamp in milliseconds."""
-        # Use local time - make sure it's current!
-        timestamp_ms = int(time.time() * 1000)
-        logger.debug(f"Generated timestamp: {timestamp_ms}")
-        return str(timestamp_ms)
+        """Get current timestamp in SECONDS (not milliseconds)."""
+        timestamp_sec = int(time.time())  # SECONDS, not milliseconds!
+        logger.debug(f"Generated timestamp: {timestamp_sec}")
+        return str(timestamp_sec)
     
     def _generate_headers(
         self,
