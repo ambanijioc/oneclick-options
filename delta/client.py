@@ -456,22 +456,16 @@ class DeltaClient:
     
     # ==================== Position Endpoints ====================
     
-    async def get_positions(self, product_id: Optional[int] = None) -> Dict[str, Any]:
+    async def get_positions(self) -> Dict[str, Any]:
         """
-        Get all positions.
-    
-        Args:
-            product_id: Filter by product ID (optional)
+        Get all open positions.
     
         Returns:
             Positions data
         """
-        params = {}
-        if product_id:
-            params['product_id'] = product_id
-    
-        # Do NOT pass contract_types - Delta India API doesn't support it
-        return await self._request('GET', '/v2/positions', params=params)
+        # Delta India /v2/positions endpoint doesn't accept any parameters
+        # It returns all open positions by default
+        return await self._request('GET', '/v2/positions', params={})
     
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
