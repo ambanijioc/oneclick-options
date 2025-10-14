@@ -446,56 +446,74 @@ class DeltaClient:
         return await self._request('PUT', f'/v2/orders/{order_id}', data=order_data)
     
     # ==================== Position Endpoints ====================
-    
+
     async def get_positions(self, underlying_asset_symbol: Optional[str] = None) -> Dict[str, Any]:
         """
         Get positions for an underlying asset or all assets.
         
         Args:
             underlying_asset_symbol: Underlying asset symbol (e.g., 'BTCUSD', 'ETHUSD')
-                                    If None, returns positions for common assets.
+                                    If None, fetches positions for all common assets.
     
         Returns:
-            Positions data
-        """
+            Positions data with all active positions
+        """    
         if underlying_asset_symbol:
             # Get positions for specific asset
             params = {'underlying_asset_symbol': underlying_asset_symbol}
             return await self._request('GET', '/v2/positions', params=params)
         else:
-            # Get positions for all common assets
+            # Get positions for all common assets on Delta Exchange India
             all_positions = []
-            assets = ['BTCUSD', 'ETHUSD']  # Add more assets as needed
+            assets = [
+                'BTCUSD',   # Bitcoin
+                'ETHUSD',   # Ethereum
+                'XRPUSD',   # Ripple
+                'SOLUSD',   # Solana
+                'BNBUSD',   # Binance Coin
+                'ADAUSD',   # Cardano
+                'DOGEUSD',  # Dogecoin
+                'MATICUSD', # Polygon
+                'LINKUSD',  # Chainlink
+                'AVAXUSD',  # Avalanche
+            ]
         
             for asset in assets:
                 try:
                     params = {'underlying_asset_symbol': asset}
                     response = await self._request('GET', '/v2/positions', params=params)
-                
+                    
                     if response.get('success'):
                         positions = response.get('result', [])
+                        # Add all positions (filter for non-zero size will be done in handler)
                         all_positions.extend(positions)
+                        logger.debug(f"Fetched {len(positions)} positions for {asset}")
+                except APIError as e:
+                    # Skip assets with no positions or errors
+                    logger.debug(f"Skipping {asset}: {e}")
+                    continue
                 except Exception as e:
-                    logger.warning(f"Failed to fetch positions for {asset}: {e}")
+                    logger.warning(f"Error fetching positions for {asset}: {e}")
                     continue
         
             return {
                 'success': True,
                 'result': all_positions
             }
-    
+
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
         Get position for specific product.
-        
+    
         Args:
             product_id: Product ID
         
         Returns:
             Position data
         """
-        return await self._request('GET', f'/v2/positions/{product_id}')
-    
+        params = {'product_id': product_id}
+        return await self._request('GET', '/v2/positions', params=params)
+
     async def change_position_margin(
         self,
         product_id: int,
@@ -503,17 +521,17 @@ class DeltaClient:
     ) -> Dict[str, Any]:
         """
         Change margin for a position.
-        
+    
         Args:
             product_id: Product ID
             delta_margin: Margin change amount
-        
+    
         Returns:
             Updated position data
         """
         data = {'delta_margin': delta_margin}
         return await self._request('POST', f'/v2/positions/change_margin', data=data)
-    
+   
     # ==================== Market Data Endpoints ====================
     
     async def get_ohlc(
