@@ -188,7 +188,7 @@ async def webhook_handler(request: Request):
         
         # Process update asynchronously
         if update:
-            asyncio.create_task(bot_app.process_update(update))
+            await bot_app.process_update(update)  # ✅ AWAIT - Sequential processing
         
         # Return 200 OK immediately
         return Response(status_code=200)
