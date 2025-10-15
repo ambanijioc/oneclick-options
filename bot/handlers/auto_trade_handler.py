@@ -9,7 +9,7 @@ import pytz
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
-from bot.utils.state_manager import StateManager
+from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
 from database.operations.algo_setup_ops import (
     create_algo_setup,
@@ -26,7 +26,7 @@ from database.operations.api_ops import get_api_credential_by_id
 from database.operations.strategy_ops import get_strategy_preset_by_id
 
 logger = setup_logger(__name__)
-state_manager = StateManager()
+#state_manager = StateManager()
 
 # IST timezone
 IST = pytz.timezone('Asia/Kolkata')
