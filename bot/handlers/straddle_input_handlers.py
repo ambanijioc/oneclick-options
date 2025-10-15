@@ -280,7 +280,7 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
         from database.operations.strategy_ops import create_strategy_preset
         from bot.handlers.straddle_strategy_handler import get_straddle_menu_keyboard
         
-        result = await create_strategy_preset(user.id, state_data)
+        result = await create_strategy_preset(state_data)
         
         if result:
             target_text = ""
