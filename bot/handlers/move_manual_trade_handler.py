@@ -7,13 +7,13 @@ from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
-from bot.utils.state_manager import StateManager
+from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
 from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
 from database.operations.move_strategy_ops import get_move_strategies, get_move_strategy
 
 logger = setup_logger(__name__)
-state_manager = StateManager()
+#state_manager = StateManager()
 
 
 def get_move_manual_trade_keyboard():
