@@ -1,318 +1,568 @@
 """
-Automated trade execution handlers.
+Auto trade (Algo Trading) handler with countdown and live status.
 """
 
-from telegram import Update
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-    ContextTypes
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CallbackQueryHandler, ContextTypes
+from datetime import datetime
+import pytz
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
-from bot.utils.message_formatter import format_error_message, escape_html
+from bot.utils.state_manager import StateManager
 from bot.validators.user_validator import check_user_authorization
-from bot.validators.input_validator import validate_time_format
-from bot.utils.state_manager import state_manager, ConversationState
-from bot.keyboards.trade_keyboards import (
-    get_api_selection_keyboard,
-    get_auto_execution_time_keyboard,
-    get_auto_execution_list_keyboard,
-    get_auto_execution_toggle_keyboard
+from database.operations.algo_setup_ops import (
+    create_algo_setup,
+    get_algo_setups,
+    get_algo_setup,
+    update_algo_setup,
+    delete_algo_setup
 )
-from bot.keyboards.confirmation_keyboards import get_cancel_keyboard
-from database.operations.api_ops import get_api_credentials
-from database.operations.auto_execution_ops import (
-    create_auto_execution,
-    get_auto_executions,
-    get_auto_execution_by_id,
-    update_auto_execution,
-    delete_auto_execution
+from database.operations.manual_trade_preset_ops import (
+    get_manual_trade_presets,
+    get_manual_trade_preset
 )
-from database.models.auto_execution import AutoExecutionCreate
+from database.operations.api_ops import get_api_credential
+from database.operations.strategy_ops import get_strategy_preset_by_id
 
 logger = setup_logger(__name__)
+state_manager = StateManager()
+
+# IST timezone
+IST = pytz.timezone('Asia/Kolkata')
+
+
+def get_auto_trade_menu_keyboard():
+    """Get auto trade main menu keyboard."""
+    keyboard = [
+        [InlineKeyboardButton("📊 List Current Algo Trades", callback_data="auto_trade_list")],
+        [InlineKeyboardButton("➕ Add Algo Setup", callback_data="auto_trade_add")],
+        [InlineKeyboardButton("✏️ Edit Algo Setup", callback_data="auto_trade_edit_list")],
+        [InlineKeyboardButton("🗑️ Delete Algo Setup", callback_data="auto_trade_delete_list")],
+        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 
 @error_handler
-async def auto_trade_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle auto trade menu callback.
-    Display list of auto executions.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+async def auto_trade_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Display auto trade main menu."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Check authorization
     if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access")
         return
     
-    # Get user's auto executions
-    auto_execs = await get_auto_executions(user.id)
+    # Get setups
+    setups = await get_algo_setups(user.id, active_only=True)
     
-    # Format auto execution list
-    auto_exec_data = []
-    for auto_exec in auto_execs:
-        # Get preset name (you would fetch this from strategy_ops)
-        auto_exec_data.append({
-            'id': str(auto_exec.id),
-            'execution_time': auto_exec.execution_time,
-            'enabled': auto_exec.enabled,
-            'preset_name': 'Strategy Preset'  # TODO: Fetch actual preset name
-        })
-    
-    # Auto trade text
-    text = (
-        "<b>🤖 Auto Trade Execution</b>\n\n"
-        f"Scheduled executions: {len(auto_execs)}\n\n"
-        "Manage your automated trade schedules:"
-    )
-    
-    # Show auto execution list
     await query.edit_message_text(
-        text,
-        reply_markup=get_auto_execution_list_keyboard(auto_exec_data),
+        "<b>⏰ Auto Trade (Algo Trading)</b>\n\n"
+        "Automate your trades with scheduled execution:\n\n"
+        "• <b>List:</b> View running algo trades\n"
+        "• <b>Add:</b> Create new algo setup\n"
+        "• <b>Edit:</b> Modify existing setup\n"
+        "• <b>Delete:</b> Remove algo setup\n\n"
+        f"<b>Active Setups:</b> {len(setups)}",
+        reply_markup=get_auto_trade_menu_keyboard(),
         parse_mode='HTML'
     )
     
-    log_user_action(user.id, "auto_trade", f"Viewed {len(auto_execs)} auto executions")
+    log_user_action(user.id, "auto_trade_menu", f"Viewed auto trade menu: {len(setups)} setups")
 
 
 @error_handler
-async def auto_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle add auto execution callback.
-    Start auto execution creation flow.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+async def auto_trade_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List all current algo trades."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Get user's APIs
-    apis = await get_api_credentials(user.id)
+    # Get active setups
+    setups = await get_algo_setups(user.id, active_only=True)
     
-    if not apis:
+    if not setups:
         await query.edit_message_text(
-            "<b>🤖 Add Auto Execution</b>\n\n"
-            "❌ No API credentials configured.\n\n"
-            "Please add an API credential first.",
+            "<b>📊 Current Algo Trades</b>\n\n"
+            "❌ No active algo trades.\n\n"
+            "Create one using <b>Add Algo Setup</b>.",
+            reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # Set conversation state
-    await state_manager.set_state(user.id, ConversationState.AUTO_SELECT_API)
+    # Create keyboard with setups
+    keyboard = []
+    for setup in setups:
+        # Get preset name
+        preset = await get_manual_trade_preset(setup['manual_preset_id'])
+        preset_name = preset.get('preset_name', 'Unknown') if preset else 'Unknown'
+        
+        keyboard.append([InlineKeyboardButton(
+            f"⏰ {preset_name} - {setup['execution_time']}",
+            callback_data=f"auto_trade_view_{setup['id']}"
+        )])
     
-    # Show API selection
-    text = (
-        "<b>🤖 Add Auto Execution</b>\n\n"
-        "Select an API for automated execution:"
-    )
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_auto_trade")])
     
     await query.edit_message_text(
-        text,
-        reply_markup=get_api_selection_keyboard(apis, action="auto_trade"),
+        "<b>📊 Current Algo Trades</b>\n\n"
+        "Select a setup to view details:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
-    
-    log_user_action(user.id, "auto_add_start", "Started auto execution creation")
 
 
 @error_handler
-async def auto_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle auto execution view callback.
-    Display details and management options.
+async def auto_trade_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """View algo trade details with countdown."""
+    query = update.callback_query
+    await query.answer()
     
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    user = query.from_user
+    setup_id = query.data.split('_')[-1]
+    
+    # Get setup
+    setup = await get_algo_setup(setup_id)
+    
+    if not setup:
+        await query.edit_message_text("❌ Setup not found")
+        return
+    
+    # Get preset
+    preset = await get_manual_trade_preset(setup['manual_preset_id'])
+    if not preset:
+        await query.edit_message_text("❌ Preset not found")
+        return
+    
+    # Get API and strategy
+    api = await get_api_credential(preset['api_credential_id'])
+    strategy = await get_strategy_preset_by_id(preset['strategy_preset_id'])
+    
+    # Calculate countdown
+    now_ist = datetime.now(IST)
+    exec_hour, exec_minute = map(int, setup['execution_time'].split(':'))
+    target_time = now_ist.replace(hour=exec_hour, minute=exec_minute, second=0, microsecond=0)
+    
+    if target_time <= now_ist:
+        from datetime import timedelta
+        target_time += timedelta(days=1)
+    
+    time_diff = target_time - now_ist
+    hours, remainder = divmod(int(time_diff.total_seconds()), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    # Build message
+    text = f"<b>⏰ Algo Trade Details</b>\n\n"
+    text += f"<b>Preset:</b> {preset['preset_name']}\n"
+    text += f"<b>API:</b> {api.api_name if api else 'Unknown'}\n"
+    
+    if strategy:
+        text += f"<b>Strategy:</b> {strategy['name']}\n"
+        text += f"<b>Type:</b> {preset['strategy_type'].title()}\n"
+        text += f"<b>Asset:</b> {strategy['asset']}\n"
+        text += f"<b>Direction:</b> {strategy['direction'].title()}\n"
+    
+    text += f"\n<b>⏰ Execution Time:</b> {setup['execution_time']} IST\n"
+    text += f"<b>⏳ Countdown:</b> {hours}h {minutes}m {seconds}s\n\n"
+    
+    # Last execution info
+    if setup.get('last_execution'):
+        last_exec = setup['last_execution']
+        if isinstance(last_exec, str):
+            from dateutil import parser
+            last_exec = parser.parse(last_exec)
+        
+        last_exec_ist = last_exec.replace(tzinfo=pytz.UTC).astimezone(IST)
+        text += f"<b>📝 Last Execution:</b>\n"
+        text += f"Time: {last_exec_ist.strftime('%d %b %Y, %I:%M %p IST')}\n"
+        text += f"Status: {setup.get('last_execution_status', 'Unknown').title()}\n"
+        
+        details = setup.get('last_execution_details', {})
+        if details and setup.get('last_execution_status') == 'success':
+            text += f"CE: {details.get('ce_symbol', 'N/A')}\n"
+            text += f"PE: {details.get('pe_symbol', 'N/A')}\n"
+        elif details and setup.get('last_execution_status') == 'failed':
+            text += f"Error: {details.get('error', 'Unknown')[:100]}\n"
+    else:
+        text += f"<b>📝 Last Execution:</b> Never\n"
+    
+    keyboard = [
+        [InlineKeyboardButton("🔄 Refresh", callback_data=f"auto_trade_view_{setup_id}")],
+        [InlineKeyboardButton("🔙 Back to List", callback_data="auto_trade_list")]
+    ]
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def auto_trade_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start add algo setup flow - list presets."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Extract auto execution ID from callback data
-    auto_exec_id = query.data.split('_')[-1]
+    if not await check_user_authorization(user):
+        await query.edit_message_text("❌ Unauthorized access")
+        return
     
-    # Get auto execution
-    auto_exec = await get_auto_execution_by_id(auto_exec_id)
+    # Get manual trade presets
+    presets = await get_manual_trade_presets(user.id)
     
-    if not auto_exec:
+    if not presets:
         await query.edit_message_text(
-            format_error_message("Auto execution not found."),
+            "<b>➕ Add Algo Setup</b>\n\n"
+            "❌ No manual trade presets found.\n\n"
+            "Please create a Manual Trade Preset first.",
+            reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # Format auto execution details
-    status_emoji = "✅ Active" if auto_exec.enabled else "❌ Disabled"
+    # Create keyboard with presets
+    keyboard = []
+    for preset in presets:
+        keyboard.append([InlineKeyboardButton(
+            f"🎯 {preset['preset_name']}",
+            callback_data=f"auto_trade_preset_{preset['id']}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")])
     
-    text = (
-        "<b>🤖 Auto Execution Details</b>\n\n"
-        f"<b>Status:</b> {status_emoji}\n"
-        f"<b>Execution Time:</b> {auto_exec.execution_time} IST\n"
-        f"<b>Created:</b> {auto_exec.created_at.strftime('%Y-%m-%d')}\n"
-    )
-    
-    if auto_exec.last_execution:
-        text += f"<b>Last Execution:</b> {auto_exec.last_execution.strftime('%Y-%m-%d %H:%M')}\n"
-        text += f"<b>Last Status:</b> {auto_exec.last_execution_status or 'N/A'}\n"
-    
-    text += f"\n<b>Total Executions:</b> {auto_exec.execution_count}"
-    
-    # Show details with management options
     await query.edit_message_text(
-        text,
-        reply_markup=get_auto_execution_toggle_keyboard(auto_exec_id, auto_exec.enabled),
+        "<b>➕ Add Algo Setup</b>\n\n"
+        "Select a Manual Trade Preset to automate:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
     
-    log_user_action(user.id, "auto_view", f"Viewed auto execution: {auto_exec_id}")
+    log_user_action(user.id, "auto_trade_add", "Started add algo setup flow")
 
 
 @error_handler
-async def auto_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle auto execution toggle callback.
-    Enable or disable auto execution.
+async def auto_trade_preset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle preset selection - ask for time."""
+    query = update.callback_query
+    await query.answer()
     
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    user = query.from_user
+    preset_id = query.data.split('_')[-1]
+    
+    # Store preset ID
+    await state_manager.set_state_data(user.id, {'manual_preset_id': preset_id})
+    await state_manager.set_state(user.id, 'auto_trade_add_time')
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")]]
+    
+    await query.edit_message_text(
+        "<b>➕ Add Algo Setup</b>\n\n"
+        "Enter execution time in IST (24-hour format):\n\n"
+        "<b>Format:</b> <code>HH:MM</code>\n\n"
+        "<b>Examples:</b>\n"
+        "• <code>09:15</code> - 9:15 AM\n"
+        "• <code>15:30</code> - 3:30 PM\n"
+        "• <code>23:45</code> - 11:45 PM",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def auto_trade_delete_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of setups to delete."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Extract auto execution ID from callback data
-    auto_exec_id = query.data.split('_')[-1]
+    # Get setups
+    setups = await get_algo_setups(user.id, active_only=True)
     
-    # Get current state
-    auto_exec = await get_auto_execution_by_id(auto_exec_id)
-    
-    if not auto_exec:
+    if not setups:
         await query.edit_message_text(
-            format_error_message("Auto execution not found."),
+            "<b>🗑️ Delete Algo Setup</b>\n\n"
+            "❌ No active setups found.",
+            reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # Toggle enabled state
-    new_state = not auto_exec.enabled
-    success = await update_auto_execution(auto_exec_id, {'enabled': new_state})
+    # Create keyboard with setups
+    keyboard = []
+    for setup in setups:
+        preset = await get_manual_trade_preset(setup['manual_preset_id'])
+        preset_name = preset.get('preset_name', 'Unknown') if preset else 'Unknown'
+        
+        keyboard.append([InlineKeyboardButton(
+            f"🗑️ {preset_name} - {setup['execution_time']}",
+            callback_data=f"auto_trade_delete_{setup['id']}"
+        )])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")])
+    
+    await query.edit_message_text(
+        "<b>🗑️ Delete Algo Setup</b>\n\n"
+        "Select setup to delete:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def auto_trade_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle delete setup - ask confirmation."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    setup_id = query.data.split('_')[-1]
+    
+    # Get setup
+    setup = await get_algo_setup(setup_id)
+    
+    if not setup:
+        await query.edit_message_text("❌ Setup not found")
+        return
+    
+    # Get preset
+    preset = await get_manual_trade_preset(setup['manual_preset_id'])
+    preset_name = preset.get('preset_name', 'Unknown') if preset else 'Unknown'
+    
+    # Store setup ID
+    await state_manager.set_state_data(user.id, {'delete_setup_id': setup_id})
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm Delete", callback_data="auto_trade_delete_confirm")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_auto_trade")]
+    ]
+    
+    await query.edit_message_text(
+        f"<b>🗑️ Delete Algo Setup</b>\n\n"
+        f"<b>Preset:</b> {preset_name}\n"
+        f"<b>Time:</b> {setup['execution_time']} IST\n\n"
+        f"⚠️ This will stop automatic execution.\n\n"
+        f"Are you sure you want to delete?",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def auto_trade_delete_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Confirm and delete setup."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get setup ID
+    state_data = await state_manager.get_state_data(user.id)
+    setup_id = state_data.get('delete_setup_id')
+    
+    if not setup_id:
+        await query.edit_message_text("❌ Setup not found")
+        return
+    
+    # Delete setup
+    success = await delete_algo_setup(setup_id)
     
     if success:
-        status = "enabled" if new_state else "disabled"
         await query.edit_message_text(
-            f"<b>✅ Auto Execution {status.capitalize()}</b>\n\n"
-            f"The auto execution has been {status}.",
+            "<b>✅ Algo Setup Deleted</b>\n\n"
+            "The algo setup has been deleted and automatic execution has been stopped.",
+            reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
-        
-        log_user_action(user.id, "auto_toggle", f"Toggled to {status}: {auto_exec_id}")
+        log_user_action(user.id, "auto_trade_delete", f"Deleted setup {setup_id}")
     else:
         await query.edit_message_text(
-            format_error_message("Failed to update auto execution."),
+            "<b>❌ Delete Failed</b>\n\n"
+            "Failed to delete algo setup.",
+            reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
 
 
 @error_handler
-async def auto_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle auto execution delete callback.
-    Show confirmation and delete.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+async def auto_trade_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of setups to edit."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Extract auto execution ID from callback data
-    auto_exec_id = query.data.split('_')[-1]
+    # Get setups
+    setups = await get_algo_setups(user.id, active_only=True)
     
-    # Delete auto execution
-    success = await delete_auto_execution(auto_exec_id)
-    
-    if success:
+    if not setups:
         await query.edit_message_text(
-            "<b>✅ Auto Execution Deleted</b>\n\n"
-            "The scheduled execution has been removed.",
+            "<b>✏️ Edit Algo Setup</b>\n\n"
+            "❌ No active setups found.",
+            reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
+        return
+    
+    # Create keyboard with setups
+    keyboard = []
+    for setup in setups:
+        preset = await get_manual_trade_preset(setup['manual_preset_id'])
+        preset_name = preset.get('preset_name', 'Unknown') if preset else 'Unknown'
         
-        log_user_action(user.id, "auto_delete_success", f"Deleted: {auto_exec_id}")
-    else:
+        keyboard.append([InlineKeyboardButton(
+            f"✏️ {preset_name} - {setup['execution_time']}",
+            callback_data=f"auto_trade_edit_{setup['id']}"
+        )])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")])
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Algo Setup</b>\n\n"
+        "Select setup to edit:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def auto_trade_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start edit flow - list presets."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    setup_id = query.data.split('_')[-1]
+    
+    # Store setup ID for edit
+    await state_manager.set_state_data(user.id, {'edit_setup_id': setup_id})
+    
+    # Get manual trade presets
+    presets = await get_manual_trade_presets(user.id)
+    
+    if not presets:
         await query.edit_message_text(
-            format_error_message("Failed to delete auto execution."),
+            "<b>✏️ Edit Algo Setup</b>\n\n"
+            "❌ No manual trade presets found.",
+            reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
-        
-        log_user_action(user.id, "auto_delete_failed", f"Failed to delete: {auto_exec_id}")
+        return
+    
+    # Create keyboard with presets
+    keyboard = []
+    for preset in presets:
+        keyboard.append([InlineKeyboardButton(
+            f"🎯 {preset['preset_name']}",
+            callback_data=f"auto_trade_edit_preset_{preset['id']}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")])
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Algo Setup</b>\n\n"
+        "Select new Manual Trade Preset:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def auto_trade_edit_preset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle edit preset selection - ask for time."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    preset_id = query.data.split('_')[-1]
+    
+    # Store preset ID
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['manual_preset_id'] = preset_id
+    await state_manager.set_state_data(user.id, state_data)
+    await state_manager.set_state(user.id, 'auto_trade_edit_time')
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Algo Setup</b>\n\n"
+        "Enter new execution time in IST (24-hour format):\n\n"
+        "<b>Format:</b> <code>HH:MM</code>\n\n"
+        "<b>Examples:</b>\n"
+        "• <code>09:15</code> - 9:15 AM\n"
+        "• <code>15:30</code> - 3:30 PM\n"
+        "• <code>23:45</code> - 11:45 PM",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
 
 
 def register_auto_trade_handlers(application: Application):
-    """
-    Register auto trade handlers.
+    """Register auto trade handlers."""
     
-    Args:
-        application: Bot application instance
-    """
-    # Auto trade menu callback
     application.add_handler(CallbackQueryHandler(
-        auto_trade_callback,
+        auto_trade_menu_callback,
         pattern="^menu_auto_trade$"
     ))
     
-    # Auto add callback
     application.add_handler(CallbackQueryHandler(
-        auto_add_callback,
-        pattern="^auto_add$"
+        auto_trade_list_callback,
+        pattern="^auto_trade_list$"
     ))
     
-    # Auto view callback
     application.add_handler(CallbackQueryHandler(
-        auto_view_callback,
-        pattern="^auto_view_"
+        auto_trade_view_callback,
+        pattern="^auto_trade_view_"
     ))
     
-    # Auto toggle callback
     application.add_handler(CallbackQueryHandler(
-        auto_toggle_callback,
-        pattern="^auto_toggle_"
+        auto_trade_add_callback,
+        pattern="^auto_trade_add$"
     ))
     
-    # Auto delete callback
     application.add_handler(CallbackQueryHandler(
-        auto_delete_callback,
-        pattern="^auto_delete_(?!confirm)"
+        auto_trade_preset_callback,
+        pattern="^auto_trade_preset_"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        auto_trade_edit_list_callback,
+        pattern="^auto_trade_edit_list$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        auto_trade_edit_callback,
+        pattern="^auto_trade_edit_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        auto_trade_edit_preset_callback,
+        pattern="^auto_trade_edit_preset_"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        auto_trade_delete_list_callback,
+        pattern="^auto_trade_delete_list$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        auto_trade_delete_callback,
+        pattern="^auto_trade_delete_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        auto_trade_delete_confirm_callback,
+        pattern="^auto_trade_delete_confirm$"
     ))
     
     logger.info("Auto trade handlers registered")
-
-
-if __name__ == "__main__":
-    print("Auto trade handler module loaded")
-  
+    
