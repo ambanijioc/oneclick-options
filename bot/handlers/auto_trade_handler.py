@@ -640,7 +640,7 @@ def register_auto_trade_handlers(application: Application):
         pattern="^auto_trade_delete_confirm$"
     ))
 
-        application.add_handler(CallbackQueryHandler(
+    application.add_handler(CallbackQueryHandler(
         auto_trade_confirm_callback,
         pattern="^auto_trade_confirm$"
     ))
