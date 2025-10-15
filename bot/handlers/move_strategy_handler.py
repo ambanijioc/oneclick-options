@@ -1,218 +1,231 @@
 """
-Move options strategy handlers.
+Move options strategy management handlers.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    ContextTypes
-)
+from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
+from bot.utils.state_manager import StateManager
 from bot.validators.user_validator import check_user_authorization
-from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
-from delta.client import DeltaClient
+from database.operations.move_strategy_ops import (
+    create_move_strategy,
+    get_move_strategies,
+    get_move_strategy,
+    update_move_strategy,
+    delete_move_strategy
+)
 
 logger = setup_logger(__name__)
+state_manager = StateManager()
 
 
-def get_move_strategy_keyboard():
-    """Get move strategy keyboard."""
+def get_move_strategy_menu_keyboard():
+    """Get move strategy management menu keyboard."""
     keyboard = [
-        [InlineKeyboardButton("📈 Long Move", callback_data="move_long")],
-        [InlineKeyboardButton("📉 Short Move", callback_data="move_short")],
+        [InlineKeyboardButton("➕ Add Strategy", callback_data="move_strategy_add")],
+        [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_strategy_edit_list")],
+        [InlineKeyboardButton("🗑️ Delete Strategy", callback_data="move_strategy_delete_list")],
+        [InlineKeyboardButton("👁️ View Strategies", callback_data="move_strategy_view")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
 @error_handler
-async def move_strategy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle move strategy callback.
-    """
+async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle move strategy management menu."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Check authorization
     if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access")
         return
     
     await query.edit_message_text(
-        "<b>📊 Move Options Strategy</b>\n\n"
-        "Move options are volatility products that profit from large price movements in either direction.\n\n"
-        "<b>Long Move:</b> Buy when expecting high volatility\n"
-        "<b>Short Move:</b> Sell when expecting low volatility\n\n"
-        "Select your strategy:",
-        reply_markup=get_move_strategy_keyboard(),
+        "<b>🎯 Move Options Strategy Management</b>\n\n"
+        "Manage your Move Options trading strategies:\n\n"
+        "• <b>Add:</b> Create new strategy preset\n"
+        "• <b>Edit:</b> Modify existing strategy\n"
+        "• <b>Delete:</b> Remove strategy\n"
+        "• <b>View:</b> See all strategies\n\n"
+        "Select an option:",
+        reply_markup=get_move_strategy_menu_keyboard(),
         parse_mode='HTML'
     )
     
-    log_user_action(user.id, "move_strategy", "Viewed move strategy menu")
+    log_user_action(user.id, "move_strategy_menu", "Viewed strategy management menu")
 
 
 @error_handler
-async def move_long_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle long move selection.
-    """
+async def move_strategy_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start add strategy flow - ask for strategy name."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Check authorization
     if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access")
         return
     
-    # Get user's APIs
-    apis = await get_api_credentials(user.id)
+    # Set state
+    await state_manager.set_state(user.id, 'move_strategy_add_name')
     
-    if not apis:
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_move_strategy")]]
+    
+    await query.edit_message_text(
+        "<b>➕ Add Move Strategy</b>\n\n"
+        "Please enter a name for this strategy:\n\n"
+        "Example: <code>BTC Long Move</code>",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+    
+    log_user_action(user.id, "move_strategy_add", "Started add strategy flow")
+
+
+@error_handler
+async def move_strategy_add_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ask for asset selection."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    asset = query.data.split('_')[-1]  # btc or eth
+    
+    # Store asset
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['asset'] = asset.upper()
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Ask for direction
+    keyboard = [
+        [InlineKeyboardButton("📈 Long", callback_data="move_strategy_direction_long")],
+        [InlineKeyboardButton("📉 Short", callback_data="move_strategy_direction_short")],
+        [InlineKeyboardButton("🔙 Cancel", callback_data="menu_move_strategy")]
+    ]
+    
+    await query.edit_message_text(
+        f"<b>➕ Add Move Strategy</b>\n\n"
+        f"Asset: <b>{asset.upper()}</b>\n\n"
+        f"Select trading direction:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def move_strategy_direction_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle direction selection."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    direction = query.data.split('_')[-1]  # long or short
+    
+    # Store direction
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['direction'] = direction
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Ask for lot size
+    await state_manager.set_state(user.id, 'move_strategy_add_lot_size')
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_move_strategy")]]
+    
+    await query.edit_message_text(
+        f"<b>➕ Add Move Strategy</b>\n\n"
+        f"Asset: <b>{state_data['asset']}</b>\n"
+        f"Direction: <b>{direction.title()}</b>\n\n"
+        f"Enter lot size (number of contracts):\n\n"
+        f"Example: <code>1</code>",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def move_strategy_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Display all move strategies."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    if not await check_user_authorization(user):
+        await query.edit_message_text("❌ Unauthorized access")
+        return
+    
+    # Get strategies
+    strategies = await get_move_strategies(user.id)
+    
+    if not strategies:
         await query.edit_message_text(
-            "<b>📊 Long Move</b>\n\n"
-            "❌ No API credentials configured.\n\n"
-            "Please add an API credential first.",
-            reply_markup=get_move_strategy_keyboard(),
+            "<b>👁️ Move Strategies</b>\n\n"
+            "❌ No strategies found.\n\n"
+            "Create one using <b>Add Strategy</b>.",
+            reply_markup=get_move_strategy_menu_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # Show loading message
+    text = "<b>👁️ Move Strategies</b>\n\n"
+    
+    for strategy in strategies:
+        text += f"<b>📊 {strategy['strategy_name']}</b>\n"
+        text += f"Asset: {strategy['asset']}\n"
+        text += f"Direction: {strategy['direction'].title()}\n"
+        text += f"Lot Size: {strategy['lot_size']}\n"
+        text += f"ATM Offset: {strategy['atm_offset']:+d}\n"
+        
+        if strategy.get('stop_loss_trigger'):
+            text += f"SL: Trigger ${strategy['stop_loss_trigger']:.2f}, Limit ${strategy['stop_loss_limit']:.2f}\n"
+        
+        if strategy.get('target_trigger'):
+            text += f"Target: Trigger ${strategy['target_trigger']:.2f}, Limit ${strategy['target_limit']:.2f}\n"
+        
+        text += "\n"
+    
     await query.edit_message_text(
-        "⏳ <b>Loading Move options...</b>\n\n"
-        "Fetching available move contracts...",
+        text,
+        reply_markup=get_move_strategy_menu_keyboard(),
         parse_mode='HTML'
     )
     
-    # Fetch move options
-    try:
-        # Get first API for fetching options
-        api = apis[0]
-        credentials = await get_decrypted_api_credential(str(api.id))
-        
-        if not credentials:
-            await query.edit_message_text(
-                "❌ Failed to decrypt credentials",
-                reply_markup=get_move_strategy_keyboard(),
-                parse_mode='HTML'
-            )
-            return
-        
-        api_key, api_secret = credentials
-        client = DeltaClient(api_key, api_secret)
-        
-        try:
-            # Fetch move options products
-            response = await client.get_products(contract_types='move_options')
-            
-            if response.get('success'):
-                products = response.get('result', [])
-                
-                # Filter active move options
-                active_moves = [
-                    p for p in products 
-                    if p.get('state') == 'live'
-                ]
-                
-                if active_moves:
-                    # Group by underlying asset
-                    btc_moves = [m for m in active_moves if 'BTC' in m.get('symbol', '')]
-                    eth_moves = [m for m in active_moves if 'ETH' in m.get('symbol', '')]
-                    
-                    text = "<b>📊 Available Move Options</b>\n\n"
-                    
-                    if btc_moves:
-                        text += "<b>🟠 BTC Move Options:</b>\n"
-                        for move in btc_moves[:5]:
-                            symbol = move.get('symbol', 'N/A')
-                            strike = move.get('strike_price', 'N/A')
-                            text += f"• {symbol} (Strike: ${strike})\n"
-                        text += "\n"
-                    
-                    if eth_moves:
-                        text += "<b>🔵 ETH Move Options:</b>\n"
-                        for move in eth_moves[:5]:
-                            symbol = move.get('symbol', 'N/A')
-                            strike = move.get('strike_price', 'N/A')
-                            text += f"• {symbol} (Strike: ${strike})\n"
-                        text += "\n"
-                    
-                    text += "Use /trade to place orders"
-                    
-                    await query.edit_message_text(
-                        text,
-                        reply_markup=get_move_strategy_keyboard(),
-                        parse_mode='HTML'
-                    )
-                else:
-                    await query.edit_message_text(
-                        "<b>📊 Long Move</b>\n\n"
-                        "❌ No active move options available",
-                        reply_markup=get_move_strategy_keyboard(),
-                        parse_mode='HTML'
-                    )
-            else:
-                error_msg = response.get('error', {}).get('message', 'Unknown error')
-                await query.edit_message_text(
-                    f"<b>📊 Long Move</b>\n\n"
-                    f"❌ Error: {error_msg}",
-                    reply_markup=get_move_strategy_keyboard(),
-                    parse_mode='HTML'
-                )
-        
-        finally:
-            await client.close()
-    
-    except Exception as e:
-        logger.error(f"Failed to fetch move options: {e}", exc_info=True)
-        await query.edit_message_text(
-            f"<b>📊 Long Move</b>\n\n"
-            f"❌ Error: {str(e)[:100]}",
-            reply_markup=get_move_strategy_keyboard(),
-            parse_mode='HTML'
-        )
-    
-    log_user_action(user.id, "move_long", "Viewed long move options")
-
-
-@error_handler
-async def move_short_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle short move selection.
-    """
-    # Similar to move_long_callback but for short positions
-    await move_long_callback(update, context)  # Reuse the same logic for now
-    log_user_action(update.callback_query.from_user.id, "move_short", "Viewed short move options")
+    log_user_action(user.id, "move_strategy_view", f"Viewed {len(strategies)} strategies")
 
 
 def register_move_strategy_handlers(application: Application):
-    """
-    Register move strategy handlers.
-    """
+    """Register move strategy handlers."""
+    
     application.add_handler(CallbackQueryHandler(
-        move_strategy_callback,
+        move_strategy_menu_callback,
         pattern="^menu_move_strategy$"
     ))
     
     application.add_handler(CallbackQueryHandler(
-        move_long_callback,
-        pattern="^move_long$"
+        move_strategy_add_callback,
+        pattern="^move_strategy_add$"
     ))
     
     application.add_handler(CallbackQueryHandler(
-        move_short_callback,
-        pattern="^move_short$"
+        move_strategy_add_asset_callback,
+        pattern="^move_strategy_asset_(btc|eth)$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        move_strategy_direction_callback,
+        pattern="^move_strategy_direction_(long|short)$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        move_strategy_view_callback,
+        pattern="^move_strategy_view$"
     ))
     
     logger.info("Move strategy handlers registered")
-
-
-if __name__ == "__main__":
-    print("Move strategy handler module loaded")
+    
