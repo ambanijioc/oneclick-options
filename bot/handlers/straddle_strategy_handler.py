@@ -90,6 +90,81 @@ async def straddle_add_callback(update: Update, context: ContextTypes.DEFAULT_TY
     
     log_user_action(user.id, "straddle_add", "Started add strategy flow")
 
+@error_handler
+async def straddle_skip_description_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle skip description."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Set empty description
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['description'] = ""
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Ask for asset
+    keyboard = [
+        [InlineKeyboardButton("🟠 BTC", callback_data="straddle_asset_btc")],
+        [InlineKeyboardButton("🔵 ETH", callback_data="straddle_asset_eth")],
+        [InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]
+    ]
+    
+    await query.edit_message_text(
+        f"<b>➕ Add Straddle Strategy</b>\n\n"
+        f"Name: <b>{state_data['name']}</b>\n\n"
+        f"Select asset:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def straddle_skip_target_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle skip target."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Set target to 0
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['target_trigger_pct'] = 0
+    state_data['target_limit_pct'] = 0
+    await state_manager.set_state_data(user.id, state_data)
+    await state_manager.set_state(user.id, 'straddle_add_atm_offset')
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+    
+    await query.edit_message_text(
+        f"<b>➕ Add Straddle Strategy</b>\n\n"
+        f"Enter ATM offset:\n\n"
+        f"• <code>0</code> = ATM (At The Money)\n"
+        f"• <code>+1000</code> = Strike $1000 above ATM\n"
+        f"• <code>-1000</code> = Strike $1000 below ATM",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# Register the skip handlers
+def register_straddle_strategy_handlers(application: Application):
+    """Register straddle strategy handlers."""
+    
+    # ... existing handlers ...
+    
+    application.add_handler(CallbackQueryHandler(
+        straddle_skip_description_callback,
+        pattern="^straddle_skip_description$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        straddle_skip_target_callback,
+        pattern="^straddle_skip_target$"
+    ))
+    
+    logger.info("Straddle strategy handlers registered")
+
 
 @error_handler
 async def straddle_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
