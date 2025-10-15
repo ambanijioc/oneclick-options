@@ -111,7 +111,40 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state_str == 'move_auto_add_time':
             logger.info("→ Calling handle_move_auto_time_input")
             await handle_move_auto_time_input(update, context, text)
+
+                # Straddle strategy states
+        elif state_str == 'straddle_add_name':
+            logger.info("→ Calling handle_straddle_name_input")
+            await handle_straddle_name_input(update, context, text)
         
+        elif state_str == 'straddle_add_description':
+            logger.info("→ Calling handle_straddle_description_input")
+            await handle_straddle_description_input(update, context, text)
+        
+        elif state_str == 'straddle_add_lot_size':
+            logger.info("→ Calling handle_straddle_lot_size_input")
+            await handle_straddle_lot_size_input(update, context, text)
+        
+        elif state_str == 'straddle_add_sl_trigger':
+            logger.info("→ Calling handle_straddle_sl_trigger_input")
+            await handle_straddle_sl_trigger_input(update, context, text)
+        
+        elif state_str == 'straddle_add_sl_limit':
+            logger.info("→ Calling handle_straddle_sl_limit_input")
+            await handle_straddle_sl_limit_input(update, context, text)
+        
+        elif state_str == 'straddle_add_target_trigger':
+            logger.info("→ Calling handle_straddle_target_trigger_input")
+            await handle_straddle_target_trigger_input(update, context, text)
+        
+        elif state_str == 'straddle_add_target_limit':
+            logger.info("→ Calling handle_straddle_target_limit_input")
+            await handle_straddle_target_limit_input(update, context, text)
+        
+        elif state_str == 'straddle_add_atm_offset':
+            logger.info("→ Calling handle_straddle_atm_offset_input")
+            await handle_straddle_atm_offset_input(update, context, text)
+            
         else:
             logger.warning(f"Unhandled conversation state: {state_str}")
             await update.message.reply_text(
