@@ -186,6 +186,15 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state_str == 'manual_preset_edit_name':
             logger.info("→ Calling handle_manual_preset_edit_name_input")
             await handle_manual_preset_name_input(update, context, text)
+
+                # Auto trade states
+        elif state_str == 'auto_trade_add_time':
+            logger.info("→ Calling handle_auto_trade_time_input")
+            await handle_auto_trade_time_input(update, context, text)
+        
+        elif state_str == 'auto_trade_edit_time':
+            logger.info("→ Calling handle_auto_trade_edit_time_input")
+            await handle_auto_trade_edit_time_input(update, context, text)
             
         else:
             logger.warning(f"Unhandled conversation state: {state_str}")
