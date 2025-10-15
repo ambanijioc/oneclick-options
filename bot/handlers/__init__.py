@@ -89,7 +89,32 @@ def register_all_handlers(application: Application):
             register_auto_trade_handlers(application)
         except ImportError as e:
             logger.warning(f"Auto trade handler not found: {e}")
-        
+
+        # Add after existing imports
+        try:
+            from .move_strategy_handler import register_move_strategy_handlers
+            register_move_strategy_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Move strategy handler not found: {e}")
+
+        try:
+            from .move_list_handler import register_move_list_handlers
+            register_move_list_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Move list handler not found: {e}")
+
+        try:
+            from .move_manual_trade_handler import register_move_manual_trade_handlers
+            register_move_manual_trade_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Move manual trade handler not found: {e}")
+
+        try:
+            from .move_auto_trade_handler import register_move_auto_trade_handlers
+            register_move_auto_trade_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Move auto trade handler not found: {e}")
+     
         # Register message router LAST (lowest priority)
         # This catches all text messages and routes based on conversation state
         from .message_router import route_message
