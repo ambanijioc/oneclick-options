@@ -270,17 +270,39 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
     user = update.effective_user
     
     try:
-        atm_offset = int(text)
+        # Parse ATM offset (convert strikes to dollar value)
+        atm_strikes = int(text)
         
-        # Store ATM offset and save strategy
+        # Get state data
         state_data = await state_manager.get_state_data(user.id)
-        state_data['atm_offset'] = atm_offset
         
-        # Save to database
+        # ✅ Convert strikes to dollar offset (BTC = 200, ETH = 50)
+        strike_increment = 200 if state_data['asset'] == 'BTC' else 50
+        atm_offset = atm_strikes * strike_increment
+        
+        # ✅ Create StrategyPresetCreate object
+        from database.models.strategy_preset import StrategyPresetCreate
         from database.operations.strategy_ops import create_strategy_preset
         from bot.handlers.straddle_strategy_handler import get_straddle_menu_keyboard
         
-        result = await create_strategy_preset(state_data)
+        preset_data = StrategyPresetCreate(
+            user_id=user.id,
+            strategy_type='straddle',
+            name=state_data['name'],
+            description=state_data.get('description', ''),
+            asset=state_data['asset'],
+            expiry_code=state_data['expiry_code'],
+            direction=state_data['direction'],
+            lot_size=state_data['lot_size'],
+            sl_trigger_pct=state_data['sl_trigger_pct'],
+            sl_limit_pct=state_data['sl_limit_pct'],
+            target_trigger_pct=state_data.get('target_trigger_pct', 0.0),
+            target_limit_pct=state_data.get('target_limit_pct', 0.0),
+            atm_offset=atm_offset
+        )
+        
+        # Save to database
+        result = await create_strategy_preset(preset_data)
         
         if result:
             target_text = ""
@@ -294,7 +316,7 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
                 f"Expiry: <b>{state_data['expiry_code']}</b>\n"
                 f"Direction: <b>{state_data['direction'].title()}</b>\n"
                 f"Lot Size: <b>{state_data['lot_size']}</b>\n"
-                f"ATM Offset: <b>{atm_offset:+d}</b>\n"
+                f"ATM Offset: <b>{atm_strikes:+d} strikes</b> ({atm_offset:+d} USD)\n"
                 f"Stop Loss: <b>{state_data['sl_trigger_pct']}% / {state_data['sl_limit_pct']}%</b>\n"
                 + target_text,
                 reply_markup=get_straddle_menu_keyboard(),
@@ -313,8 +335,12 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
         await update.message.reply_text(
             "❌ Invalid offset. Please enter a whole number.\n\n"
-            "Example: <code>0</code>, <code>+500</code>, <code>-1000</code>",
+            "Example:\n"
+            "• <code>0</code> = ATM\n"
+            "• <code>1</code> = 1 strike away (BTC: $200, ETH: $50)\n"
+            "• <code>-2</code> = 2 strikes below ATM",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
-            )
-        
+        )
+
+    
