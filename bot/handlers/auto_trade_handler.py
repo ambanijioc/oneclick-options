@@ -22,7 +22,7 @@ from database.operations.manual_trade_preset_ops import (
     get_manual_trade_presets,
     get_manual_trade_preset
 )
-from database.operations.api_ops import get_api_credential
+from database.operations.api_ops import get_api_credential_by_id
 from database.operations.strategy_ops import get_strategy_preset_by_id
 
 logger = setup_logger(__name__)
@@ -140,7 +140,7 @@ async def auto_trade_view_callback(update: Update, context: ContextTypes.DEFAULT
         return
     
     # Get API and strategy
-    api = await get_api_credential(preset['api_credential_id'])
+    api = await get_api_credential_by_id(preset['api_credential_id'])
     strategy = await get_strategy_preset_by_id(preset['strategy_preset_id'])
     
     # Calculate countdown
