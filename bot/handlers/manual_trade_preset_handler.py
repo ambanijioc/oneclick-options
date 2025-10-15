@@ -16,7 +16,7 @@ from database.operations.manual_trade_preset_ops import (
     update_manual_trade_preset,
     delete_manual_trade_preset
 )
-from database.operations.api_ops import get_api_credentials, get_api_credential
+from database.operations.api_ops import get_api_credentials, get_api_credential_by_id
 from database.operations.strategy_ops import (
     get_strategy_presets_by_type,
     get_strategy_preset_by_id
@@ -170,7 +170,7 @@ async def manual_preset_strategy_callback(update: Update, context: ContextTypes.
     # Get strategy and API details
     strategy = await get_strategy_preset_by_id(strategy_id)
     state_data = await state_manager.get_state_data(user.id)
-    api = await get_api_credential(state_data['api_credential_id'])
+    api = await get_api_credential_by_id(state_data['api_credential_id'])
     
     if not strategy or not api:
         await query.edit_message_text("❌ Strategy or API not found")
@@ -294,7 +294,7 @@ async def manual_preset_view_callback(update: Update, context: ContextTypes.DEFA
         return
     
     # Get API and strategy details
-    api = await get_api_credential(preset['api_credential_id'])
+    api = await get_api_credential_by_id(preset['api_credential_id'])
     strategy = await get_strategy_preset_by_id(preset['strategy_preset_id'])
     
     # Format details
@@ -493,7 +493,7 @@ async def manual_preset_edit_callback(update: Update, context: ContextTypes.DEFA
     })
     
     # Get user's APIs
-    apis = await get_api_credentials(user.id)
+    apis = await get_api_credential_by_id(user.id)
     
     if not apis:
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")]]
@@ -595,7 +595,7 @@ async def manual_preset_edit_strategy_callback(update: Update, context: ContextT
     # Get strategy and API details
     strategy = await get_strategy_preset_by_id(strategy_id)
     state_data = await state_manager.get_state_data(user.id)
-    api = await get_api_credential(state_data['api_credential_id'])
+    api = await get_api_credential_by_id(state_data['api_credential_id'])
     
     if not strategy or not api:
         await query.edit_message_text("❌ Strategy or API not found")
