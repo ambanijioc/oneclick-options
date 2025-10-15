@@ -1,13 +1,12 @@
 """
 Input handlers for straddle strategy creation flow.
-Handles text input during strategy creation.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from bot.utils.logger import setup_logger
-from bot.utils.state_manager import state_manager
+from bot.utils.state_manager import state_manager  # ✅ Import global instance
 
 logger = setup_logger(__name__)
 
@@ -126,10 +125,10 @@ async def handle_straddle_sl_trigger_input(update: Update, context: ContextTypes
             parse_mode='HTML'
         )
     
-    except ValueError as e:
+    except ValueError:
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
         await update.message.reply_text(
-            f"❌ Invalid percentage. Please enter a number between 0 and 100.",
+            "❌ Invalid percentage. Please enter a number between 0 and 100.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -167,10 +166,10 @@ async def handle_straddle_sl_limit_input(update: Update, context: ContextTypes.D
             parse_mode='HTML'
         )
     
-    except ValueError as e:
+    except ValueError:
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
         await update.message.reply_text(
-            f"❌ Invalid percentage. Please enter a number between 0 and 100.",
+            "❌ Invalid percentage. Please enter a number between 0 and 100.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -221,10 +220,10 @@ async def handle_straddle_target_trigger_input(update: Update, context: ContextT
                 parse_mode='HTML'
             )
     
-    except ValueError as e:
+    except ValueError:
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
         await update.message.reply_text(
-            f"❌ Invalid percentage. Please enter a number between 0 and 1000.",
+            "❌ Invalid percentage. Please enter a number between 0 and 1000.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -258,10 +257,10 @@ async def handle_straddle_target_limit_input(update: Update, context: ContextTyp
             parse_mode='HTML'
         )
     
-    except ValueError as e:
+    except ValueError:
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
         await update.message.reply_text(
-            f"❌ Invalid percentage. Please enter a number between 0 and 1000.",
+            "❌ Invalid percentage. Please enter a number between 0 and 1000.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -317,5 +316,5 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
             "Example: <code>0</code>, <code>+500</code>, <code>-1000</code>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
-  )
-      
+            )
+        
