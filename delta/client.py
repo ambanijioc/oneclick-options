@@ -447,43 +447,31 @@ class DeltaClient:
     
     # ==================== Position Endpoints ====================
 
-    async def get_positions(self, underlying_asset_symbol: Optional[str] = None) -> Dict[str, Any]:
+    async def get_positions(
+        self,
+        product_ids: Optional[str] = None,
+        contract_types: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Get positions for underlying assets.
+        Get all margined positions.
     
         Args:
-            underlying_asset_symbol: Underlying asset (e.g., 'BTCUSD', 'ETHUSD')
-                                    If None, fetches for both BTC and ETH
+            product_ids: Comma separated product ids (optional)
+            contract_types: Comma separated contract types (optional)
+                       e.g., 'perpetual_futures,call_options,put_options'
     
         Returns:
-            Positions data with all positions combined
+            Positions data
         """
-        if underlying_asset_symbol:
-            # Fetch positions for specific asset
-            params = {'underlying_asset_symbol': underlying_asset_symbol}
-            return await self._request('GET', '/v2/positions', params=params)
-        else:
-            # Fetch positions for both BTC and ETH assets
-            all_positions = []
-            assets = ['BTCUSD', 'ETHUSD']
+        params = {}
+        if product_ids:
+            params['product_ids'] = product_ids
+        if contract_types:
+            params['contract_types'] = contract_types
+    
+        # Use /margined endpoint - returns all open positions
+        return await self._request('GET', '/v2/positions/margined', params=params)
         
-            for asset in assets:
-                try:
-                    params = {'underlying_asset_symbol': asset}
-                    response = await self._request('GET', '/v2/positions', params=params)
-                
-                    if response.get('success'):
-                        positions = response.get('result', [])
-                        all_positions.extend(positions)
-                except Exception as e:
-                    logger.warning(f"Failed to fetch {asset} positions: {e}")
-                    continue
-        
-            return {
-                'success': True,
-                'result': all_positions
-            }
-
     async def get_position(self, product_id: int) -> Dict[str, Any]:
         """
         Get position for specific product.
