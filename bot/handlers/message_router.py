@@ -1036,7 +1036,49 @@ async def handle_strangle_otm_value_input(update: Update, context: ContextTypes.
                 f"Example: <code>4</code> or <code>8</code>",
                 reply_markup=InlineKeyboardMarkup(keyboard)
         )
-        
+
+# Manual trade preset input handlers
+async def handle_manual_preset_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle manual trade preset name input."""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    user = update.effective_user
+    
+    # Store preset name
+    await state_manager.set_state_data(user.id, {'preset_name': text})
+    
+    # Get user's APIs
+    from database.operations.api_ops import get_api_credentials
+    apis = await get_api_credentials(user.id)
+    
+    if not apis:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")]]
+        await update.message.reply_text(
+            "<b>➕ Add Manual Trade Preset</b>\n\n"
+            "❌ No API credentials found.\n\n"
+            "Please add an API credential first.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Create keyboard with API options
+    keyboard = []
+    for api in apis:
+        keyboard.append([InlineKeyboardButton(
+            f"📊 {api.api_name}",
+            callback_data=f"manual_preset_api_{api.id}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    
+    await update.message.reply_text(
+        f"<b>➕ Add Manual Trade Preset</b>\n\n"
+        f"Name: <b>{text}</b>\n\n"
+        f"Select API account:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+    
 if __name__ == "__main__":
     print("Message router module loaded")
             
