@@ -18,13 +18,14 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📋 Orders", callback_data="menu_orders")],
         [InlineKeyboardButton("📜 Trade History", callback_data="menu_trade_history")],
         [InlineKeyboardButton("📋 List Options", callback_data="menu_list_options")],
-        [InlineKeyboardButton("📋 List Move Options", callback_data="menu_move_list")],  # NEW
-        [InlineKeyboardButton("🎯 Strategy", callback_data="menu_strategy")],
-        [InlineKeyboardButton("🎯 Move Strategy", callback_data="menu_move_strategy")],  # NEW
+        [InlineKeyboardButton("📋 List Move Options", callback_data="menu_move_list")],
+        [InlineKeyboardButton("🎯 Straddle Strategy", callback_data="menu_straddle_strategy")],
+        [InlineKeyboardButton("🎯 Strangle Strategy", callback_data="menu_strangle_strategy")],
+        [InlineKeyboardButton("🎯 Move Strategy", callback_data="menu_move_strategy")],
         [InlineKeyboardButton("🎯 Manual Trade", callback_data="menu_manual_trade")],
-        [InlineKeyboardButton("🎯 Manual Move Trade", callback_data="menu_move_manual_trade")],  # NEW
+        [InlineKeyboardButton("🎯 Manual Move Trade", callback_data="menu_move_manual_trade")],
         [InlineKeyboardButton("⏰ Auto Trade", callback_data="menu_auto_trade")],
-        [InlineKeyboardButton("⏰ Auto Move Trade", callback_data="menu_move_auto_trade")],  # NEW
+        [InlineKeyboardButton("⏰ Auto Move Trade", callback_data="menu_move_auto_trade")],
         [InlineKeyboardButton("🔑 API Keys", callback_data="menu_api")],
         [InlineKeyboardButton("❓ Help", callback_data="menu_help")]
     ]
