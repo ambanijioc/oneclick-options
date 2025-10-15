@@ -685,12 +685,12 @@ def register_manual_preset_handlers(application: Application):
     
     application.add_handler(CallbackQueryHandler(
         manual_preset_api_callback,
-        pattern="^manual_preset_api_"
+        pattern="^manual_preset_api_[a-f0-9]{24}$"
     ))
     
     application.add_handler(CallbackQueryHandler(
         manual_preset_strategy_callback,
-        pattern="^manual_preset_strategy_"
+        pattern="^manual_preset_strategy_[a-f0-9]{24}_(straddle|strangle)$"
     ))
     
     application.add_handler(CallbackQueryHandler(
@@ -698,6 +698,33 @@ def register_manual_preset_handlers(application: Application):
         pattern="^manual_preset_confirm$"
     ))
     
+    # Edit handlers
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_list_callback,
+        pattern="^manual_preset_edit_list$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_callback,
+        pattern="^manual_preset_edit_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_api_callback,
+        pattern="^manual_preset_edit_api_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_strategy_callback,
+        pattern="^manual_preset_edit_strategy_[a-f0-9]{24}_(straddle|strangle)$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_confirm_callback,
+        pattern="^manual_preset_edit_confirm$"
+    ))
+    
+    # View handlers
     application.add_handler(CallbackQueryHandler(
         manual_preset_view_list_callback,
         pattern="^manual_preset_view_list$"
@@ -708,6 +735,7 @@ def register_manual_preset_handlers(application: Application):
         pattern="^manual_preset_view_[a-f0-9]{24}$"
     ))
     
+    # Delete handlers
     application.add_handler(CallbackQueryHandler(
         manual_preset_delete_list_callback,
         pattern="^manual_preset_delete_list$"
@@ -724,4 +752,3 @@ def register_manual_preset_handlers(application: Application):
     ))
     
     logger.info("Manual trade preset handlers registered")
-  
