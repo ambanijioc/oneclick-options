@@ -77,6 +77,10 @@ async def straddle_add_callback(update: Update, context: ContextTypes.DEFAULT_TY
     
     # Set state
     await state_manager.set_state(user.id, 'straddle_add_name')
+
+    # DEBUG: Verify state was set
+    current_state = await state_manager.get_state(user.id)
+    logger.info(f"✅ State SET for user {user.id}: {current_state}")
     
     keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
     
