@@ -207,7 +207,8 @@ async def expiry_selection_callback(update: Update, context: ContextTypes.DEFAUL
                 if spot_price > 0:
                     if abs(strike - spot_price) / spot_price < 0.02:  # Within 2%
                         atm_indicator = " 🎯 ATM"
-                
+                        
+                strike = float(strike) if isinstance(strike, str) else strike
                 text += f"  ${strike:,.0f}: Call {has_call} | Put {has_put}{atm_indicator}\n"
             
             if len(sorted_strikes) > 10:
