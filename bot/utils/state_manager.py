@@ -150,7 +150,7 @@ class StateManager:
         """
         Set conversation state for a user.
         PRESERVES existing data and merges with new data.
-    
+
         Args:
             user_id: User ID
             state: Conversation state (ConversationState enum or string)
@@ -163,22 +163,22 @@ class StateManager:
                     'data': {},
                     'timestamp': datetime.now()
                 }
-        
+    
             # Preserve existing data and merge with new data
             existing_data = self._states[user_id].get('data', {})
             new_data = {**existing_data, **(data or {})}
         
-            self._states[user_id]['state'] = state
+            # CRITICAL FIX: Convert state to string for storage
+            if hasattr(state, 'value'):
+                state_to_store = state.value
+            else:
+                state_to_store = str(state).lower()  # Normalize strings
+    
+            self._states[user_id]['state'] = state_to_store  # STORE AS STRING
             self._states[user_id]['data'] = new_data
             self._states[user_id]['timestamp'] = datetime.now()
-        
-            # Handle both enum and string states for logging
-            state_value = state.value if hasattr(state, 'value') else str(state)
-        
-            logger.debug(
-                f"Set state for user {user_id}: {state_value}, "
-                f"data keys: {list(new_data.keys())}"
-            )
+    
+            logger.info(f"✅ State SET for user {user_id}: {state_to_store}")  # Changed to INFO
     
     async def get_state_data(self, user_id: int) -> Dict[str, Any]:
         """
@@ -202,29 +202,32 @@ class StateManager:
         """
         await self.update_data(user_id, data)
     
-    async def get_state(self, user_id: int) -> Optional[ConversationState]:
+    async def get_state(self, user_id: int) -> Optional[str]:  # CHANGED: Return str instead of ConversationState
         """
         Get current conversation state for a user.
-        
+    
         Args:
             user_id: User ID
-        
+    
         Returns:
-            Current state or None
+            Current state as string or None
         """
         async with self._lock:
             user_data = self._states.get(user_id)
-            
+        
             if not user_data:
+                logger.info(f"❌ No state found for user {user_id}")  # Changed to INFO
                 return None
-            
+        
             # Check if expired
             if datetime.now() - user_data['timestamp'] > self._timeout:
                 logger.debug(f"State expired for user {user_id}")
                 del self._states[user_id]
                 return None
-            
-            return user_data.get('state')
+        
+            state = user_data.get('state')
+            logger.info(f"✅ State RETRIEVED for user {user_id}: {state}")  # ADDED LOG
+            return state
     
     async def get_data(self, user_id: int) -> Dict[str, Any]:
         """
