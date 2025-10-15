@@ -203,26 +203,26 @@ class StateManager:
         await self.update_data(user_id, data)
     
     async def get_state(self, user_id: int) -> Optional[str]:
-    async with self._lock:
-        user_data = self._states.get(user_id)
+        async with self._lock:
+            user_data = self._states.get(user_id)
         
-        if not user_data:
-            logger.info(f"❌ No state found for user {user_id}")
-            return None
+            if not user_data:
+                logger.info(f"❌ No state found for user {user_id}")
+                return None
         
-        # Check if expired
-        if datetime.now() - user_data['timestamp'] > self._timeout:
-            logger.debug(f"State expired for user {user_id}")
-            del self._states[user_id]
-            return None
+            # Check if expired
+            if datetime.now() - user_data['timestamp'] > self._timeout:
+                logger.debug(f"State expired for user {user_id}")
+                del self._states[user_id]
+                return None
         
         # ✅ ADD THIS LINE - Update timestamp on access!
-        user_data['timestamp'] = datetime.now()
+            user_data['timestamp'] = datetime.now()
         
-        state = user_data.get('state')
-        logger.info(f"✅ State RETRIEVED for user {user_id}: {state}")
-        return state
-    
+            state = user_data.get('state')
+            logger.info(f"✅ State RETRIEVED for user {user_id}: {state}")
+            return state
+        
     async def get_data(self, user_id: int) -> Dict[str, Any]:
         """
         Get stored data for a user.
