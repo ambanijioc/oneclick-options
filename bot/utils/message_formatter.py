@@ -185,8 +185,11 @@ def format_order(order_data: Dict[str, Any]) -> str:
     order_type = order_data.get('order_type', 'N/A').upper()
     side = order_data.get('side', 'N/A').upper()
     size = order_data.get('size', 0)
-    limit_price = order_data.get('limit_price', 0)
-    stop_price = order_data.get('stop_price', 0)
+    
+    # Convert prices to float - API returns them as strings
+    limit_price = float(order_data.get('limit_price', 0) or 0)
+    stop_price = float(order_data.get('stop_price', 0) or 0)
+    
     status = order_data.get('state', 'N/A').upper()
     
     message = f"<b>📋 Order #{order_id}</b>\n"
@@ -205,7 +208,6 @@ def format_order(order_data: Dict[str, Any]) -> str:
     message += f"<b>Status:</b> {status}\n"
     
     return message
-
 
 def format_trade_history(trades: List[Dict[str, Any]], api_name: str = "Unknown") -> str:
     """
