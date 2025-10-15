@@ -177,6 +177,15 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state_str == 'strangle_add_otm_value':
             logger.info("→ Calling handle_strangle_otm_value_input")
             await handle_strangle_otm_value_input(update, context, text)
+
+                # Manual trade preset states
+        elif state_str == 'manual_preset_add_name':
+            logger.info("→ Calling handle_manual_preset_name_input")
+            await handle_manual_preset_name_input(update, context, text)
+        
+        elif state_str == 'manual_preset_edit_name':
+            logger.info("→ Calling handle_manual_preset_edit_name_input")
+            await handle_manual_preset_name_input(update, context, text)
             
         else:
             logger.warning(f"Unhandled conversation state: {state_str}")
