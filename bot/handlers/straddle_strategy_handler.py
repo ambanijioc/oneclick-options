@@ -18,7 +18,7 @@ from database.operations.strategy_ops import (
 )
 
 logger = setup_logger(__name__)
-state_manager = StateManager()
+#state_manager = StateManager()
 
 
 def get_straddle_menu_keyboard():
