@@ -7,7 +7,7 @@ from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
-from bot.utils.state_manager import StateManager
+from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
 from database.operations.manual_trade_preset_ops import (
     create_manual_trade_preset,
@@ -23,7 +23,7 @@ from database.operations.strategy_ops import (
 )
 
 logger = setup_logger(__name__)
-state_manager = StateManager()
+#state_manager = StateManager()
 
 
 def get_manual_preset_menu_keyboard():
