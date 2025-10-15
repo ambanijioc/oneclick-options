@@ -433,6 +433,243 @@ async def manual_preset_delete_confirm_callback(update: Update, context: Context
     await state_manager.clear_state(user.id)
 
 
+@error_handler
+async def manual_preset_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of presets to edit."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get presets
+    presets = await get_manual_trade_presets(user.id)
+    
+    if not presets:
+        await query.edit_message_text(
+            "<b>✏️ Edit Preset</b>\n\n"
+            "❌ No presets found.",
+            reply_markup=get_manual_preset_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Create keyboard with presets
+    keyboard = []
+    for preset in presets:
+        keyboard.append([InlineKeyboardButton(
+            f"✏️ {preset['preset_name']}",
+            callback_data=f"manual_preset_edit_{preset['id']}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Preset</b>\n\n"
+        "Select preset to edit:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def manual_preset_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start edit flow - get APIs."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    preset_id = query.data.split('_')[-1]
+    
+    # Get preset
+    preset = await get_manual_trade_preset(preset_id)
+    
+    if not preset:
+        await query.edit_message_text("❌ Preset not found")
+        return
+    
+    # Store preset info for edit
+    await state_manager.set_state_data(user.id, {
+        'edit_preset_id': preset_id,
+        'preset_name': preset['preset_name']
+    })
+    
+    # Get user's APIs
+    apis = await get_api_credentials(user.id)
+    
+    if not apis:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")]]
+        await query.edit_message_text(
+            "<b>✏️ Edit Preset</b>\n\n"
+            "❌ No API credentials found.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Create keyboard with API options
+    keyboard = []
+    for api in apis:
+        keyboard.append([InlineKeyboardButton(
+            f"📊 {api.api_name}",
+            callback_data=f"manual_preset_edit_api_{api.id}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    
+    await query.edit_message_text(
+        f"<b>✏️ Edit Preset: {preset['preset_name']}</b>\n\n"
+        f"Select new API account:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def manual_preset_edit_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle API selection for edit - show strategy list."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    api_id = query.data.split('_')[-1]
+    
+    # Store API ID
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['api_credential_id'] = api_id
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Get strategies (both straddle and strangle)
+    straddle_strategies = await get_strategy_presets_by_type(user.id, "straddle")
+    strangle_strategies = await get_strategy_presets_by_type(user.id, "strangle")
+    
+    if not straddle_strategies and not strangle_strategies:
+        keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="menu_manual_preset")]]
+        await query.edit_message_text(
+            "<b>✏️ Edit Preset</b>\n\n"
+            "❌ No strategies found.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Create strategy selection keyboard
+    keyboard = []
+    
+    if straddle_strategies:
+        keyboard.append([InlineKeyboardButton("--- Straddle Strategies ---", callback_data="noop")])
+        for strategy in straddle_strategies:
+            keyboard.append([InlineKeyboardButton(
+                f"🎲 {strategy['name']}",
+                callback_data=f"manual_preset_edit_strategy_{strategy['_id']}_straddle"
+            )])
+    
+    if strangle_strategies:
+        keyboard.append([InlineKeyboardButton("--- Strangle Strategies ---", callback_data="noop")])
+        for strategy in strangle_strategies:
+            keyboard.append([InlineKeyboardButton(
+                f"🎰 {strategy['name']}",
+                callback_data=f"manual_preset_edit_strategy_{strategy['_id']}_strangle"
+            )])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Preset</b>\n\n"
+        "Select new strategy:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def manual_preset_edit_strategy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle strategy selection for edit - show confirmation."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Parse callback data: manual_preset_edit_strategy_{id}_{type}
+    parts = query.data.split('_')
+    strategy_id = parts[4]
+    strategy_type = parts[5]
+    
+    # Get strategy and API details
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    state_data = await state_manager.get_state_data(user.id)
+    api = await get_api_credential(state_data['api_credential_id'])
+    
+    if not strategy or not api:
+        await query.edit_message_text("❌ Strategy or API not found")
+        return
+    
+    # Store strategy info
+    state_data['strategy_preset_id'] = strategy_id
+    state_data['strategy_type'] = strategy_type
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Format confirmation message
+    text = "<b>✏️ Confirm Edit Preset</b>\n\n"
+    text += f"<b>Preset Name:</b> {state_data['preset_name']}\n\n"
+    text += f"<b>📊 API:</b> {api.api_name}\n"
+    text += f"<b>🎯 Strategy:</b> {strategy['name']}\n"
+    text += f"<b>Type:</b> {strategy_type.title()}\n"
+    text += f"<b>Asset:</b> {strategy['asset']}\n"
+    text += f"<b>Expiry:</b> {strategy['expiry_code']}\n"
+    text += f"<b>Direction:</b> {strategy['direction'].title()}\n"
+    text += f"<b>Lot Size:</b> {strategy['lot_size']}\n\n"
+    text += "⚠️ Update this preset?"
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm", callback_data="manual_preset_edit_confirm")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_preset")]
+    ]
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def manual_preset_edit_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Confirm and update preset."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get preset data
+    state_data = await state_manager.get_state_data(user.id)
+    preset_id = state_data.get('edit_preset_id')
+    
+    if not preset_id:
+        await query.edit_message_text("❌ Preset not found")
+        return
+    
+    # Update in database
+    result = await update_manual_trade_preset(preset_id, state_data)
+    
+    if result:
+        await query.edit_message_text(
+            f"<b>✅ Preset Updated</b>\n\n"
+            f"Name: <b>{state_data['preset_name']}</b>\n\n"
+            f"Your manual trade preset has been updated successfully!",
+            reply_markup=get_manual_preset_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        log_user_action(user.id, "manual_preset_update", f"Updated preset: {state_data['preset_name']}")
+    else:
+        await query.edit_message_text(
+            "<b>❌ Failed to Update Preset</b>\n\n"
+            "Please try again.",
+            reply_markup=get_manual_preset_menu_keyboard(),
+            parse_mode='HTML'
+        )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+
+
 def register_manual_preset_handlers(application: Application):
     """Register manual trade preset handlers."""
     
