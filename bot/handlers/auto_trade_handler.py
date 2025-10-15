@@ -506,6 +506,82 @@ async def auto_trade_edit_preset_callback(update: Update, context: ContextTypes.
     )
 
 
+@error_handler
+async def auto_trade_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Confirm and create algo setup."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get state data
+    state_data = await state_manager.get_state_data(user.id)
+    
+    # Create algo setup
+    result = await create_algo_setup(user.id, state_data)
+    
+    if result:
+        await query.edit_message_text(
+            f"<b>✅ Algo Setup Created</b>\n\n"
+            f"<b>Execution Time:</b> {state_data['execution_time']} IST\n\n"
+            f"🤖 The bot is now monitoring and will automatically execute this trade daily at the scheduled time.\n\n"
+            f"💡 <i>Tip: The bot pre-activates 5 minutes before execution to ensure no delays.</i>",
+            reply_markup=get_auto_trade_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        log_user_action(user.id, "auto_trade_create", f"Created algo setup for {state_data['execution_time']}")
+    else:
+        await query.edit_message_text(
+            "<b>❌ Failed to Create Algo Setup</b>\n\n"
+            "Please try again.",
+            reply_markup=get_auto_trade_menu_keyboard(),
+            parse_mode='HTML'
+        )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+
+
+@error_handler
+async def auto_trade_edit_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Confirm and update algo setup."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get state data
+    state_data = await state_manager.get_state_data(user.id)
+    setup_id = state_data.get('edit_setup_id')
+    
+    if not setup_id:
+        await query.edit_message_text("❌ Setup not found")
+        return
+    
+    # Update algo setup
+    result = await update_algo_setup(setup_id, state_data)
+    
+    if result:
+        await query.edit_message_text(
+            f"<b>✅ Algo Setup Updated</b>\n\n"
+            f"<b>New Execution Time:</b> {state_data['execution_time']} IST\n\n"
+            f"The updated schedule is now active.",
+            reply_markup=get_auto_trade_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        log_user_action(user.id, "auto_trade_update", f"Updated algo setup {setup_id}")
+    else:
+        await query.edit_message_text(
+            "<b>❌ Failed to Update Algo Setup</b>\n\n"
+            "Please try again.",
+            reply_markup=get_auto_trade_menu_keyboard(),
+            parse_mode='HTML'
+        )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
+
 def register_auto_trade_handlers(application: Application):
     """Register auto trade handlers."""
     
@@ -563,6 +639,16 @@ def register_auto_trade_handlers(application: Application):
         auto_trade_delete_confirm_callback,
         pattern="^auto_trade_delete_confirm$"
     ))
+
+        application.add_handler(CallbackQueryHandler(
+        auto_trade_confirm_callback,
+        pattern="^auto_trade_confirm$"
+    ))
     
+    application.add_handler(CallbackQueryHandler(
+        auto_trade_edit_confirm_callback,
+        pattern="^auto_trade_edit_confirm$"
+    ))
+
     logger.info("Auto trade handlers registered")
     
