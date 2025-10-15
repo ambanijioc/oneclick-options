@@ -79,12 +79,6 @@ def register_all_handlers(application: Application):
             logger.warning(f"Strangle strategy handler not found: {e}")
 
         try:
-            from .move_strategy_handler import register_move_strategy_handlers
-            register_move_strategy_handlers(application)
-        except ImportError as e:
-            logger.warning(f"Move strategy handler not found: {e}")
-
-        try:
             from .manual_trade_preset_handler import register_manual_preset_handlers
             register_manual_preset_handlers(application)
         except ImportError as e:
@@ -95,12 +89,6 @@ def register_all_handlers(application: Application):
             register_manual_trade_handlers(application)
         except ImportError as e:
             logger.warning(f"Manual trade handler not found: {e}")
-        
-        try:
-            from .auto_trade_handler import register_auto_trade_handlers
-            register_auto_trade_handlers(application)
-        except ImportError as e:
-            logger.warning(f"Auto trade handler not found: {e}")
 
         # Add after existing imports
         try:
