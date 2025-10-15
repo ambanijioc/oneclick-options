@@ -13,7 +13,7 @@ from database.operations.algo_setup_ops import (
     update_algo_execution
 )
 from database.operations.manual_trade_preset_ops import get_manual_trade_preset
-from database.operations.api_ops import get_api_credentials_by_id, get_decrypted_api_credential
+from database.operations.api_ops import get_api_credential_by_id, get_decrypted_api_credential
 from database.operations.strategy_ops import get_strategy_preset_by_id
 from delta.client import DeltaClient
 
@@ -50,7 +50,7 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             return
         
         # Get API credentials
-        api = await get_api_credentials_by_id(preset['api_credential_id'])
+        api = await get_api_credential_by_id(preset['api_credential_id'])
         if not api:
             logger.error(f"API credential not found for setup {setup_id}")
             await update_algo_execution(setup_id, 'failed', {'error': 'API credential not found'})
