@@ -65,6 +65,12 @@ def register_all_handlers(application: Application):
             register_options_list_handlers(application)
         except ImportError as e:
             logger.warning(f"Options list handler not found: {e}")
+
+        try:
+            from .straddle_strategy_handler import register_straddle_strategy_handlers
+            register_straddle_strategy_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Straddle strategy handler not found: {e}")
         
         try:
             from .strategy_handler import register_strategy_handlers
