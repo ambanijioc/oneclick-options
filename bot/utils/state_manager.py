@@ -136,6 +136,28 @@ class StateManager:
                 f"data keys: {list(new_data.keys())}"
             )
     
+    async def get_state_data(self, user_id: int) -> Dict[str, Any]:
+        """
+        Get stored data for a user (alias for get_data).
+    
+        Args:
+            user_id: User ID
+    
+        Returns:
+            Stored data dictionary
+        """
+        return await self.get_data(user_id)
+
+    async def set_state_data(self, user_id: int, data: Dict[str, Any]):
+        """
+        Set/update stored data for a user (alias for update_data).
+    
+        Args:
+            user_id: User ID
+            data: Data to store (merged with existing)
+        """
+        await self.update_data(user_id, data)
+    
     async def get_state(self, user_id: int) -> Optional[ConversationState]:
         """
         Get current conversation state for a user.
