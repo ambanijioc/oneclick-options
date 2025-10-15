@@ -17,6 +17,7 @@ from bot.application import create_application
 from database.connection import connect_db, close_db
 from scheduler.job_scheduler import init_scheduler, shutdown_scheduler
 from bot.utils.logger import setup_logger, log_to_telegram
+from bot.scheduler.algo_scheduler import start_algo_scheduler  # NEW - Algo scheduler
 
 # Setup logging
 logger = setup_logger(__name__)
@@ -25,13 +26,16 @@ logger = setup_logger(__name__)
 # Global bot application instance
 bot_app: Application = None
 
+# Global scheduler task
+algo_scheduler_task = None  # NEW
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Lifespan context manager for startup and shutdown events.
     """
-    global bot_app
+    global bot_app, algo_scheduler_task
     
     # Startup
     logger.info("=" * 50)
@@ -79,10 +83,15 @@ async def lifespan(app: FastAPI):
             logger.error(f"✗ Webhook verification failed. Expected: {webhook_url}, Got: {webhook_info.url}")
             await log_to_telegram(f"🔴 CRITICAL: Webhook verification failed!")
         
-        # Initialize scheduler
+        # Initialize scheduler (existing job scheduler)
         logger.info("Initializing job scheduler...")
         await init_scheduler(bot_app)
         logger.info("✓ Job scheduler initialized")
+        
+        # NEW - Start algo scheduler in background
+        logger.info("Starting algo scheduler...")
+        algo_scheduler_task = asyncio.create_task(start_algo_scheduler(bot_app))
+        logger.info("✓ Algo scheduler started in background")
         
         logger.info("=" * 50)
         logger.info("Bot started successfully! Ready to receive updates.")
@@ -90,7 +99,8 @@ async def lifespan(app: FastAPI):
         await log_to_telegram(
             f"🟢 Bot started successfully!\n"
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}\n"
-            f"Webhook: {webhook_url}"
+            f"Webhook: {webhook_url}\n"
+            f"Algo Scheduler: Active"
         )
         
     except Exception as e:
@@ -106,6 +116,16 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 50)
     
     try:
+        # NEW - Stop algo scheduler
+        if algo_scheduler_task:
+            logger.info("Stopping algo scheduler...")
+            algo_scheduler_task.cancel()
+            try:
+                await algo_scheduler_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("✓ Algo scheduler stopped")
+        
         # Stop state manager cleanup task
         logger.info("Stopping state manager...")
         from bot.utils.state_manager import state_manager
@@ -220,6 +240,33 @@ async def webhook_info():
             return {"error": "Bot not initialized"}
     except Exception as e:
         logger.error(f"Error getting webhook info: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
+# NEW - Algo scheduler status endpoint
+@app.get("/algo/status")
+async def algo_status():
+    """Get algo scheduler status."""
+    try:
+        from database.operations.algo_setup_ops import get_all_active_algo_setups
+        
+        setups = await get_all_active_algo_setups()
+        
+        return {
+            "status": "running" if algo_scheduler_task and not algo_scheduler_task.done() else "stopped",
+            "active_setups": len(setups),
+            "setups": [
+                {
+                    "user_id": s['user_id'],
+                    "execution_time": s['execution_time'],
+                    "last_execution": s.get('last_execution'),
+                    "last_status": s.get('last_execution_status')
+                }
+                for s in setups
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error getting algo status: {e}", exc_info=True)
         return {"error": str(e)}
 
 
