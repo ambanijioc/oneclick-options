@@ -648,58 +648,6 @@ async def handle_straddle_target_limit_input(update: Update, context: ContextTyp
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-
-async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle straddle strategy ATM offset input."""
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    user = update.effective_user
-    
-    try:
-        atm_offset = int(text)
-        
-        # Store ATM offset and save strategy
-        state_data = await state_manager.get_state_data(user.id)
-        state_data['atm_offset'] = atm_offset
-        state_data['strategy_type'] = 'straddle'
-        
-        # Save to database
-        from database.operations.strategy_ops import create_strategy_preset
-        from .straddle_strategy_handler import get_straddle_menu_keyboard
-        
-        result = await create_strategy_preset(user.id, state_data)
-        
-        if result:
-            await update.message.reply_text(
-                f"<b>✅ Straddle Strategy Created</b>\n\n"
-                f"Name: <b>{state_data['name']}</b>\n"
-                f"Asset: <b>{state_data['asset']}</b>\n"
-                f"Expiry: <b>{state_data['expiry_code']}</b>\n"
-                f"Direction: <b>{state_data['direction'].title()}</b>\n"
-                f"Lot Size: <b>{state_data['lot_size']}</b>\n"
-                f"ATM Offset: <b>{atm_offset:+d}</b>\n"
-                f"Stop Loss: <b>{state_data['sl_trigger_pct']}% / {state_data['sl_limit_pct']}%</b>\n"
-                + (f"Target: <b>{state_data['target_trigger_pct']}% / {state_data['target_limit_pct']}%</b>\n" 
-                   if state_data.get('target_trigger_pct', 0) > 0 else ""),
-                reply_markup=get_straddle_menu_keyboard(),
-                parse_mode='HTML'
-            )
-        else:
-            await update.message.reply_text(
-                "❌ Failed to create strategy.",
-                reply_markup=get_straddle_menu_keyboard()
-            )
-        
-        # Clear state
-        await state_manager.clear_state(user.id)
-    
-    except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
-        await update.message.reply_text(
-            "❌ Invalid offset. Please enter a whole number.\n\n"
-            "Example: <code>0</code>, <code>+500</code>, <code>-1000</code>",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
 # Strangle strategy input handlers
 async def handle_strangle_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle strangle strategy name input."""
