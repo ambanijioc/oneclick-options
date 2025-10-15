@@ -281,6 +281,57 @@ async def handle_strategy_name_input(update: Update, context: ContextTypes.DEFAU
 
 
 @error_handler
+async def handle_strategy_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle strategy description input.
+    
+    Args:
+        update: Telegram update object
+        context: Callback context
+    """
+    user = update.effective_user
+    
+    # Check state
+    state = await state_manager.get_state(user.id)
+    if state != ConversationState.STRATEGY_ADD_DESCRIPTION:
+        return
+    
+    # Get strategy data
+    strategy_data = await state_manager.get_state_data(user.id)
+    strategy_type = strategy_data.get('strategy_type', 'straddle')
+    name = strategy_data.get('name', 'Unknown')
+    
+    # Store description (or skip if /skip)
+    description = update.message.text.strip()
+    
+    if description.lower() == '/skip':
+        description = None
+    
+    await state_manager.update_data(user.id, {'description': description})
+    
+    # Ask for asset selection
+    await state_manager.set_state(user.id, 'strategy_add_asset')
+    
+    text = (
+        "<b>➕ Add Strategy</b>\n\n"
+        f"<b>Name:</b> {escape_html(name)}\n"
+    )
+    
+    if description:
+        text += f"<b>Description:</b> {escape_html(description)}\n"
+    
+    text += "\n<b>Select underlying asset:</b>"
+    
+    await update.message.reply_text(
+        text,
+        reply_markup=get_asset_selection_keyboard(),
+        parse_mode='HTML'
+    )
+    
+    log_user_action(user.id, "strategy_description", f"Added description for {name}")
+
+
+@error_handler
 async def strategy_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle strategy delete callback.
@@ -372,60 +423,6 @@ async def strategy_delete_confirm_callback(update: Update, context: ContextTypes
         )
         
         log_user_action(user.id, "strategy_delete_failed", f"Failed to delete: {preset_id}")
-
-
-@error_handler
-async def handle_strategy_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle strategy description input.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
-    user = update.effective_user
-    
-    # Check state
-    state = await state_manager.get_state(user.id)
-    if state != ConversationState.STRATEGY_ADD_DESCRIPTION:
-        return
-    
-    description = update.message.text.strip()
-    
-    # Check for skip command
-    if description.lower() == '/skip':
-        description = None
-    
-    # Get current data
-    data = await state_manager.get_state_data(user.id)
-    strategy_type = data.get('strategy_type')
-    strategy_name = data.get('name')
-    
-    # Store description
-    await state_manager.update_data(user.id, {'description': description})
-    
-    # Ask for asset selection
-    text = (
-        "<b>➕ Add Strategy</b>\n\n"
-        f"<b>Name:</b> {escape_html(strategy_name)}\n"
-    )
-    
-    if description:
-        text += f"<b>Description:</b> {escape_html(description)}\n"
-    
-    text += "\nSelect underlying asset:"
-    
-    # Show asset selection keyboard
-    await update.message.reply_text(
-        text,
-        reply_markup=get_asset_selection_keyboard(f"strategy_asset_{strategy_type}"),
-        parse_mode='HTML'
-    )
-    
-    # Update state to asset selection (handled by callback)
-    await state_manager.set_state(user.id, None)  # Clear state, callbacks will handle from here
-    
-    log_user_action(user.id, "strategy_add_description", f"Set description for {strategy_name}")
 
 
 def register_strategy_handlers(application: Application):
