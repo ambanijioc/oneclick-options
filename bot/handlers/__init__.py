@@ -71,6 +71,12 @@ def register_all_handlers(application: Application):
             register_straddle_strategy_handlers(application)
         except ImportError as e:
             logger.warning(f"Straddle strategy handler not found: {e}")
+
+        try:
+            from .strangle_strategy_handler import register_strangle_strategy_handlers
+            register_strangle_strategy_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Strangle strategy handler not found: {e}")
         
         try:
             from .strategy_handler import register_strategy_handlers
