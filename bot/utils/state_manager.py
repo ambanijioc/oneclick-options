@@ -202,32 +202,26 @@ class StateManager:
         """
         await self.update_data(user_id, data)
     
-    async def get_state(self, user_id: int) -> Optional[str]:  # CHANGED: Return str instead of ConversationState
-        """
-        Get current conversation state for a user.
-    
-        Args:
-            user_id: User ID
-    
-        Returns:
-            Current state as string or None
-        """
-        async with self._lock:
-            user_data = self._states.get(user_id)
+    async def get_state(self, user_id: int) -> Optional[str]:
+    async with self._lock:
+        user_data = self._states.get(user_id)
         
-            if not user_data:
-                logger.info(f"❌ No state found for user {user_id}")  # Changed to INFO
-                return None
+        if not user_data:
+            logger.info(f"❌ No state found for user {user_id}")
+            return None
         
-            # Check if expired
-            if datetime.now() - user_data['timestamp'] > self._timeout:
-                logger.debug(f"State expired for user {user_id}")
-                del self._states[user_id]
-                return None
+        # Check if expired
+        if datetime.now() - user_data['timestamp'] > self._timeout:
+            logger.debug(f"State expired for user {user_id}")
+            del self._states[user_id]
+            return None
         
-            state = user_data.get('state')
-            logger.info(f"✅ State RETRIEVED for user {user_id}: {state}")  # ADDED LOG
-            return state
+        # ✅ ADD THIS LINE - Update timestamp on access!
+        user_data['timestamp'] = datetime.now()
+        
+        state = user_data.get('state')
+        logger.info(f"✅ State RETRIEVED for user {user_id}: {state}")
+        return state
     
     async def get_data(self, user_id: int) -> Dict[str, Any]:
         """
