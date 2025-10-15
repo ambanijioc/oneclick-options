@@ -22,6 +22,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📑 List Options", callback_data="menu_list_options")],
         [InlineKeyboardButton("🎲 Straddle Strategy", callback_data="menu_straddle_strategy")],
         [InlineKeyboardButton("🎰 Strangle Strategy", callback_data="menu_strangle_strategy")],
+        [InlineKeyboardButton("🎯 Move Strategy", callback_data="menu_move_strategy")],
         [InlineKeyboardButton("⚡ Manual Trade", callback_data="menu_manual_trade")],
         [InlineKeyboardButton("🤖 Auto Trade", callback_data="menu_auto_trade")],
         [InlineKeyboardButton("❓ Help", callback_data="menu_help")]
