@@ -171,10 +171,12 @@ class StateManager:
             # CRITICAL FIX: Convert state to string for storage
             if hasattr(state, 'value'):
                 state_to_store = state.value
+            elif isinstance(state, str):
+                state_to_store = state  # Keep original string (don't lowercase!)
             else:
-                state_to_store = str(state).lower()  # Normalize strings
-    
-            self._states[user_id]['state'] = state_to_store  # STORE AS STRING
+                state_to_store = str(state)
+
+            self._states[user_id]['state'] = state_to_store
             self._states[user_id]['data'] = new_data
             self._states[user_id]['timestamp'] = datetime.now()
     
