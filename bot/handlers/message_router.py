@@ -1087,6 +1087,145 @@ async def handle_manual_preset_name_input(update: Update, context: ContextTypes.
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
+
+# Auto trade input handlers
+async def handle_auto_trade_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle auto trade time input for add."""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    import re
+    user = update.effective_user
+    
+    # Validate time format (HH:MM in 24-hour format)
+    time_pattern = r'^([0-1][0-9]|2[0-3]):([0-5][0-9])$'
+    
+    if not re.match(time_pattern, text):
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")]]
+        await update.message.reply_text(
+            "❌ Invalid time format.\n\n"
+            "Please use <b>HH:MM</b> in 24-hour format.\n\n"
+            "<b>Examples:</b>\n"
+            "• <code>09:15</code> (9:15 AM)\n"
+            "• <code>15:30</code> (3:30 PM)\n"
+            "• <code>23:45</code> (11:45 PM)",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Get state data
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['execution_time'] = text
+    
+    # Get preset details for confirmation
+    from database.operations.manual_trade_preset_ops import get_manual_trade_preset
+    from database.operations.api_ops import get_api_credential
+    from database.operations.strategy_ops import get_strategy_preset_by_id
+    from .auto_trade_handler import get_auto_trade_menu_keyboard
+    
+    preset = await get_manual_trade_preset(state_data['manual_preset_id'])
+    
+    if not preset:
+        await update.message.reply_text(
+            "❌ Preset not found.",
+            reply_markup=get_auto_trade_menu_keyboard()
+        )
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Get API and strategy
+    api = await get_api_credential(preset['api_credential_id'])
+    strategy = await get_strategy_preset_by_id(preset['strategy_preset_id'])
+    
+    # Build confirmation message
+    confirmation_text = "<b>✅ Confirm Algo Setup</b>\n\n"
+    confirmation_text += f"<b>Preset:</b> {preset['preset_name']}\n"
+    confirmation_text += f"<b>API:</b> {api.api_name if api else 'Unknown'}\n"
+    
+    if strategy:
+        confirmation_text += f"<b>Strategy:</b> {strategy['name']}\n"
+        confirmation_text += f"<b>Type:</b> {preset['strategy_type'].title()}\n"
+        confirmation_text += f"<b>Asset:</b> {strategy['asset']}\n"
+        confirmation_text += f"<b>Direction:</b> {strategy['direction'].title()}\n"
+    
+    confirmation_text += f"\n<b>⏰ Execution Time:</b> {text} IST\n\n"
+    confirmation_text += "⚠️ The bot will automatically execute this trade daily at the scheduled time.\n\n"
+    confirmation_text += "Confirm to activate?"
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm", callback_data="auto_trade_confirm")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_auto_trade")]
+    ]
+    
+    await update.message.reply_text(
+        confirmation_text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+async def handle_auto_trade_edit_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle auto trade time input for edit."""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    import re
+    user = update.effective_user
+    
+    # Validate time format
+    time_pattern = r'^([0-1][0-9]|2[0-3]):([0-5][0-9])$'
+    
+    if not re.match(time_pattern, text):
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_auto_trade")]]
+        await update.message.reply_text(
+            "❌ Invalid time format.\n\n"
+            "Please use <b>HH:MM</b> in 24-hour format.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Get state data
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['execution_time'] = text
+    
+    # Get preset details for confirmation
+    from database.operations.manual_trade_preset_ops import get_manual_trade_preset
+    from database.operations.api_ops import get_api_credential
+    from database.operations.strategy_ops import get_strategy_preset_by_id
+    from .auto_trade_handler import get_auto_trade_menu_keyboard
+    
+    preset = await get_manual_trade_preset(state_data['manual_preset_id'])
+    
+    if not preset:
+        await update.message.reply_text(
+            "❌ Preset not found.",
+            reply_markup=get_auto_trade_menu_keyboard()
+        )
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Get API and strategy
+    api = await get_api_credential(preset['api_credential_id'])
+    strategy = await get_strategy_preset_by_id(preset['strategy_preset_id'])
+    
+    # Build confirmation message
+    confirmation_text = "<b>✅ Confirm Edit</b>\n\n"
+    confirmation_text += f"<b>Preset:</b> {preset['preset_name']}\n"
+    confirmation_text += f"<b>API:</b> {api.api_name if api else 'Unknown'}\n"
+    
+    if strategy:
+        confirmation_text += f"<b>Strategy:</b> {strategy['name']}\n"
+    
+    confirmation_text += f"\n<b>⏰ New Execution Time:</b> {text} IST\n\n"
+    confirmation_text += "Confirm to update?"
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm", callback_data="auto_trade_edit_confirm")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_auto_trade")]
+    ]
+    
+    await update.message.reply_text(
+        confirmation_text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
     
 if __name__ == "__main__":
     print("Message router module loaded")
