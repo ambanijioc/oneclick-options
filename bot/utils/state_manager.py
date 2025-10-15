@@ -100,16 +100,16 @@ class StateManager:
     async def set_state(
         self,
         user_id: int,
-        state: ConversationState,
+        state,  # Can be ConversationState enum or string
         data: Optional[Dict[str, Any]] = None
     ):
         """
         Set conversation state for a user.
         PRESERVES existing data and merges with new data.
-        
+    
         Args:
             user_id: User ID
-            state: Conversation state
+            state: Conversation state (ConversationState enum or string)
             data: Additional data to store (merged with existing)
         """
         async with self._lock:
@@ -119,17 +119,20 @@ class StateManager:
                     'data': {},
                     'timestamp': datetime.now()
                 }
-            
+        
             # Preserve existing data and merge with new data
             existing_data = self._states[user_id].get('data', {})
             new_data = {**existing_data, **(data or {})}
-            
+        
             self._states[user_id]['state'] = state
             self._states[user_id]['data'] = new_data
             self._states[user_id]['timestamp'] = datetime.now()
-            
+        
+            # Handle both enum and string states for logging
+            state_value = state.value if hasattr(state, 'value') else str(state)
+        
             logger.debug(
-                f"Set state for user {user_id}: {state.value}, "
+                f"Set state for user {user_id}: {state_value}, "
                 f"data keys: {list(new_data.keys())}"
             )
     
