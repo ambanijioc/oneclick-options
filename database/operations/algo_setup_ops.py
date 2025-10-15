@@ -16,7 +16,7 @@ logger = setup_logger(__name__)
 async def create_algo_setup(user_id: int, setup_data: dict) -> Optional[str]:
     """Create a new algo setup."""
     try:
-        db = await get_database()
+        db = get_database()
         
         setup = {
             'user_id': user_id,
@@ -42,7 +42,7 @@ async def create_algo_setup(user_id: int, setup_data: dict) -> Optional[str]:
 async def get_algo_setups(user_id: int, active_only: bool = False) -> List[dict]:
     """Get all algo setups for a user."""
     try:
-        db = await get_database()
+        db = get_database()
         
         query = {'user_id': user_id}
         if active_only:
@@ -66,7 +66,7 @@ async def get_algo_setups(user_id: int, active_only: bool = False) -> List[dict]
 async def get_algo_setup(setup_id: str) -> Optional[dict]:
     """Get a specific algo setup."""
     try:
-        db = await get_database()
+        db = get_database()
         
         setup = await db.algo_setups.find_one({'_id': ObjectId(setup_id)})
         
@@ -84,7 +84,7 @@ async def get_algo_setup(setup_id: str) -> Optional[dict]:
 async def update_algo_setup(setup_id: str, setup_data: dict) -> bool:
     """Update an algo setup."""
     try:
-        db = await get_database()
+        db = get_database()
         
         update_data = {
             'manual_preset_id': setup_data['manual_preset_id'],
@@ -107,7 +107,7 @@ async def update_algo_setup(setup_id: str, setup_data: dict) -> bool:
 async def delete_algo_setup(setup_id: str) -> bool:
     """Delete an algo setup."""
     try:
-        db = await get_database()
+        db = get_database()
         
         result = await db.algo_setups.delete_one({'_id': ObjectId(setup_id)})
         
@@ -121,7 +121,7 @@ async def delete_algo_setup(setup_id: str) -> bool:
 async def update_algo_execution(setup_id: str, status: str, details: dict = None) -> bool:
     """Update algo setup execution details."""
     try:
-        db = await get_database()
+        db = get_database()
         
         update_data = {
             'last_execution': datetime.utcnow(),
@@ -145,7 +145,7 @@ async def update_algo_execution(setup_id: str, status: str, details: dict = None
 async def get_all_active_algo_setups() -> List[dict]:
     """Get all active algo setups across all users."""
     try:
-        db = await get_database()
+        db = get_database()
         
         cursor = db.algo_setups.find({'is_active': True})
         setups = await cursor.to_list(length=1000)
