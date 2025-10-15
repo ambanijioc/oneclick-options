@@ -66,6 +66,7 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Options list handler not found: {e}")
 
+        # ✅ NEW SEPARATE HANDLERS
         try:
             from .straddle_strategy_handler import register_straddle_strategy_handlers
             register_straddle_strategy_handlers(application)
@@ -77,20 +78,9 @@ def register_all_handlers(application: Application):
             register_strangle_strategy_handlers(application)
         except ImportError as e:
             logger.warning(f"Strangle strategy handler not found: {e}")
-
-        try:
-            from .manual_trade_preset_handler import register_manual_preset_handlers
-            register_manual_preset_handlers(application)
-        except ImportError as e:
-            logger.warning(f"Manual trade preset handler not found: {e}")
         
-        try:
-            from .manual_trade_handler import register_manual_trade_handlers
-            register_manual_trade_handlers(application)
-        except ImportError as e:
-            logger.warning(f"Manual trade handler not found: {e}")
+        # ❌ REMOVED OLD COMBINED HANDLER - strategy_handler.py
 
-        # Add after existing imports
         try:
             from .move_strategy_handler import register_move_strategy_handlers
             register_move_strategy_handlers(application)
@@ -104,16 +94,28 @@ def register_all_handlers(application: Application):
             logger.warning(f"Move list handler not found: {e}")
 
         try:
-            from .move_manual_trade_handler import register_move_manual_trade_handlers
-            register_move_manual_trade_handlers(application)
+            from .manual_trade_preset_handler import register_manual_preset_handlers
+            register_manual_preset_handlers(application)
         except ImportError as e:
-            logger.warning(f"Move manual trade handler not found: {e}")
-
+            logger.warning(f"Manual trade preset handler not found: {e}")
+        
+        try:
+            from .manual_trade_handler import register_manual_trade_handlers
+            register_manual_trade_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Manual trade handler not found: {e}")
+        
         try:
             from .auto_trade_handler import register_auto_trade_handlers
             register_auto_trade_handlers(application)
         except ImportError as e:
             logger.warning(f"Auto trade handler not found: {e}")
+
+        try:
+            from .move_manual_trade_handler import register_move_manual_trade_handlers
+            register_move_manual_trade_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Move manual trade handler not found: {e}")
 
         try:
             from .move_auto_trade_handler import register_move_auto_trade_handlers
@@ -122,7 +124,6 @@ def register_all_handlers(application: Application):
             logger.warning(f"Move auto trade handler not found: {e}")
      
         # Register message router LAST (lowest priority)
-        # This catches all text messages and routes based on conversation state
         from .message_router import route_message
         
         application.add_handler(
@@ -130,7 +131,7 @@ def register_all_handlers(application: Application):
                 filters.TEXT & ~filters.COMMAND,
                 route_message
             ),
-            group=999  # Use high group number to ensure it runs last
+            group=999
         )
         logger.info("✓ Message router registered")
         
