@@ -77,12 +77,6 @@ def register_all_handlers(application: Application):
             register_strangle_strategy_handlers(application)
         except ImportError as e:
             logger.warning(f"Strangle strategy handler not found: {e}")
-        
-        try:
-            from .strategy_handler import register_strategy_handlers
-            register_strategy_handlers(application)
-        except ImportError as e:
-            logger.warning(f"Strategy handler not found: {e}")
 
         try:
             from .move_strategy_handler import register_move_strategy_handlers
