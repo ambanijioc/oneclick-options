@@ -128,6 +128,12 @@ def register_all_handlers(application: Application):
             logger.warning(f"Move manual trade handler not found: {e}")
 
         try:
+            from .auto_trade_handler import register_auto_trade_handlers
+            register_auto_trade_handlers(application)
+        except ImportError as e:
+            logger.warning(f"Auto trade handler not found: {e}")
+
+        try:
             from .move_auto_trade_handler import register_move_auto_trade_handlers
             register_move_auto_trade_handlers(application)
         except ImportError as e:
