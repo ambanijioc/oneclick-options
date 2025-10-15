@@ -197,10 +197,11 @@ async def handle_straddle_target_trigger_input(update: Update, context: ContextT
             
             await update.message.reply_text(
                 f"<b>➕ Add Straddle Strategy</b>\n\n"
-                f"Enter ATM offset:\n\n"
+                f"Enter ATM offset (in strikes):\n\n"
                 f"• <code>0</code> = ATM (At The Money)\n"
-                f"• <code>+1000</code> = Strike $1000 above ATM\n"
-                f"• <code>-1000</code> = Strike $1000 below ATM",
+                f"• <code>+1</code> = 1 strike above ATM (BTC: $200, ETH: $50)\n"
+                f"• <code>-1</code> = 1 strike below ATM\n"
+                f"• <code>+5</code> = 5 strikes above ATM (BTC: $1000, ETH: $250)",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='HTML'
             )
