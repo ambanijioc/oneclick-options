@@ -12,7 +12,7 @@ from database.operations.manual_trade_preset_ops import (
     get_manual_trade_presets,
     get_manual_trade_preset
 )
-from database.operations.api_ops import get_api_credential, get_decrypted_api_credential
+from database.operations.api_ops import get_api_credential_by_id, get_decrypted_api_credential
 from database.operations.strategy_ops import get_strategy_preset_by_id
 from delta.client import DeltaClient
 
@@ -100,7 +100,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             return
         
         # Get API credentials
-        api = await get_api_credential(preset['api_credential_id'])
+        api = await get_api_credential_by_id(preset['api_credential_id'])
         if not api:
             await query.edit_message_text(
                 "❌ API credential not found.",
