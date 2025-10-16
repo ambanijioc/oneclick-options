@@ -104,7 +104,7 @@ async def handle_strangle_sl_trigger_input(update: Update, context: ContextTypes
     
     try:
         sl_trigger = float(text)
-        if sl_trigger < 0 or sl_trigger > 100:
+        if sl_trigger < 0 or sl_trigger > 1000:
             raise ValueError("Percentage must be between 0 and 100")
         
         # Store SL trigger
@@ -140,7 +140,7 @@ async def handle_strangle_sl_limit_input(update: Update, context: ContextTypes.D
     
     try:
         sl_limit = float(text)
-        if sl_limit < 0 or sl_limit > 100:
+        if sl_limit < 0 or sl_limit > 1000:
             raise ValueError("Percentage must be between 0 and 100")
         
         # Store SL limit
@@ -488,7 +488,7 @@ async def handle_strangle_edit_sl_trigger_input(update: Update, context: Context
     
     try:
         sl_trigger = float(text)
-        if sl_trigger < 0 or sl_trigger > 100:
+        if sl_trigger < 0 or sl_trigger > 1000:
             raise ValueError("Must be between 0 and 100")
         
         state_data = await state_manager.get_state_data(user.id)
@@ -519,7 +519,7 @@ async def handle_strangle_edit_sl_limit_input(update: Update, context: ContextTy
     
     try:
         sl_limit = float(text)
-        if sl_limit < 0 or sl_limit > 100:
+        if sl_limit < 0 or sl_limit > 1000:
             raise ValueError("Must be between 0 and 100")
         
         state_data = await state_manager.get_state_data(user.id)
