@@ -2,7 +2,7 @@
 Start command handler - main menu.
 """
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup  # ✅ Add InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -14,6 +14,7 @@ from config import settings
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.utils.message_formatter import escape_html
+from bot.utils.state_manager import state_manager  # ✅ ADD THIS
 from bot.validators.user_validator import check_user_authorization, get_user_info
 from bot.keyboards.main_menu import get_main_menu_keyboard
 from database.operations.user_ops import get_or_create_user_settings
@@ -126,6 +127,12 @@ def register_start_handler(application: Application):
     application.add_handler(CallbackQueryHandler(
         back_to_main_callback,
         pattern="^back_to_main$"
+    ))
+
+    # ✅ ADD THIS - Main menu callback (for "Back to Main Menu" buttons)
+    application.add_handler(CallbackQueryHandler(
+        menu_main_callback,
+        pattern="^menu_main$"
     ))
     
     logger.info("Start handler registered")
