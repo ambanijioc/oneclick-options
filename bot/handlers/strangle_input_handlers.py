@@ -481,3 +481,219 @@ async def handle_strangle_edit_lot_input(update: Update, context: ContextTypes.D
             "❌ Invalid lot size. Please enter a positive number."
         )
         
+
+async def handle_strangle_edit_sl_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle SL trigger edit."""
+    user = update.effective_user
+    
+    try:
+        sl_trigger = float(text)
+        if sl_trigger < 0 or sl_trigger > 100:
+            raise ValueError("Must be between 0 and 100")
+        
+        state_data = await state_manager.get_state_data(user.id)
+        strategy_id = state_data.get('edit_strategy_id')
+        
+        # Store and ask for limit
+        state_data['sl_trigger_pct'] = sl_trigger
+        await state_manager.set_state_data(user.id, state_data)
+        await state_manager.set_state(user.id, 'strangle_edit_sl_limit_input')
+        
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"strangle_edit_{strategy_id}")]]
+        
+        await update.message.reply_text(
+            f"<b>✏️ Edit SL Limit</b>\n\n"
+            f"SL Trigger: <b>{sl_trigger}%</b>\n\n"
+            f"Enter new SL limit percentage:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+    
+    except ValueError as e:
+        await update.message.reply_text(f"❌ Invalid input: {str(e)}")
+
+
+async def handle_strangle_edit_sl_limit_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle SL limit edit."""
+    user = update.effective_user
+    
+    try:
+        sl_limit = float(text)
+        if sl_limit < 0 or sl_limit > 100:
+            raise ValueError("Must be between 0 and 100")
+        
+        state_data = await state_manager.get_state_data(user.id)
+        strategy_id = state_data.get('edit_strategy_id')
+        sl_trigger = state_data.get('sl_trigger_pct')
+        
+        from database.models.strategy_preset import StrategyPresetUpdate
+        from database.operations.strategy_ops import update_strategy_preset
+        from bot.handlers.strangle_strategy_handler import get_strangle_menu_keyboard
+        
+        update_data = StrategyPresetUpdate(
+            sl_trigger_pct=sl_trigger,
+            sl_limit_pct=sl_limit
+        )
+        success = await update_strategy_preset(strategy_id, update_data)
+        
+        if success:
+            await update.message.reply_text(
+                f"<b>✅ Stop Loss Updated</b>\n\n"
+                f"Trigger: <b>{sl_trigger}%</b>\n"
+                f"Limit: <b>{sl_limit}%</b>",
+                reply_markup=get_strangle_menu_keyboard(),
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Failed to update",
+                reply_markup=get_strangle_menu_keyboard()
+            )
+        
+        await state_manager.clear_state(user.id)
+    
+    except ValueError as e:
+        await update.message.reply_text(f"❌ Invalid input: {str(e)}")
+
+
+async def handle_strangle_edit_target_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle target trigger edit."""
+    user = update.effective_user
+    
+    try:
+        target_trigger = float(text)
+        if target_trigger < 0 or target_trigger > 1000:
+            raise ValueError("Must be between 0 and 1000")
+        
+        state_data = await state_manager.get_state_data(user.id)
+        strategy_id = state_data.get('edit_strategy_id')
+        
+        if target_trigger == 0:
+            # Disable target
+            from database.models.strategy_preset import StrategyPresetUpdate
+            from database.operations.strategy_ops import update_strategy_preset
+            from bot.handlers.strangle_strategy_handler import get_strangle_menu_keyboard
+            
+            update_data = StrategyPresetUpdate(
+                target_trigger_pct=0,
+                target_limit_pct=0
+            )
+            success = await update_strategy_preset(strategy_id, update_data)
+            
+            if success:
+                await update.message.reply_text(
+                    "<b>✅ Target Disabled</b>",
+                    reply_markup=get_strangle_menu_keyboard(),
+                    parse_mode='HTML'
+                )
+            else:
+                await update.message.reply_text("❌ Failed to update")
+            
+            await state_manager.clear_state(user.id)
+        else:
+            # Ask for limit
+            state_data['target_trigger_pct'] = target_trigger
+            await state_manager.set_state_data(user.id, state_data)
+            await state_manager.set_state(user.id, 'strangle_edit_target_limit_input')
+            
+            keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"strangle_edit_{strategy_id}")]]
+            
+            await update.message.reply_text(
+                f"<b>✏️ Edit Target Limit</b>\n\n"
+                f"Target Trigger: <b>{target_trigger}%</b>\n\n"
+                f"Enter target limit percentage:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='HTML'
+            )
+    
+    except ValueError as e:
+        await update.message.reply_text(f"❌ Invalid input: {str(e)}")
+
+
+async def handle_strangle_edit_target_limit_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle target limit edit."""
+    user = update.effective_user
+    
+    try:
+        target_limit = float(text)
+        if target_limit < 0 or target_limit > 1000:
+            raise ValueError("Must be between 0 and 1000")
+        
+        state_data = await state_manager.get_state_data(user.id)
+        strategy_id = state_data.get('edit_strategy_id')
+        target_trigger = state_data.get('target_trigger_pct')
+        
+        from database.models.strategy_preset import StrategyPresetUpdate
+        from database.operations.strategy_ops import update_strategy_preset
+        from bot.handlers.strangle_strategy_handler import get_strangle_menu_keyboard
+        
+        update_data = StrategyPresetUpdate(
+            target_trigger_pct=target_trigger,
+            target_limit_pct=target_limit
+        )
+        success = await update_strategy_preset(strategy_id, update_data)
+        
+        if success:
+            await update.message.reply_text(
+                f"<b>✅ Target Updated</b>\n\n"
+                f"Trigger: <b>{target_trigger}%</b>\n"
+                f"Limit: <b>{target_limit}%</b>",
+                reply_markup=get_strangle_menu_keyboard(),
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Failed to update",
+                reply_markup=get_strangle_menu_keyboard()
+            )
+        
+        await state_manager.clear_state(user.id)
+    
+    except ValueError as e:
+        await update.message.reply_text(f"❌ Invalid input: {str(e)}")
+
+
+async def handle_strangle_edit_otm_value_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle OTM value edit."""
+    user = update.effective_user
+    
+    try:
+        otm_value = float(text)
+        if otm_value <= 0:
+            raise ValueError("Must be positive")
+        
+        state_data = await state_manager.get_state_data(user.id)
+        strategy_id = state_data.get('edit_strategy_id')
+        otm_type = state_data.get('otm_type', 'percentage')
+        
+        if otm_type == 'numeral':
+            otm_value = int(otm_value)
+        
+        from database.models.strategy_preset import StrategyPresetUpdate
+        from database.operations.strategy_ops import update_strategy_preset
+        from bot.handlers.strangle_strategy_handler import get_strangle_menu_keyboard
+        
+        update_data = StrategyPresetUpdate(
+            otm_selection={'type': otm_type, 'value': otm_value}
+        )
+        success = await update_strategy_preset(strategy_id, update_data)
+        
+        if success:
+            otm_text = f"{otm_value}%" if otm_type == 'percentage' else f"{int(otm_value)} strikes"
+            await update.message.reply_text(
+                f"<b>✅ OTM Updated</b>\n\n"
+                f"New OTM: <b>{otm_text}</b>",
+                reply_markup=get_strangle_menu_keyboard(),
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Failed to update",
+                reply_markup=get_strangle_menu_keyboard()
+            )
+        
+        await state_manager.clear_state(user.id)
+    
+    except ValueError as e:
+        await update.message.reply_text(f"❌ Invalid input: {str(e)}")
+        
