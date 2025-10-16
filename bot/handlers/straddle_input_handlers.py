@@ -23,7 +23,7 @@ async def handle_straddle_name_input(update: Update, context: ContextTypes.DEFAU
     
     keyboard = [
         [InlineKeyboardButton("⏭️ Skip Description", callback_data="straddle_skip_description")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]
+        [InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]
     ]
     
     await update.message.reply_text(
@@ -48,7 +48,7 @@ async def handle_straddle_description_input(update: Update, context: ContextType
     keyboard = [
         [InlineKeyboardButton("🟠 BTC", callback_data="straddle_asset_btc")],
         [InlineKeyboardButton("🔵 ETH", callback_data="straddle_asset_eth")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]
+        [InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]
     ]
     
     await update.message.reply_text(
@@ -78,7 +78,7 @@ async def handle_straddle_lot_size_input(update: Update, context: ContextTypes.D
         # Ask for stop loss trigger percentage
         await state_manager.set_state(user.id, 'straddle_add_sl_trigger')
         
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
         
         await update.message.reply_text(
             f"<b>➕ Add Straddle Strategy</b>\n\n"
@@ -114,7 +114,7 @@ async def handle_straddle_sl_trigger_input(update: Update, context: ContextTypes
         # Ask for stop loss limit percentage
         await state_manager.set_state(user.id, 'straddle_add_sl_limit')
         
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
         
         await update.message.reply_text(
             f"<b>➕ Add Straddle Strategy</b>\n\n"
@@ -152,7 +152,7 @@ async def handle_straddle_sl_limit_input(update: Update, context: ContextTypes.D
         
         keyboard = [
             [InlineKeyboardButton("⏭️ Skip Target (0)", callback_data="straddle_skip_target")],
-            [InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]
+            [InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]
         ]
         
         await update.message.reply_text(
@@ -193,7 +193,7 @@ async def handle_straddle_target_trigger_input(update: Update, context: ContextT
             await state_manager.set_state_data(user.id, state_data)
             await state_manager.set_state(user.id, 'straddle_add_atm_offset')
             
-            keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+            keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
             
             await update.message.reply_text(
                 f"<b>➕ Add Straddle Strategy</b>\n\n"
@@ -210,7 +210,7 @@ async def handle_straddle_target_trigger_input(update: Update, context: ContextT
             await state_manager.set_state_data(user.id, state_data)
             await state_manager.set_state(user.id, 'straddle_add_target_limit')
             
-            keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+            keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
             
             await update.message.reply_text(
                 f"<b>➕ Add Straddle Strategy</b>\n\n"
@@ -246,7 +246,7 @@ async def handle_straddle_target_limit_input(update: Update, context: ContextTyp
         # Ask for ATM offset
         await state_manager.set_state(user.id, 'straddle_add_atm_offset')
         
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
         
         await update.message.reply_text(
             f"<b>➕ Add Straddle Strategy</b>\n\n"
@@ -333,7 +333,7 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
         await state_manager.clear_state(user.id)
     
     except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
         await update.message.reply_text(
             "❌ Invalid offset. Please enter a whole number.\n\n"
             "Example:\n"
