@@ -16,7 +16,7 @@ logger = setup_logger(__name__)
 async def create_move_strategy(user_id: int, strategy_data: dict) -> Optional[str]:
     """Create a new move strategy."""
     try:
-        db = await get_database()
+        db = get_database()
         
         strategy = {
             'user_id': user_id,
@@ -45,7 +45,7 @@ async def create_move_strategy(user_id: int, strategy_data: dict) -> Optional[st
 async def get_move_strategies(user_id: int) -> List[dict]:
     """Get all move strategies for a user."""
     try:
-        db = await get_database()
+        db = get_database()
         
         cursor = db.move_strategies.find({'user_id': user_id})
         strategies = await cursor.to_list(length=100)
@@ -65,7 +65,7 @@ async def get_move_strategies(user_id: int) -> List[dict]:
 async def get_move_strategy(strategy_id: str) -> Optional[dict]:
     """Get a specific move strategy."""
     try:
-        db = await get_database()
+        db = get_database()
         
         strategy = await db.move_strategies.find_one({'_id': ObjectId(strategy_id)})
         
@@ -83,7 +83,7 @@ async def get_move_strategy(strategy_id: str) -> Optional[dict]:
 async def update_move_strategy(strategy_id: str, strategy_data: dict) -> bool:
     """Update a move strategy."""
     try:
-        db = await get_database()
+        db = get_database()
         
         update_data = {
             'asset': strategy_data['asset'],
@@ -112,7 +112,7 @@ async def update_move_strategy(strategy_id: str, strategy_data: dict) -> bool:
 async def delete_move_strategy(strategy_id: str) -> bool:
     """Delete a move strategy."""
     try:
-        db = await get_database()
+        db = get_database()
         
         result = await db.move_strategies.delete_one({'_id': ObjectId(strategy_id)})
         
@@ -128,7 +128,7 @@ async def delete_move_strategy(strategy_id: str) -> bool:
 async def create_move_auto_execution(user_id: int, execution_data: dict) -> Optional[str]:
     """Create a new move auto execution schedule."""
     try:
-        db = await get_database()
+        db = get_database()
         
         execution = {
             'user_id': user_id,
@@ -151,7 +151,7 @@ async def create_move_auto_execution(user_id: int, execution_data: dict) -> Opti
 async def get_move_auto_executions(user_id: int) -> List[dict]:
     """Get all move auto executions for a user."""
     try:
-        db = await get_database()
+        db = get_database()
         
         cursor = db.move_auto_executions.find({'user_id': user_id})
         executions = await cursor.to_list(length=100)
@@ -171,7 +171,7 @@ async def get_move_auto_executions(user_id: int) -> List[dict]:
 async def delete_move_auto_execution(execution_id: str) -> bool:
     """Delete a move auto execution."""
     try:
-        db = await get_database()
+        db = get_database()
         
         result = await db.move_auto_executions.delete_one({'_id': ObjectId(execution_id)})
         
@@ -185,7 +185,7 @@ async def delete_move_auto_execution(execution_id: str) -> bool:
 async def get_enabled_move_auto_executions() -> List[dict]:
     """Get all enabled move auto executions."""
     try:
-        db = await get_database()
+        db = get_database()
         
         cursor = db.move_auto_executions.find({'enabled': True})
         executions = await cursor.to_list(length=1000)
