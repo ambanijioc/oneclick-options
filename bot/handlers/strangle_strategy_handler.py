@@ -18,7 +18,6 @@ from database.operations.strategy_ops import (
 )
 
 logger = setup_logger(__name__)
-#state_manager = StateManager()
 
 
 def get_strangle_menu_keyboard():
@@ -89,6 +88,33 @@ async def strangle_add_callback(update: Update, context: ContextTypes.DEFAULT_TY
     )
     
     log_user_action(user.id, "strangle_add", "Started add strategy flow")
+
+
+@error_handler
+async def strangle_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle cancel - return to strangle menu and clear state."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
+    # Show strangle menu
+    strategies = await get_strategy_presets_by_type(user.id, "strangle")
+    
+    await query.edit_message_text(
+        "<b>🎯 Strangle Strategy Management</b>\n\n"
+        "Manage your OTM strangle trading strategies:\n\n"
+        "• <b>Add:</b> Create new strategy\n"
+        "• <b>Edit:</b> Modify existing strategy\n"
+        "• <b>Delete:</b> Remove strategy\n"
+        "• <b>View:</b> See all strategies\n\n"
+        f"<b>Total Strategies:</b> {len(strategies)}",
+        reply_markup=get_strangle_menu_keyboard(),
+        parse_mode='HTML'
+    )
 
 
 @error_handler
@@ -202,8 +228,9 @@ async def strangle_otm_type_callback(update: Update, context: ContextTypes.DEFAU
     # Ask for OTM value
     await state_manager.set_state(user.id, 'strangle_add_otm_value')
     
-    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_strangle_strategy")]]
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="strangle_cancel")]]
     
+    # ✅ Updated examples with correct ETH increment (20)
     if otm_type == 'percentage':
         await query.edit_message_text(
             f"<b>➕ Add Strangle Strategy</b>\n\n"
@@ -211,20 +238,25 @@ async def strangle_otm_type_callback(update: Update, context: ContextTypes.DEFAU
             f"Enter OTM percentage:\n\n"
             f"<b>Example:</b> <code>1</code> (for 1%)\n\n"
             f"<i>If spot is $120,000 and you enter 1%:\n"
-            f"• CE strike: $121,200 (120000 + 1200)\n"
-            f"• PE strike: $118,800 (120000 - 1200)</i>",
+            f"• Offset: $1,200 (1% of $120,000)\n"
+            f"• CE strike: $121,600 (nearest to $121,200)\n"
+            f"• PE strike: $118,800 (nearest to $118,800)</i>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
     else:  # numeral
+        asset = state_data.get('asset', 'BTC')
+        increment = 200 if asset == 'BTC' else 20  # ✅ FIXED: ETH = 20
+        
         await query.edit_message_text(
             f"<b>➕ Add Strangle Strategy</b>\n\n"
             f"OTM Selection: <b>Numeral (ATM-based)</b>\n\n"
             f"Enter number of strikes away from ATM:\n\n"
             f"<b>Example:</b> <code>4</code> (4 strikes)\n\n"
-            f"<i>If spot is $120,150 (ATM $120,200):\n"
-            f"• CE strike: $121,000 (4 strikes up)\n"
-            f"• PE strike: $119,400 (4 strikes down)</i>",
+            f"<i>For {asset} (increment: ${increment}):\n"
+            f"If ATM is $120,000:\n"
+            f"• CE strike: ${120000 + (4 * increment):,} (4 strikes up)\n"
+            f"• PE strike: ${120000 - (4 * increment):,} (4 strikes down)</i>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
@@ -258,14 +290,15 @@ async def strangle_view_callback(update: Update, context: ContextTypes.DEFAULT_T
     text = "<b>👁️ Strangle Strategies</b>\n\n"
     
     for strategy in strategies:
-        text += f"<b>📊 {strategy['name']}</b>\n"
-        if strategy.get('description'):
-            text += f"<i>{strategy['description']}</i>\n"
-        text += f"Asset: {strategy['asset']} | Expiry: {strategy['expiry_code']}\n"
-        text += f"Direction: {strategy['direction'].title()} | Lots: {strategy['lot_size']}\n"
+        # ✅ Use dot notation for Pydantic models
+        text += f"<b>📊 {strategy.name}</b>\n"
+        if strategy.description:
+            text += f"<i>{strategy.description}</i>\n"
+        text += f"Asset: {strategy.asset} | Expiry: {strategy.expiry_code}\n"
+        text += f"Direction: {strategy.direction.title()} | Lots: {strategy.lot_size}\n"
         
         # OTM selection
-        otm_sel = strategy.get('otm_selection', {})
+        otm_sel = strategy.otm_selection if hasattr(strategy, 'otm_selection') else {}
         if otm_sel:
             otm_type = otm_sel.get('type', 'percentage')
             otm_value = otm_sel.get('value', 0)
@@ -274,10 +307,10 @@ async def strangle_view_callback(update: Update, context: ContextTypes.DEFAULT_T
             else:
                 text += f"OTM: {int(otm_value)} strikes (ATM-based)\n"
         
-        text += f"SL: {strategy['sl_trigger_pct']:.1f}% / {strategy['sl_limit_pct']:.1f}%\n"
+        text += f"SL: {strategy.sl_trigger_pct:.1f}% / {strategy.sl_limit_pct:.1f}%\n"
         
-        if strategy.get('target_trigger_pct', 0) > 0:
-            text += f"Target: {strategy['target_trigger_pct']:.1f}% / {strategy['target_limit_pct']:.1f}%\n"
+        if strategy.target_trigger_pct > 0:
+            text += f"Target: {strategy.target_trigger_pct:.1f}% / {strategy.target_limit_pct:.1f}%\n"
         
         text += "\n"
     
@@ -314,8 +347,8 @@ async def strangle_delete_list_callback(update: Update, context: ContextTypes.DE
     keyboard = []
     for strategy in strategies:
         keyboard.append([InlineKeyboardButton(
-            f"🗑️ {strategy['name']}",
-            callback_data=f"strangle_delete_{strategy['_id']}"
+            f"🗑️ {strategy.name}",
+            callback_data=f"strangle_delete_{str(strategy.id)}"  # ✅ FIXED: Use .id not ._id
         )])
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_strangle_strategy")])
     
@@ -353,7 +386,7 @@ async def strangle_delete_callback(update: Update, context: ContextTypes.DEFAULT
     
     await query.edit_message_text(
         f"<b>🗑️ Delete Strategy</b>\n\n"
-        f"<b>Name:</b> {strategy['name']}\n\n"
+        f"<b>Name:</b> {strategy.name}\n\n"  # ✅ FIXED: Use .name
         f"⚠️ Are you sure you want to delete this strategy?\n\n"
         f"This action cannot be undone.",
         reply_markup=InlineKeyboardMarkup(keyboard),
@@ -417,7 +450,7 @@ async def strangle_skip_description_callback(update: Update, context: ContextTyp
     keyboard = [
         [InlineKeyboardButton("🟠 BTC", callback_data="strangle_asset_btc")],
         [InlineKeyboardButton("🔵 ETH", callback_data="strangle_asset_eth")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="menu_strangle_strategy")]
+        [InlineKeyboardButton("🔙 Cancel", callback_data="strangle_cancel")]  # ✅ FIXED
     ]
     
     await query.edit_message_text(
@@ -447,7 +480,7 @@ async def strangle_skip_target_callback(update: Update, context: ContextTypes.DE
     keyboard = [
         [InlineKeyboardButton("📊 Percentage (Spot-based)", callback_data="strangle_otm_percentage")],
         [InlineKeyboardButton("🔢 Numeral (ATM-based)", callback_data="strangle_otm_numeral")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="menu_strangle_strategy")]
+        [InlineKeyboardButton("🔙 Cancel", callback_data="strangle_cancel")]  # ✅ FIXED
     ]
     
     await query.edit_message_text(
@@ -473,6 +506,12 @@ def register_strangle_strategy_handlers(application: Application):
     application.add_handler(CallbackQueryHandler(
         strangle_add_callback,
         pattern="^strangle_add$"
+    ))
+    
+    # ✅ ADD CANCEL HANDLER
+    application.add_handler(CallbackQueryHandler(
+        strangle_cancel_callback,
+        pattern="^strangle_cancel$"
     ))
     
     application.add_handler(CallbackQueryHandler(
@@ -526,4 +565,4 @@ def register_strangle_strategy_handlers(application: Application):
     ))
     
     logger.info("Strangle strategy handlers registered")
-  
+    
