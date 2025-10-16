@@ -137,6 +137,47 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .strangle_input_handlers import handle_strangle_otm_value_input
             await handle_strangle_otm_value_input(update, context, text)
 
+        # ✅ Move strategy states - NEW
+        elif state_str == 'move_strategy_add_name':
+            from .move_input_handlers import handle_move_name_input
+            logger.info("→ Calling handle_move_name_input")
+            await handle_move_name_input(update, context, text)
+        
+        elif state_str == 'move_strategy_add_description':
+            from .move_input_handlers import handle_move_description_input
+            logger.info("→ Calling handle_move_description_input")
+            await handle_move_description_input(update, context, text)
+        
+        elif state_str == 'move_strategy_add_lot_size':
+            from .move_input_handlers import handle_move_lot_size_input
+            logger.info("→ Calling handle_move_lot_size_input")
+            await handle_move_lot_size_input(update, context, text)
+        
+        elif state_str == 'move_strategy_add_sl_trigger':
+            from .move_input_handlers import handle_move_sl_trigger_input
+            logger.info("→ Calling handle_move_sl_trigger_input")
+            await handle_move_sl_trigger_input(update, context, text)
+        
+        elif state_str == 'move_strategy_add_sl_limit':
+            from .move_input_handlers import handle_move_sl_limit_input
+            logger.info("→ Calling handle_move_sl_limit_input")
+            await handle_move_sl_limit_input(update, context, text)
+        
+        elif state_str == 'move_strategy_add_target_trigger':
+            from .move_input_handlers import handle_move_target_trigger_input
+            logger.info("→ Calling handle_move_target_trigger_input")
+            await handle_move_target_trigger_input(update, context, text)
+        
+        elif state_str == 'move_strategy_add_target_limit':
+            from .move_input_handlers import handle_move_target_limit_input
+            logger.info("→ Calling handle_move_target_limit_input")
+            await handle_move_target_limit_input(update, context, text)
+        
+        elif state_str == 'move_strategy_add_atm_offset':
+            from .move_input_handlers import handle_move_atm_offset_input
+            logger.info("→ Calling handle_move_atm_offset_input")
+            await handle_move_atm_offset_input(update, context, text)
+
         # Manual trade preset states
         elif state_str == 'manual_preset_add_name':
             from .manual_trade_preset_handler import handle_manual_preset_name_input
