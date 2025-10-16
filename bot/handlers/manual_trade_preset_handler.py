@@ -132,7 +132,7 @@ async def manual_preset_api_callback(update: Update, context: ContextTypes.DEFAU
         for strategy in straddle_strategies:
             # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎲 {strategy.strategy_name}",
+                f"🎲 {strategy.name}",
                 callback_data=f"manual_preset_strategy_{strategy.id}_straddle"
             )])
     
@@ -141,7 +141,7 @@ async def manual_preset_api_callback(update: Update, context: ContextTypes.DEFAU
         for strategy in strangle_strategies:
             # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎰 {strategy.strategy_name}",
+                f"🎰 {strategy.name}",
                 callback_data=f"manual_preset_strategy_{strategy.id}_strangle"
             )])
     
@@ -187,7 +187,7 @@ async def manual_preset_strategy_callback(update: Update, context: ContextTypes.
     text = "<b>➕ Confirm Manual Trade Preset</b>\n\n"
     text += f"<b>Preset Name:</b> {state_data['preset_name']}\n\n"
     text += f"<b>📊 API:</b> {api.api_name}\n"
-    text += f"<b>🎯 Strategy:</b> {strategy.strategy_name}\n"
+    text += f"<b>🎯 Strategy:</b> {strategy.name}\n"
     text += f"<b>Type:</b> {strategy_type.title()}\n"
     text += f"<b>Asset:</b> {strategy.asset}\n"
     text += f"<b>Expiry:</b> {strategy.expiry_code}\n"
@@ -307,7 +307,7 @@ async def manual_preset_view_callback(update: Update, context: ContextTypes.DEFA
         text += f"<b>📊 API:</b> {api.api_name}\n\n"
     
     if strategy:
-        text += f"<b>🎯 Strategy:</b> {strategy.strategy_name}\n"
+        text += f"<b>🎯 Strategy:</b> {strategy.name}\n"
         text += f"<b>Type:</b> {preset['strategy_type'].title()}\n"
         text += f"<b>Asset:</b> {strategy.asset}\n"
         text += f"<b>Expiry:</b> {strategy.expiry_code}\n"
@@ -561,7 +561,7 @@ async def manual_preset_edit_api_callback(update: Update, context: ContextTypes.
         for strategy in straddle_strategies:
             # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎲 {strategy.strategy_name}",
+                f"🎲 {strategy.name}",
                 callback_data=f"manual_preset_edit_strategy_{strategy.id}_straddle"
             )])
     
@@ -570,7 +570,7 @@ async def manual_preset_edit_api_callback(update: Update, context: ContextTypes.
         for strategy in strangle_strategies:
             # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎰 {strategy.strategy_name}",
+                f"🎰 {strategy.name}",
                 callback_data=f"manual_preset_edit_strategy_{strategy.id}_strangle"
             )])
     
@@ -616,7 +616,7 @@ async def manual_preset_edit_strategy_callback(update: Update, context: ContextT
     text = "<b>➕ Confirm Edit Preset</b>\n\n"
     text += f"<b>Preset Name:</b> {state_data['preset_name']}\n\n"
     text += f"<b>📊 API:</b> {api.api_name}\n"
-    text += f"<b>🎯 Strategy:</b> {strategy.strategy_name}\n"
+    text += f"<b>🎯 Strategy:</b> {strategy.name}\n"
     text += f"<b>Type:</b> {strategy_type.title()}\n"
     text += f"<b>Asset:</b> {strategy.asset}\n"
     text += f"<b>Expiry:</b> {strategy.expiry_code}\n"
