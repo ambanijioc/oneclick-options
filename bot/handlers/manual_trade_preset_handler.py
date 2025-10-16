@@ -23,7 +23,6 @@ from database.operations.strategy_ops import (
 )
 
 logger = setup_logger(__name__)
-#state_manager = StateManager()
 
 
 def get_manual_preset_menu_keyboard():
@@ -131,17 +130,19 @@ async def manual_preset_api_callback(update: Update, context: ContextTypes.DEFAU
     if straddle_strategies:
         keyboard.append([InlineKeyboardButton("--- Straddle Strategies ---", callback_data="noop")])
         for strategy in straddle_strategies:
+            # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎲 {strategy['name']}",
-                callback_data=f"manual_preset_strategy_{strategy['_id']}_straddle"
+                f"🎲 {strategy.strategy_name}",
+                callback_data=f"manual_preset_strategy_{strategy.id}_straddle"
             )])
     
     if strangle_strategies:
         keyboard.append([InlineKeyboardButton("--- Strangle Strategies ---", callback_data="noop")])
         for strategy in strangle_strategies:
+            # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎰 {strategy['name']}",
-                callback_data=f"manual_preset_strategy_{strategy['_id']}_strangle"
+                f"🎰 {strategy.strategy_name}",
+                callback_data=f"manual_preset_strategy_{strategy.id}_strangle"
             )])
     
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
@@ -181,16 +182,17 @@ async def manual_preset_strategy_callback(update: Update, context: ContextTypes.
     state_data['strategy_type'] = strategy_type
     await state_manager.set_state_data(user.id, state_data)
     
+    # ✅ FIXED: Use Pydantic attributes
     # Format confirmation message
     text = "<b>➕ Confirm Manual Trade Preset</b>\n\n"
     text += f"<b>Preset Name:</b> {state_data['preset_name']}\n\n"
     text += f"<b>📊 API:</b> {api.api_name}\n"
-    text += f"<b>🎯 Strategy:</b> {strategy['name']}\n"
+    text += f"<b>🎯 Strategy:</b> {strategy.strategy_name}\n"
     text += f"<b>Type:</b> {strategy_type.title()}\n"
-    text += f"<b>Asset:</b> {strategy['asset']}\n"
-    text += f"<b>Expiry:</b> {strategy['expiry_code']}\n"
-    text += f"<b>Direction:</b> {strategy['direction'].title()}\n"
-    text += f"<b>Lot Size:</b> {strategy['lot_size']}\n\n"
+    text += f"<b>Asset:</b> {strategy.asset}\n"
+    text += f"<b>Expiry:</b> {strategy.expiry_code}\n"
+    text += f"<b>Direction:</b> {strategy.direction.title()}\n"
+    text += f"<b>Lot Size:</b> {strategy.lot_size}\n\n"
     text += "⚠️ Save this preset?"
     
     keyboard = [
@@ -297,6 +299,7 @@ async def manual_preset_view_callback(update: Update, context: ContextTypes.DEFA
     api = await get_api_credential_by_id(preset['api_credential_id'])
     strategy = await get_strategy_preset_by_id(preset['strategy_preset_id'])
     
+    # ✅ FIXED: Use Pydantic attributes
     # Format details
     text = f"<b>📋 {preset['preset_name']}</b>\n\n"
     
@@ -304,12 +307,12 @@ async def manual_preset_view_callback(update: Update, context: ContextTypes.DEFA
         text += f"<b>📊 API:</b> {api.api_name}\n\n"
     
     if strategy:
-        text += f"<b>🎯 Strategy:</b> {strategy['name']}\n"
+        text += f"<b>🎯 Strategy:</b> {strategy.strategy_name}\n"
         text += f"<b>Type:</b> {preset['strategy_type'].title()}\n"
-        text += f"<b>Asset:</b> {strategy['asset']}\n"
-        text += f"<b>Expiry:</b> {strategy['expiry_code']}\n"
-        text += f"<b>Direction:</b> {strategy['direction'].title()}\n"
-        text += f"<b>Lot Size:</b> {strategy['lot_size']}\n"
+        text += f"<b>Asset:</b> {strategy.asset}\n"
+        text += f"<b>Expiry:</b> {strategy.expiry_code}\n"
+        text += f"<b>Direction:</b> {strategy.direction.title()}\n"
+        text += f"<b>Lot Size:</b> {strategy.lot_size}\n"
     
     keyboard = [
         [InlineKeyboardButton("🔙 Back to List", callback_data="manual_preset_view_list")],
@@ -493,7 +496,7 @@ async def manual_preset_edit_callback(update: Update, context: ContextTypes.DEFA
     })
     
     # Get user's APIs
-    apis = await get_api_credential_by_id(user.id)
+    apis = await get_api_credentials(user.id)
     
     if not apis:
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")]]
@@ -556,17 +559,19 @@ async def manual_preset_edit_api_callback(update: Update, context: ContextTypes.
     if straddle_strategies:
         keyboard.append([InlineKeyboardButton("--- Straddle Strategies ---", callback_data="noop")])
         for strategy in straddle_strategies:
+            # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎲 {strategy['name']}",
-                callback_data=f"manual_preset_edit_strategy_{strategy['_id']}_straddle"
+                f"🎲 {strategy.strategy_name}",
+                callback_data=f"manual_preset_edit_strategy_{strategy.id}_straddle"
             )])
     
     if strangle_strategies:
         keyboard.append([InlineKeyboardButton("--- Strangle Strategies ---", callback_data="noop")])
         for strategy in strangle_strategies:
+            # ✅ FIXED: Use Pydantic attributes
             keyboard.append([InlineKeyboardButton(
-                f"🎰 {strategy['name']}",
-                callback_data=f"manual_preset_edit_strategy_{strategy['_id']}_strangle"
+                f"🎰 {strategy.strategy_name}",
+                callback_data=f"manual_preset_edit_strategy_{strategy.id}_strangle"
             )])
     
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
@@ -587,7 +592,7 @@ async def manual_preset_edit_strategy_callback(update: Update, context: ContextT
     
     user = query.from_user
     
-    # Parse callback data: manual_preset_edit_strategy_{id}_{type}
+    # Parse callback data
     parts = query.data.split('_')
     strategy_id = parts[4]
     strategy_type = parts[5]
@@ -606,17 +611,18 @@ async def manual_preset_edit_strategy_callback(update: Update, context: ContextT
     state_data['strategy_type'] = strategy_type
     await state_manager.set_state_data(user.id, state_data)
     
+    # ✅ FIXED: Use Pydantic attributes
     # Format confirmation message
-    text = "<b>✏️ Confirm Edit Preset</b>\n\n"
+    text = "<b>➕ Confirm Edit Preset</b>\n\n"
     text += f"<b>Preset Name:</b> {state_data['preset_name']}\n\n"
     text += f"<b>📊 API:</b> {api.api_name}\n"
-    text += f"<b>🎯 Strategy:</b> {strategy['name']}\n"
+    text += f"<b>🎯 Strategy:</b> {strategy.strategy_name}\n"
     text += f"<b>Type:</b> {strategy_type.title()}\n"
-    text += f"<b>Asset:</b> {strategy['asset']}\n"
-    text += f"<b>Expiry:</b> {strategy['expiry_code']}\n"
-    text += f"<b>Direction:</b> {strategy['direction'].title()}\n"
-    text += f"<b>Lot Size:</b> {strategy['lot_size']}\n\n"
-    text += "⚠️ Update this preset?"
+    text += f"<b>Asset:</b> {strategy.asset}\n"
+    text += f"<b>Expiry:</b> {strategy.expiry_code}\n"
+    text += f"<b>Direction:</b> {strategy.direction.title()}\n"
+    text += f"<b>Lot Size:</b> {strategy.lot_size}\n\n"
+    text += "Update this preset?"
     
     keyboard = [
         [InlineKeyboardButton("✅ Confirm", callback_data="manual_preset_edit_confirm")],
@@ -698,7 +704,31 @@ def register_manual_preset_handlers(application: Application):
         pattern="^manual_preset_confirm$"
     ))
     
-    # Edit handlers
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_view_list_callback,
+        pattern="^manual_preset_view_list$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_view_callback,
+        pattern="^manual_preset_view_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_delete_list_callback,
+        pattern="^manual_preset_delete_list$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_delete_callback,
+        pattern="^manual_preset_delete_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_delete_confirm_callback,
+        pattern="^manual_preset_delete_confirm$"
+    ))
+    
     application.add_handler(CallbackQueryHandler(
         manual_preset_edit_list_callback,
         pattern="^manual_preset_edit_list$"
@@ -722,33 +752,6 @@ def register_manual_preset_handlers(application: Application):
     application.add_handler(CallbackQueryHandler(
         manual_preset_edit_confirm_callback,
         pattern="^manual_preset_edit_confirm$"
-    ))
-    
-    # View handlers
-    application.add_handler(CallbackQueryHandler(
-        manual_preset_view_list_callback,
-        pattern="^manual_preset_view_list$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        manual_preset_view_callback,
-        pattern="^manual_preset_view_[a-f0-9]{24}$"
-    ))
-    
-    # Delete handlers
-    application.add_handler(CallbackQueryHandler(
-        manual_preset_delete_list_callback,
-        pattern="^manual_preset_delete_list$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        manual_preset_delete_callback,
-        pattern="^manual_preset_delete_[a-f0-9]{24}$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        manual_preset_delete_confirm_callback,
-        pattern="^manual_preset_delete_confirm$"
     ))
     
     logger.info("Manual trade preset handlers registered")
