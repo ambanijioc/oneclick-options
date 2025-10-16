@@ -611,6 +611,16 @@ def register_straddle_strategy_handlers(application: Application):
         straddle_direction_callback,
         pattern="^straddle_direction_(long|short)$"
     ))
+
+    application.add_handler(CallbackQueryHandler(
+        straddle_edit_list_callback,
+        pattern="^straddle_edit_list$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        straddle_edit_callback,
+        pattern="^straddle_edit_[a-f0-9]{24}$"
+    ))
     
     application.add_handler(CallbackQueryHandler(
         straddle_view_callback,
