@@ -35,11 +35,10 @@ async def handle_manual_preset_name_input(update: Update, context: ContextTypes.
         await state_manager.clear_state(user.id)
         return
     
-    # ✅ SIMPLIFIED: APIs are always Pydantic models
+    # ✅ FIXED: Use api_name instead of name
     keyboard = []
     for api in apis:
-        # Direct Pydantic access (no dict fallback needed)
-        name = api.name
+        name = api.api_name  # ✅ Changed from api.name to api.api_name
         api_id = str(api.id)
         
         keyboard.append([InlineKeyboardButton(
