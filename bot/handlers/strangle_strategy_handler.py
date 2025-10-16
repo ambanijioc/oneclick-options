@@ -246,7 +246,7 @@ async def strangle_otm_type_callback(update: Update, context: ContextTypes.DEFAU
         )
     else:  # numeral
         asset = state_data.get('asset', 'BTC')
-        increment = 200 if asset == 'BTC' else 20  # ✅ FIXED: ETH = 20
+        increment = 200 if asset == 'BTC' else 20
         
         await query.edit_message_text(
             f"<b>➕ Add Strangle Strategy</b>\n\n"
@@ -290,27 +290,50 @@ async def strangle_view_callback(update: Update, context: ContextTypes.DEFAULT_T
     text = "<b>👁️ Strangle Strategies</b>\n\n"
     
     for strategy in strategies:
-        # ✅ Use dot notation for Pydantic models
-        text += f"<b>📊 {strategy.name}</b>\n"
-        if strategy.description:
-            text += f"<i>{strategy.description}</i>\n"
-        text += f"Asset: {strategy.asset} | Expiry: {strategy.expiry_code}\n"
-        text += f"Direction: {strategy.direction.title()} | Lots: {strategy.lot_size}\n"
+        # ✅ FIXED: Safely access all attributes
+        name = strategy.name if hasattr(strategy, 'name') else strategy.get('name', 'N/A')
+        description = strategy.description if hasattr(strategy, 'description') else strategy.get('description')
+        asset = strategy.asset if hasattr(strategy, 'asset') else strategy.get('asset', 'N/A')
+        expiry = strategy.expiry_code if hasattr(strategy, 'expiry_code') else strategy.get('expiry_code', 'N/A')
+        direction = strategy.direction if hasattr(strategy, 'direction') else strategy.get('direction', 'N/A')
+        lot_size = strategy.lot_size if hasattr(strategy, 'lot_size') else strategy.get('lot_size', 0)
+        sl_trigger = strategy.sl_trigger_pct if hasattr(strategy, 'sl_trigger_pct') else strategy.get('sl_trigger_pct', 0)
+        sl_limit = strategy.sl_limit_pct if hasattr(strategy, 'sl_limit_pct') else strategy.get('sl_limit_pct', 0)
+        target_trigger = strategy.target_trigger_pct if hasattr(strategy, 'target_trigger_pct') else strategy.get('target_trigger_pct', 0)
+        target_limit = strategy.target_limit_pct if hasattr(strategy, 'target_limit_pct') else strategy.get('target_limit_pct', 0)
         
-        # OTM selection
-        otm_sel = strategy.otm_selection if hasattr(strategy, 'otm_selection') else {}
-        if otm_sel:
-            otm_type = otm_sel.get('type', 'percentage')
-            otm_value = otm_sel.get('value', 0)
-            if otm_type == 'percentage':
-                text += f"OTM: {otm_value}% (Spot-based)\n"
-            else:
-                text += f"OTM: {int(otm_value)} strikes (ATM-based)\n"
+        text += f"<b>📊 {name}</b>\n"
+        if description:
+            text += f"<i>{description}</i>\n"
+        text += f"Asset: {asset} | Expiry: {expiry}\n"
+        text += f"Direction: {direction.title()} | Lots: {lot_size}\n"
         
-        text += f"SL: {strategy.sl_trigger_pct:.1f}% / {strategy.sl_limit_pct:.1f}%\n"
+        # ✅ FIXED: Safely access OTM selection
+        try:
+            if hasattr(strategy, 'otm_selection') and strategy.otm_selection:
+                otm_sel = strategy.otm_selection
+                otm_type = otm_sel.get('type', 'percentage')
+                otm_value = otm_sel.get('value', 0)
+                if otm_type == 'percentage':
+                    text += f"OTM: {otm_value}% (Spot-based)\n"
+                else:
+                    text += f"OTM: {int(otm_value)} strikes (ATM-based)\n"
+            elif isinstance(strategy, dict) and strategy.get('otm_selection'):
+                otm_sel = strategy.get('otm_selection')
+                otm_type = otm_sel.get('type', 'percentage')
+                otm_value = otm_sel.get('value', 0)
+                if otm_type == 'percentage':
+                    text += f"OTM: {otm_value}% (Spot-based)\n"
+                else:
+                    text += f"OTM: {int(otm_value)} strikes (ATM-based)\n"
+        except Exception as e:
+            logger.error(f"Error accessing OTM selection: {e}")
+            text += "OTM: N/A\n"
         
-        if strategy.target_trigger_pct > 0:
-            text += f"Target: {strategy.target_trigger_pct:.1f}% / {strategy.target_limit_pct:.1f}%\n"
+        text += f"SL: {sl_trigger:.1f}% / {sl_limit:.1f}%\n"
+        
+        if target_trigger > 0:
+            text += f"Target: {target_trigger:.1f}% / {target_limit:.1f}%\n"
         
         text += "\n"
     
@@ -321,6 +344,48 @@ async def strangle_view_callback(update: Update, context: ContextTypes.DEFAULT_T
     )
     
     log_user_action(user.id, "strangle_view", f"Viewed {len(strategies)} strategies")
+
+
+@error_handler
+async def strangle_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of strategies to edit."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get strategies
+    strategies = await get_strategy_presets_by_type(user.id, "strangle")
+    
+    if not strategies:
+        await query.edit_message_text(
+            "<b>✏️ Edit Strategy</b>\n\n"
+            "❌ No strategies found.",
+            reply_markup=get_strangle_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Create keyboard with strategies
+    keyboard = []
+    for strategy in strategies:
+        name = strategy.name if hasattr(strategy, 'name') else strategy.get('name', 'N/A')
+        strategy_id = str(strategy.id) if hasattr(strategy, 'id') else str(strategy.get('_id'))
+        
+        keyboard.append([InlineKeyboardButton(
+            f"✏️ {name}",
+            callback_data=f"strangle_edit_{strategy_id}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_strangle_strategy")])
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Strategy</b>\n\n"
+        "⚠️ <b>Note:</b> Edit functionality coming soon!\n\n"
+        "For now, please delete and recreate the strategy.\n\n"
+        "Select strategy to view:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
 
 
 @error_handler
@@ -346,9 +411,12 @@ async def strangle_delete_list_callback(update: Update, context: ContextTypes.DE
     # Create keyboard with strategies
     keyboard = []
     for strategy in strategies:
+        name = strategy.name if hasattr(strategy, 'name') else strategy.get('name', 'N/A')
+        strategy_id = str(strategy.id) if hasattr(strategy, 'id') else str(strategy.get('_id'))
+        
         keyboard.append([InlineKeyboardButton(
-            f"🗑️ {strategy.name}",
-            callback_data=f"strangle_delete_{str(strategy.id)}"  # ✅ FIXED: Use .id not ._id
+            f"🗑️ {name}",
+            callback_data=f"strangle_delete_{strategy_id}"
         )])
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_strangle_strategy")])
     
@@ -379,6 +447,8 @@ async def strangle_delete_callback(update: Update, context: ContextTypes.DEFAULT
     # Store strategy ID
     await state_manager.set_state_data(user.id, {'delete_strategy_id': strategy_id})
     
+    name = strategy.name if hasattr(strategy, 'name') else strategy.get('name', 'N/A')
+    
     keyboard = [
         [InlineKeyboardButton("✅ Confirm Delete", callback_data="strangle_delete_confirm")],
         [InlineKeyboardButton("❌ Cancel", callback_data="menu_strangle_strategy")]
@@ -386,7 +456,7 @@ async def strangle_delete_callback(update: Update, context: ContextTypes.DEFAULT
     
     await query.edit_message_text(
         f"<b>🗑️ Delete Strategy</b>\n\n"
-        f"<b>Name:</b> {strategy.name}\n\n"  # ✅ FIXED: Use .name
+        f"<b>Name:</b> {name}\n\n"
         f"⚠️ Are you sure you want to delete this strategy?\n\n"
         f"This action cannot be undone.",
         reply_markup=InlineKeyboardMarkup(keyboard),
@@ -450,7 +520,7 @@ async def strangle_skip_description_callback(update: Update, context: ContextTyp
     keyboard = [
         [InlineKeyboardButton("🟠 BTC", callback_data="strangle_asset_btc")],
         [InlineKeyboardButton("🔵 ETH", callback_data="strangle_asset_eth")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="strangle_cancel")]  # ✅ FIXED
+        [InlineKeyboardButton("🔙 Cancel", callback_data="strangle_cancel")]
     ]
     
     await query.edit_message_text(
@@ -480,7 +550,7 @@ async def strangle_skip_target_callback(update: Update, context: ContextTypes.DE
     keyboard = [
         [InlineKeyboardButton("📊 Percentage (Spot-based)", callback_data="strangle_otm_percentage")],
         [InlineKeyboardButton("🔢 Numeral (ATM-based)", callback_data="strangle_otm_numeral")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="strangle_cancel")]  # ✅ FIXED
+        [InlineKeyboardButton("🔙 Cancel", callback_data="strangle_cancel")]
     ]
     
     await query.edit_message_text(
@@ -508,7 +578,6 @@ def register_strangle_strategy_handlers(application: Application):
         pattern="^strangle_add$"
     ))
     
-    # ✅ ADD CANCEL HANDLER
     application.add_handler(CallbackQueryHandler(
         strangle_cancel_callback,
         pattern="^strangle_cancel$"
@@ -539,6 +608,12 @@ def register_strangle_strategy_handlers(application: Application):
         pattern="^strangle_view$"
     ))
     
+    # ✅ ADD EDIT LIST HANDLER
+    application.add_handler(CallbackQueryHandler(
+        strangle_edit_list_callback,
+        pattern="^strangle_edit_list$"
+    ))
+    
     application.add_handler(CallbackQueryHandler(
         strangle_delete_list_callback,
         pattern="^strangle_delete_list$"
@@ -565,4 +640,3 @@ def register_strangle_strategy_handlers(application: Application):
     ))
     
     logger.info("Strangle strategy handlers registered")
-    
