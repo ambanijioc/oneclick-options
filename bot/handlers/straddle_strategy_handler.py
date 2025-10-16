@@ -415,7 +415,7 @@ async def straddle_delete_list_callback(update: Update, context: ContextTypes.DE
     for strategy in strategies:
         keyboard.append([InlineKeyboardButton(
             f"🗑️ {strategy.name}",
-            callback_data=f"straddle_delete_{strategy._id}"
+            callback_data=f"straddle_delete_{str(strategy.id)}"
         )])
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")])
     
