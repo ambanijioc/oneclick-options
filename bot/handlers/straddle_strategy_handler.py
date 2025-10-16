@@ -111,7 +111,7 @@ async def straddle_skip_description_callback(update: Update, context: ContextTyp
     keyboard = [
         [InlineKeyboardButton("🟠 BTC", callback_data="straddle_asset_btc")],
         [InlineKeyboardButton("🔵 ETH", callback_data="straddle_asset_eth")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]
+        [InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]
     ]
     
     await query.edit_message_text(
@@ -138,7 +138,7 @@ async def straddle_skip_target_callback(update: Update, context: ContextTypes.DE
     await state_manager.set_state_data(user.id, state_data)
     await state_manager.set_state(user.id, 'straddle_add_atm_offset')
     
-    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
     
     await query.edit_message_text(
         f"<b>➕ Add Straddle Strategy</b>\n\n"
