@@ -821,6 +821,117 @@ async def strangle_edit_dir_set_callback(update: Update, context: ContextTypes.D
         await query.answer("❌ Update failed", show_alert=True)
 
 
+# Add these after the direction edit handler
+
+# SL Edit
+@error_handler
+async def strangle_edit_sl_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing SL."""
+    query = update.callback_query
+    await query.answer()
+    
+    strategy_id = query.data.split('_')[-1]
+    
+    # Set state
+    await state_manager.set_state(user.id, 'strangle_edit_sl_trigger_input')
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"strangle_edit_{strategy_id}")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Stop Loss Trigger</b>\n\n"
+        "Enter new SL trigger percentage:\n\n"
+        "Example: <code>50</code> (for 50% loss)",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# Target Edit
+@error_handler
+async def strangle_edit_target_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing target."""
+    query = update.callback_query
+    await query.answer()
+    
+    strategy_id = query.data.split('_')[-1]
+    
+    await state_manager.set_state(user.id, 'strangle_edit_target_trigger_input')
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"strangle_edit_{strategy_id}")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Target Trigger</b>\n\n"
+        "Enter new target trigger percentage:\n\n"
+        "Example: <code>100</code> (for 100% profit)\n"
+        "Or <code>0</code> to disable",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# OTM Edit
+@error_handler
+async def strangle_edit_otm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing OTM."""
+    query = update.callback_query
+    await query.answer()
+    
+    strategy_id = query.data.split('_')[-1]
+    
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    keyboard = [
+        [InlineKeyboardButton("📊 Percentage", callback_data=f"strangle_edit_otm_type_percentage_{strategy_id}")],
+        [InlineKeyboardButton("🔢 Numeral", callback_data=f"strangle_edit_otm_type_numeral_{strategy_id}")],
+        [InlineKeyboardButton("🔙 Cancel", callback_data=f"strangle_edit_{strategy_id}")]
+    ]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit OTM Selection</b>\n\n"
+        "Select OTM method:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def strangle_edit_otm_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle OTM type selection for edit."""
+    query = update.callback_query
+    await query.answer()
+    
+    parts = query.data.split('_')
+    otm_type = parts[-2]  # percentage or numeral
+    strategy_id = parts[-1]
+    
+    # Store OTM type
+    await state_manager.set_state(user.id, 'strangle_edit_otm_value_input')
+    await state_manager.set_state_data(user.id, {
+        'edit_strategy_id': strategy_id,
+        'otm_type': otm_type
+    })
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"strangle_edit_{strategy_id}")]]
+    
+    if otm_type == 'percentage':
+        await query.edit_message_text(
+            "<b>✏️ Edit OTM Percentage</b>\n\n"
+            "Enter new OTM percentage:\n\n"
+            "Example: <code>1</code> (for 1%)",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+    else:
+        await query.edit_message_text(
+            "<b>✏️ Edit OTM Strikes</b>\n\n"
+            "Enter number of strikes from ATM:\n\n"
+            "Example: <code>4</code>",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+
 @error_handler
 async def strangle_delete_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show list of strategies to delete."""
