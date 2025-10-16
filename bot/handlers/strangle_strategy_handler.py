@@ -830,6 +830,7 @@ async def strangle_edit_sl_callback(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.answer()
     
+    user = query.from_user  # ✅ ADD THIS
     strategy_id = query.data.split('_')[-1]
     
     # Set state
@@ -853,7 +854,8 @@ async def strangle_edit_target_callback(update: Update, context: ContextTypes.DE
     """Start editing target."""
     query = update.callback_query
     await query.answer()
-    
+
+    user = query.from_user  # ✅ ADD THIS
     strategy_id = query.data.split('_')[-1]
     
     await state_manager.set_state(user.id, 'strangle_edit_target_trigger_input')
@@ -878,6 +880,7 @@ async def strangle_edit_otm_callback(update: Update, context: ContextTypes.DEFAU
     query = update.callback_query
     await query.answer()
     
+    user = query.from_user  # ✅ ADD THIS
     strategy_id = query.data.split('_')[-1]
     
     await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
@@ -902,6 +905,7 @@ async def strangle_edit_otm_type_callback(update: Update, context: ContextTypes.
     query = update.callback_query
     await query.answer()
     
+    user = query.from_user  # ✅ ADD THIS
     parts = query.data.split('_')
     otm_type = parts[-2]  # percentage or numeral
     strategy_id = parts[-1]
