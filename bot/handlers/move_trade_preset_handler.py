@@ -114,19 +114,12 @@ async def move_preset_select_api_callback(update: Update, context: ContextTypes.
         )
         return
     
-    # ✅ FIXED: Proper Pydantic/dict handling
+    # ✅ FIXED: Use Pydantic attributes
     keyboard = []
     for api in apis:
-        if hasattr(api, 'name'):  # Pydantic model
-            name = api.name
-            api_id = str(api.id)
-        else:  # Dict
-            name = api.get('name', 'N/A')
-            api_id = str(api.get('_id', ''))
-        
         keyboard.append([InlineKeyboardButton(
-            f"🔑 {name}",
-            callback_data=f"move_preset_api_{api_id}"
+            f"🔑 {api.api_name}",
+            callback_data=f"move_preset_api_{api.id}"
         )])
     
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_move_preset")])
@@ -165,13 +158,13 @@ async def move_preset_api_selected_callback(update: Update, context: ContextType
         )
         return
     
-    # ✅ FIXED: Proper Pydantic/dict handling
+    # ✅ FIXED: Use Pydantic attributes
     keyboard = []
     for strategy in strategies:
         if hasattr(strategy, 'strategy_name'):  # Pydantic model
             name = strategy.strategy_name
             strategy_id = str(strategy.id)
-        else:  # Dict
+        else:  # Dict fallback
             name = strategy.get('strategy_name', 'N/A')
             strategy_id = str(strategy.get('_id', ''))
         
@@ -219,11 +212,11 @@ async def move_preset_strategy_selected_callback(update: Update, context: Contex
         )
         return
     
-    # ✅ FIXED: Extract details properly
-    if hasattr(api, 'name'):
-        api_name = api.name
+    # ✅ FIXED: Use Pydantic attributes
+    if hasattr(api, 'api_name'):
+        api_name = api.api_name
     else:
-        api_name = api.get('name', 'N/A')
+        api_name = api.get('api_name', 'N/A')
     
     if hasattr(strategy, 'strategy_name'):
         strategy_name = strategy.strategy_name
@@ -335,7 +328,7 @@ async def move_preset_view_callback(update: Update, context: ContextTypes.DEFAUL
     
     text = "<b>👁️ Move Trade Presets</b>\n\n"
     
-    # ✅ FIXED: Proper handling
+    # ✅ FIXED: Handle both Pydantic and dict
     for preset in presets:
         if hasattr(preset, 'preset_name'):
             name = preset.preset_name
@@ -381,7 +374,7 @@ async def move_preset_delete_list_callback(update: Update, context: ContextTypes
         )
         return
     
-    # ✅ FIXED: Proper handling
+    # ✅ FIXED: Handle both Pydantic and dict
     keyboard = []
     for preset in presets:
         if hasattr(preset, 'preset_name'):
