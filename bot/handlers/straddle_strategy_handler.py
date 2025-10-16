@@ -340,6 +340,90 @@ async def straddle_direction_callback(update: Update, context: ContextTypes.DEFA
 
 
 @error_handler
+async def straddle_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of strategies to edit."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get strategies
+    strategies = await get_strategy_presets_by_type(user.id, "straddle")
+    
+    if not strategies:
+        await query.edit_message_text(
+            "<b>✏️ Edit Strategy</b>\n\n"
+            "❌ No strategies found.",
+            reply_markup=get_straddle_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Create keyboard with strategies
+    keyboard = []
+    for strategy in strategies:
+        keyboard.append([InlineKeyboardButton(
+            f"✏️ {strategy.name}",
+            callback_data=f"straddle_edit_{str(strategy.id)}"
+        )])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")])
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Strategy</b>\n\n"
+        "Select strategy to edit:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def straddle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show edit options for selected strategy."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    strategy_id = query.data.split('_')[-1]
+    
+    # Get strategy
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    
+    if not strategy:
+        await query.edit_message_text("❌ Strategy not found")
+        return
+    
+    # Store strategy ID for editing
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    # Show current strategy details with edit options
+    target_text = ""
+    if strategy.target_trigger_pct > 0:
+        target_text = f"Target: {strategy.target_trigger_pct:.1f}% / {strategy.target_limit_pct:.1f}%\n"
+    
+    keyboard = [
+        [InlineKeyboardButton("📝 Edit Name", callback_data=f"straddle_edit_name_{strategy_id}")],
+        [InlineKeyboardButton("📝 Edit Description", callback_data=f"straddle_edit_desc_{strategy_id}")],
+        [InlineKeyboardButton("📝 Edit SL %", callback_data=f"straddle_edit_sl_{strategy_id}")],
+        [InlineKeyboardButton("📝 Edit Target %", callback_data=f"straddle_edit_target_{strategy_id}")],
+        [InlineKeyboardButton("🔙 Back", callback_data="straddle_edit_list")]
+    ]
+    
+    await query.edit_message_text(
+        f"<b>✏️ Edit Strategy</b>\n\n"
+        f"<b>Current Settings:</b>\n\n"
+        f"Name: <b>{strategy.name}</b>\n"
+        f"Description: <i>{strategy.description or 'None'}</i>\n"
+        f"Asset: {strategy.asset} | Expiry: {strategy.expiry_code}\n"
+        f"Direction: {strategy.direction.title()} | Lots: {strategy.lot_size}\n"
+        f"ATM Offset: {strategy.atm_offset:+d}\n"
+        f"SL: {strategy.sl_trigger_pct:.1f}% / {strategy.sl_limit_pct:.1f}%\n"
+        + target_text +
+        "\nSelect what you want to edit:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+    
+@error_handler
 async def straddle_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Display all straddle strategies."""
     query = update.callback_query
