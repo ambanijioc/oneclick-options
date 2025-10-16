@@ -35,15 +35,13 @@ async def handle_move_preset_name_input(update: Update, context: ContextTypes.DE
         await state_manager.clear_state(user.id)
         return
     
-    # Create keyboard with APIs
+    # ✅ FIXED: Proper Pydantic/dict handling (NO MIXING)
     keyboard = []
     for api in apis:
-        # ✅ FIXED: Only use hasattr, no .get() on Pydantic models
-        if hasattr(api, 'name'):
+        if hasattr(api, 'name'):  # Pydantic model
             name = api.name
             api_id = str(api.id)
-        else:
-            # Fallback for dict (shouldn't happen but safe)
+        else:  # Dict fallback
             name = api.get('name', 'N/A')
             api_id = str(api.get('_id', ''))
         
