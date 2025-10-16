@@ -451,7 +451,114 @@ async def move_preset_delete_confirm_callback(update: Update, context: ContextTy
     
     # Clear state
     await state_manager.clear_state(user.id)
+# Add these BEFORE register_move_preset_handlers() function
 
+# ========== EDIT PRESET ==========
+
+@error_handler
+async def move_preset_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of presets to edit."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get presets
+    presets = await get_move_trade_presets(user.id)
+    
+    if not presets:
+        await query.edit_message_text(
+            "<b>✏️ Edit Preset</b>\n\n"
+            "❌ No presets found.",
+            reply_markup=get_move_preset_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Create keyboard
+    keyboard = []
+    for preset in presets:
+        name = preset.preset_name if hasattr(preset, 'preset_name') else preset.get('preset_name', 'N/A')
+        preset_id = str(preset.id) if hasattr(preset, 'id') else str(preset.get('_id', ''))
+        
+        keyboard.append([InlineKeyboardButton(
+            f"✏️ {name}",
+            callback_data=f"move_preset_edit_{preset_id}"
+        )])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_move_preset")])
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Preset</b>\n\n"
+        "Select preset to edit:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def move_preset_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show preset edit options."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    preset_id = query.data.split('_')[-1]
+    
+    # Get preset
+    preset = await get_move_trade_preset_by_id(preset_id)
+    
+    if not preset:
+        await query.edit_message_text("❌ Preset not found")
+        return
+    
+    name = preset.preset_name if hasattr(preset, 'preset_name') else preset.get('preset_name', 'N/A')
+    
+    # Store preset ID for editing
+    await state_manager.set_state_data(user.id, {'edit_preset_id': preset_id})
+    
+    text = (
+        f"<b>✏️ Edit Preset</b>\n\n"
+        f"<b>Current Name:</b> {name}\n\n"
+        f"What would you like to edit?"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("📝 Edit Name", callback_data=f"move_preset_edit_name_{preset_id}")],
+        [InlineKeyboardButton("🔑 Change API", callback_data=f"move_preset_edit_api_{preset_id}")],
+        [InlineKeyboardButton("📊 Change Strategy", callback_data=f"move_preset_edit_strategy_{preset_id}")],
+        [InlineKeyboardButton("🔙 Back to List", callback_data="move_preset_edit_list")],
+        [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_move_preset")]
+    ]
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def move_preset_edit_name_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing preset name."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    preset_id = query.data.split('_')[-1]
+    
+    # Set state
+    await state_manager.set_state(user.id, 'move_preset_edit_name')
+    await state_manager.set_state_data(user.id, {'edit_preset_id': preset_id})
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"move_preset_edit_{preset_id}")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Preset Name</b>\n\n"
+        "Enter new name for this preset:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
 
 # ========== REGISTER HANDLERS ==========
 
@@ -506,6 +613,22 @@ def register_move_preset_handlers(application: Application):
     application.add_handler(CallbackQueryHandler(
         move_preset_delete_confirm_callback,
         pattern="^move_preset_delete_confirm$"
+    ))
+
+    # Then add these to register function:
+    application.add_handler(CallbackQueryHandler(
+        move_preset_edit_list_callback,
+        pattern="^move_preset_edit_list$"
+    ))
+
+    application.add_handler(CallbackQueryHandler(
+        move_preset_edit_callback,
+        pattern="^move_preset_edit_[a-f0-9]{24}$"
+    ))
+
+    application.add_handler(CallbackQueryHandler(
+        move_preset_edit_name_callback,
+        pattern="^move_preset_edit_name_[a-f0-9]{24}$"
     ))
     
     logger.info("Move trade preset handlers registered")
