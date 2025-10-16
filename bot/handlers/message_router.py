@@ -46,7 +46,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logger.info(f"Routing to handler for state: {state_str}")
         
-        # API conversation states
+        # ==================== API STATES ====================
         if state_str == 'api_add_name' or state == ConversationState.API_ADD_NAME:
             from .api_handler import handle_api_name_input
             await handle_api_name_input(update, context)
@@ -63,48 +63,40 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .api_handler import handle_api_secret_input
             await handle_api_secret_input(update, context)
         
-        # Straddle strategy states
+        # ==================== STRADDLE STRATEGY STATES ====================
         elif state_str == 'straddle_add_name':
             from .straddle_input_handlers import handle_straddle_name_input
-            logger.info("→ Calling handle_straddle_name_input")
             await handle_straddle_name_input(update, context, text)
         
         elif state_str == 'straddle_add_description':
             from .straddle_input_handlers import handle_straddle_description_input
-            logger.info("→ Calling handle_straddle_description_input")
             await handle_straddle_description_input(update, context, text)
         
         elif state_str == 'straddle_add_lot_size':
             from .straddle_input_handlers import handle_straddle_lot_size_input
-            logger.info("→ Calling handle_straddle_lot_size_input")
             await handle_straddle_lot_size_input(update, context, text)
         
         elif state_str == 'straddle_add_sl_trigger':
             from .straddle_input_handlers import handle_straddle_sl_trigger_input
-            logger.info("→ Calling handle_straddle_sl_trigger_input")
             await handle_straddle_sl_trigger_input(update, context, text)
         
         elif state_str == 'straddle_add_sl_limit':
             from .straddle_input_handlers import handle_straddle_sl_limit_input
-            logger.info("→ Calling handle_straddle_sl_limit_input")
             await handle_straddle_sl_limit_input(update, context, text)
         
         elif state_str == 'straddle_add_target_trigger':
             from .straddle_input_handlers import handle_straddle_target_trigger_input
-            logger.info("→ Calling handle_straddle_target_trigger_input")
             await handle_straddle_target_trigger_input(update, context, text)
         
         elif state_str == 'straddle_add_target_limit':
             from .straddle_input_handlers import handle_straddle_target_limit_input
-            logger.info("→ Calling handle_straddle_target_limit_input")
             await handle_straddle_target_limit_input(update, context, text)
         
         elif state_str == 'straddle_add_atm_offset':
             from .straddle_input_handlers import handle_straddle_atm_offset_input
-            logger.info("→ Calling handle_straddle_atm_offset_input")
             await handle_straddle_atm_offset_input(update, context, text)
 
-        # Strangle strategy states - USE strangle_input_handlers.py
+        # ==================== STRANGLE STRATEGY STATES ====================
         elif state_str == 'strangle_add_name':
             from .strangle_input_handlers import handle_strangle_name_input
             await handle_strangle_name_input(update, context, text)
@@ -137,8 +129,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .strangle_input_handlers import handle_strangle_otm_value_input
             await handle_strangle_otm_value_input(update, context, text)
 
-        # Add these after the strangle_add_otm_value state in message_router.py
-
+        # Strangle EDIT states
         elif state_str == 'strangle_edit_name_input':
             from .strangle_input_handlers import handle_strangle_edit_name_input
             await handle_strangle_edit_name_input(update, context, text)
@@ -171,81 +162,58 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .strangle_input_handlers import handle_strangle_edit_otm_value_input
             await handle_strangle_edit_otm_value_input(update, context, text)
 
-        # ✅ Move strategy states - NEW
+        # ==================== MOVE STRATEGY STATES ====================
         elif state_str == 'move_strategy_add_name':
             from .move_input_handlers import handle_move_name_input
-            logger.info("→ Calling handle_move_name_input")
             await handle_move_name_input(update, context, text)
         
         elif state_str == 'move_strategy_add_description':
             from .move_input_handlers import handle_move_description_input
-            logger.info("→ Calling handle_move_description_input")
             await handle_move_description_input(update, context, text)
         
         elif state_str == 'move_strategy_add_lot_size':
             from .move_input_handlers import handle_move_lot_size_input
-            logger.info("→ Calling handle_move_lot_size_input")
             await handle_move_lot_size_input(update, context, text)
         
         elif state_str == 'move_strategy_add_sl_trigger':
             from .move_input_handlers import handle_move_sl_trigger_input
-            logger.info("→ Calling handle_move_sl_trigger_input")
             await handle_move_sl_trigger_input(update, context, text)
         
         elif state_str == 'move_strategy_add_sl_limit':
             from .move_input_handlers import handle_move_sl_limit_input
-            logger.info("→ Calling handle_move_sl_limit_input")
             await handle_move_sl_limit_input(update, context, text)
         
         elif state_str == 'move_strategy_add_target_trigger':
             from .move_input_handlers import handle_move_target_trigger_input
-            logger.info("→ Calling handle_move_target_trigger_input")
             await handle_move_target_trigger_input(update, context, text)
         
         elif state_str == 'move_strategy_add_target_limit':
             from .move_input_handlers import handle_move_target_limit_input
-            logger.info("→ Calling handle_move_target_limit_input")
             await handle_move_target_limit_input(update, context, text)
         
         elif state_str == 'move_strategy_add_atm_offset':
             from .move_input_handlers import handle_move_atm_offset_input
-            logger.info("→ Calling handle_move_atm_offset_input")
             await handle_move_atm_offset_input(update, context, text)
 
-        # Add after move strategy states (around line 180)
-
-        # Move Trade Preset states
+        # ==================== MOVE TRADE PRESET STATES ====================
         elif state_str == 'move_preset_add_name':
             from .move_preset_input_handlers import handle_move_preset_name_input
-            logger.info("→ Calling handle_move_preset_name_input")
             await handle_move_preset_name_input(update, context, text)
 
         elif state_str == 'move_preset_edit_name':
             from .move_preset_input_handlers import handle_move_preset_name_input
             await handle_move_preset_name_input(update, context, text)
 
-        # Add these after move_preset states (around line 230)
-
-        # Manual Trade Preset states
+        # ==================== MANUAL TRADE PRESET STATES ====================
         elif state_str == 'manual_preset_add_name':
             from .manual_preset_input_handlers import handle_manual_preset_name_input
-            logger.info("→ Calling handle_manual_preset_name_input")
             await handle_manual_preset_name_input(update, context, text)
 
         elif state_str == 'manual_preset_edit_name':
             from .manual_preset_input_handlers import handle_manual_preset_name_input
             await handle_manual_preset_name_input(update, context, text)
 
-        # Manual trade preset states
-        elif state_str == 'manual_preset_add_name':
-            from .manual_trade_preset_handler import handle_manual_preset_name_input
-            await handle_manual_preset_name_input(update, context, text)
-        
-        elif state_str == 'manual_preset_edit_name':
-            from .manual_trade_preset_handler import handle_manual_preset_name_input
-            await handle_manual_preset_name_input(update, context, text)
-
-        # Auto trade states
+        # ==================== AUTO TRADE STATES ====================
         elif state_str == 'auto_trade_add_time':
             from .auto_trade_handler import handle_auto_trade_time_input
             await handle_auto_trade_time_input(update, context, text)
