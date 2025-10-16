@@ -331,7 +331,7 @@ def register_move_auto_trade_handlers(application: Application):
     
     application.add_handler(CallbackQueryHandler(
         move_auto_trade_menu_callback,
-        pattern="^menu_move_auto_trade$"
+        pattern="^menu_auto_move_trade$"
     ))
     
     application.add_handler(CallbackQueryHandler(
