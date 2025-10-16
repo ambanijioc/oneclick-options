@@ -137,6 +137,40 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .strangle_input_handlers import handle_strangle_otm_value_input
             await handle_strangle_otm_value_input(update, context, text)
 
+        # Add these after the strangle_add_otm_value state in message_router.py
+
+        elif state_str == 'strangle_edit_name_input':
+            from .strangle_input_handlers import handle_strangle_edit_name_input
+            await handle_strangle_edit_name_input(update, context, text)
+
+        elif state_str == 'strangle_edit_desc_input':
+            from .strangle_input_handlers import handle_strangle_edit_desc_input
+            await handle_strangle_edit_desc_input(update, context, text)
+
+        elif state_str == 'strangle_edit_lot_input':
+            from .strangle_input_handlers import handle_strangle_edit_lot_input
+            await handle_strangle_edit_lot_input(update, context, text)
+
+        elif state_str == 'strangle_edit_sl_trigger_input':
+            from .strangle_input_handlers import handle_strangle_edit_sl_trigger_input
+            await handle_strangle_edit_sl_trigger_input(update, context, text)
+
+        elif state_str == 'strangle_edit_sl_limit_input':
+            from .strangle_input_handlers import handle_strangle_edit_sl_limit_input
+            await handle_strangle_edit_sl_limit_input(update, context, text)
+
+        elif state_str == 'strangle_edit_target_trigger_input':
+            from .strangle_input_handlers import handle_strangle_edit_target_trigger_input
+            await handle_strangle_edit_target_trigger_input(update, context, text)
+
+        elif state_str == 'strangle_edit_target_limit_input':
+            from .strangle_input_handlers import handle_strangle_edit_target_limit_input
+            await handle_strangle_edit_target_limit_input(update, context, text)
+
+        elif state_str == 'strangle_edit_otm_value_input':
+            from .strangle_input_handlers import handle_strangle_edit_otm_value_input
+            await handle_strangle_edit_otm_value_input(update, context, text)
+
         # ✅ Move strategy states - NEW
         elif state_str == 'move_strategy_add_name':
             from .move_input_handlers import handle_move_name_input
