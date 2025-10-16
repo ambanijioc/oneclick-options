@@ -106,10 +106,11 @@ async def log_to_telegram(
     level: str = "INFO",
     module: Optional[str] = None,
     user_id: Optional[int] = None,
-    error_details: Optional[str] = None
+    error_details: Optional[str] = None,
+    timeout: float = 3.0  # ✅ ADD TIMEOUT
 ) -> bool:
     """
-    Send log message to Telegram bot with rate limiting.
+    Send log message to Telegram bot with rate limiting and timeout.
     
     Args:
         message: Log message to send
@@ -117,6 +118,7 @@ async def log_to_telegram(
         module: Module name where log originated
         user_id: User ID if applicable
         error_details: Additional error details (traceback)
+        timeout: Maximum time to wait for send (seconds)
     
     Returns:
         True if message was sent successfully, False otherwise
@@ -128,52 +130,58 @@ async def log_to_telegram(
         return False
     
     try:
-        async with _telegram_log_lock:
-            current_time = datetime.now()
-            
-            # Reset queue if more than a minute has passed
-            if (current_time - _last_telegram_log_time).seconds >= 60:
-                _telegram_log_queue.clear()
-                _last_telegram_log_time = current_time
-            
-            # Check rate limit
-            if len(_telegram_log_queue) >= MAX_TELEGRAM_LOGS_PER_MINUTE:
-                return False
-            
-            # Format message
-            emoji = _get_log_emoji(level)
-            formatted_message = f"{emoji} <b>{level.upper()}</b>\n"
-            formatted_message += f"⏰ {current_time.strftime('%Y-%m-%d %H:%M:%S IST')}\n"
-            
-            if module:
-                formatted_message += f"📦 Module: <code>{module}</code>\n"
-            
-            if user_id:
-                formatted_message += f"👤 User: <code>{user_id}</code>\n"
-            
-            formatted_message += f"\n💬 {message}\n"
-            
-            if error_details:
-                # Truncate if too long
-                if len(error_details) > 500:
-                    error_details = error_details[:500] + "...\n[Truncated]"
-                formatted_message += f"\n<pre>{error_details}</pre>"
-            
-            # Truncate entire message if too long (Telegram limit: 4096 chars)
-            if len(formatted_message) > 4000:
-                formatted_message = formatted_message[:4000] + "\n...\n[Message truncated]"
-            
-            # Send message
-            bot = _get_log_bot()
-            await bot.send_message(
-                chat_id=settings.LOG_CHAT_ID,
-                text=formatted_message,
-                parse_mode='HTML'
-            )
-            
-            _telegram_log_queue.append(current_time)
-            return True
-            
+        # ✅ ADD TIMEOUT PROTECTION
+        async with asyncio.timeout(timeout):  # Python 3.11+
+            async with _telegram_log_lock:
+                current_time = datetime.now()
+                
+                # Reset queue if more than a minute has passed
+                if (current_time - _last_telegram_log_time).seconds >= 60:
+                    _telegram_log_queue.clear()
+                    _last_telegram_log_time = current_time
+                
+                # Check rate limit
+                if len(_telegram_log_queue) >= MAX_TELEGRAM_LOGS_PER_MINUTE:
+                    return False
+                
+                # Format message
+                emoji = _get_log_emoji(level)
+                formatted_message = f"{emoji} <b>{level.upper()}</b>\n"
+                formatted_message += f"⏰ {current_time.strftime('%Y-%m-%d %H:%M:%S IST')}\n"
+                
+                if module:
+                    formatted_message += f"📦 Module: <code>{module}</code>\n"
+                
+                if user_id:
+                    formatted_message += f"👤 User: <code>{user_id}</code>\n"
+                
+                formatted_message += f"\n💬 {message}\n"
+                
+                if error_details:
+                    # Truncate if too long
+                    if len(error_details) > 500:
+                        error_details = error_details[:500] + "...\n[Truncated]"
+                    formatted_message += f"\n<pre>{error_details}</pre>"
+                
+                # Truncate entire message if too long (Telegram limit: 4096 chars)
+                if len(formatted_message) > 4000:
+                    formatted_message = formatted_message[:4000] + "\n...\n[Message truncated]"
+                
+                # Send message
+                bot = _get_log_bot()
+                await bot.send_message(
+                    chat_id=settings.LOG_CHAT_ID,
+                    text=formatted_message,
+                    parse_mode='HTML'
+                )
+                
+                _telegram_log_queue.append(current_time)
+                return True
+    
+    except asyncio.TimeoutError:  # ✅ HANDLE TIMEOUT
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Telegram log timed out after {timeout}s")
+        return False
     except TelegramError as e:
         # Log to console if Telegram fails
         logger = logging.getLogger(__name__)
