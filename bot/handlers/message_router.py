@@ -104,6 +104,39 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info("→ Calling handle_straddle_atm_offset_input")
             await handle_straddle_atm_offset_input(update, context, text)
 
+        # Strangle strategy states - USE strangle_input_handlers.py
+        elif state_str == 'strangle_add_name':
+            from .strangle_input_handlers import handle_strangle_name_input
+            await handle_strangle_name_input(update, context, text)
+
+        elif state_str == 'strangle_add_description':
+            from .strangle_input_handlers import handle_strangle_description_input
+            await handle_strangle_description_input(update, context, text)
+
+        elif state_str == 'strangle_add_lot_size':
+            from .strangle_input_handlers import handle_strangle_lot_size_input
+            await handle_strangle_lot_size_input(update, context, text)
+
+        elif state_str == 'strangle_add_sl_trigger':
+            from .strangle_input_handlers import handle_strangle_sl_trigger_input
+            await handle_strangle_sl_trigger_input(update, context, text)
+
+        elif state_str == 'strangle_add_sl_limit':
+            from .strangle_input_handlers import handle_strangle_sl_limit_input
+            await handle_strangle_sl_limit_input(update, context, text)
+
+        elif state_str == 'strangle_add_target_trigger':
+            from .strangle_input_handlers import handle_strangle_target_trigger_input
+            await handle_strangle_target_trigger_input(update, context, text)
+
+        elif state_str == 'strangle_add_target_limit':
+            from .strangle_input_handlers import handle_strangle_target_limit_input
+            await handle_strangle_target_limit_input(update, context, text)
+
+        elif state_str == 'strangle_add_otm_value':
+            from .strangle_input_handlers import handle_strangle_otm_value_input
+            await handle_strangle_otm_value_input(update, context, text)
+
         # Manual trade preset states
         elif state_str == 'manual_preset_add_name':
             from .manual_trade_preset_handler import handle_manual_preset_name_input
