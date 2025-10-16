@@ -130,7 +130,52 @@ def register_start_handler(application: Application):
     
     logger.info("Start handler registered")
 
-
+@error_handler
+async def menu_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 'Back to Main Menu' button - returns to main menu."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    if not await check_user_authorization(user):
+        await query.edit_message_text("❌ Unauthorized access")
+        return
+    
+    # Clear any state
+    await state_manager.clear_state(user.id)
+    
+    # Show main menu
+    keyboard = [
+        [InlineKeyboardButton("💰 Balance", callback_data="menu_balance")],
+        [InlineKeyboardButton("📊 Positions", callback_data="menu_positions")],
+        [InlineKeyboardButton("📋 Orders", callback_data="menu_orders")],
+        [InlineKeyboardButton("📜 Trade History", callback_data="menu_trade_history")],
+        [InlineKeyboardButton("📝 List Options", callback_data="menu_list_options")],
+        [InlineKeyboardButton("📝 List Move Options", callback_data="menu_list_move_options")],
+        [InlineKeyboardButton("🎯 Straddle Strategy", callback_data="menu_straddle_strategy")],
+        [InlineKeyboardButton("🎯 Strangle Strategy", callback_data="menu_strangle_strategy")],
+        [InlineKeyboardButton("🎯 Move Strategy", callback_data="menu_move_strategy")],
+        [InlineKeyboardButton("📋 Manual Trade Presets", callback_data="menu_manual_trade_presets")],
+        [InlineKeyboardButton("📝 Manual Trade", callback_data="menu_manual_trade")],
+        [InlineKeyboardButton("🔀 Manual Move Trade", callback_data="menu_manual_move_trade")],
+        [InlineKeyboardButton("🤖 Auto Trade", callback_data="menu_auto_trade")],
+        [InlineKeyboardButton("🤖 Auto Move Trade", callback_data="menu_auto_move_trade")],
+        [InlineKeyboardButton("🔑 API Keys", callback_data="menu_api")],
+        [InlineKeyboardButton("❓ Help", callback_data="menu_help")]
+    ]
+    
+    await query.edit_message_text(
+        f"<b>👋 Welcome G!</b>\n\n"
+        f"<b>🤖 Telegram Trading Bot</b>\n"
+        f"Automated options trading with Delta Exchange India\n\n"
+        f"Select an option from the menu below:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+    
+    log_user_action(user.id, "menu_main", "Returned to main menu")
+    
 if __name__ == "__main__":
     print("Start handler module loaded")
   
