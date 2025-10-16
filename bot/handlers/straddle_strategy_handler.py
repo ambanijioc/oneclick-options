@@ -367,16 +367,17 @@ async def straddle_view_callback(update: Update, context: ContextTypes.DEFAULT_T
     text = "<b>👁️ Straddle Strategies</b>\n\n"
     
     for strategy in strategies:
-        text += f"<b>📊 {strategy['name']}</b>\n"
-        if strategy.get('description'):
-            text += f"<i>{strategy['description']}</i>\n"
-        text += f"Asset: {strategy['asset']} | Expiry: {strategy['expiry_code']}\n"
-        text += f"Direction: {strategy['direction'].title()} | Lots: {strategy['lot_size']}\n"
-        text += f"ATM Offset: {strategy.get('atm_offset', 0):+d}\n"
-        text += f"SL: {strategy['sl_trigger_pct']:.1f}% / {strategy['sl_limit_pct']:.1f}%\n"
+        # ✅ Use dot notation for Pydantic model
+        text += f"<b>📊 {strategy.name}</b>\n"
+        if strategy.description:
+            text += f"<i>{strategy.description}</i>\n"
+        text += f"Asset: {strategy.asset} | Expiry: {strategy.expiry_code}\n"
+        text += f"Direction: {strategy.direction.title()} | Lots: {strategy.lot_size}\n"
+        text += f"ATM Offset: {strategy.atm_offset:+d}\n"
+        text += f"SL: {strategy.sl_trigger_pct:.1f}% / {strategy.sl_limit_pct:.1f}%\n"
         
-        if strategy.get('target_trigger_pct', 0) > 0:
-            text += f"Target: {strategy['target_trigger_pct']:.1f}% / {strategy['target_limit_pct']:.1f}%\n"
+        if strategy.target_trigger_pct > 0:
+            text += f"Target: {strategy.target_trigger_pct:.1f}% / {strategy.target_limit_pct:.1f}%\n"
         
         text += "\n"
     
