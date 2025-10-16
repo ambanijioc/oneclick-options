@@ -122,6 +122,13 @@ def register_all_handlers(application: Application):
             register_move_auto_trade_handlers(application)
         except ImportError as e:
             logger.warning(f"Move auto trade handler not found: {e}")
+
+        try:
+            from .move_trade_preset_handler import register_move_preset_handlers
+            register_move_preset_handlers(application)
+            logger.info("Move trade preset handlers registered")
+        except ImportError as e:
+            logger.warning(f"Move trade preset handler not found: {e}")
      
         # Register message router LAST (lowest priority)
         from .message_router import route_message
