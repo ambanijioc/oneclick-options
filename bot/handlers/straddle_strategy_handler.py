@@ -414,8 +414,8 @@ async def straddle_delete_list_callback(update: Update, context: ContextTypes.DE
     keyboard = []
     for strategy in strategies:
         keyboard.append([InlineKeyboardButton(
-            f"🗑️ {strategy['name']}",
-            callback_data=f"straddle_delete_{strategy['_id']}"
+            f"🗑️ {strategy.name}",
+            callback_data=f"straddle_delete_{strategy._id}"
         )])
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")])
     
@@ -453,7 +453,7 @@ async def straddle_delete_callback(update: Update, context: ContextTypes.DEFAULT
     
     await query.edit_message_text(
         f"<b>🗑️ Delete Strategy</b>\n\n"
-        f"<b>Name:</b> {strategy['name']}\n\n"
+        f"<b>Name:</b> {strategy.name}\n\n"
         f"⚠️ Are you sure you want to delete this strategy?\n\n"
         f"This action cannot be undone.",
         reply_markup=InlineKeyboardMarkup(keyboard),
