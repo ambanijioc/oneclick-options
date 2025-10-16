@@ -278,14 +278,14 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
         state_data = await state_manager.get_state_data(user.id)
         
         # ✅ Convert strikes to dollar offset (BTC = 200, ETH = 50)
-        strike_increment = 200 if state_data['asset'] == 'BTC' else 50
+        strike_increment = 200 if state_data['asset'] == 'BTC' else 20
         atm_offset = atm_strikes * strike_increment
         
         # ✅ Create StrategyPresetCreate object
         from database.models.strategy_preset import StrategyPresetCreate
         from database.operations.strategy_ops import create_strategy_preset
         from bot.handlers.straddle_strategy_handler import get_straddle_menu_keyboard
-        
+       
         preset_data = StrategyPresetCreate(
             user_id=user.id,
             strategy_type='straddle',
