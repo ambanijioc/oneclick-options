@@ -212,6 +212,18 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info("→ Calling handle_move_atm_offset_input")
             await handle_move_atm_offset_input(update, context, text)
 
+        # Add after move strategy states (around line 180)
+
+        # Move Trade Preset states
+        elif state_str == 'move_preset_add_name':
+            from .move_preset_input_handlers import handle_move_preset_name_input
+            logger.info("→ Calling handle_move_preset_name_input")
+            await handle_move_preset_name_input(update, context, text)
+
+        elif state_str == 'move_preset_edit_name':
+            from .move_preset_input_handlers import handle_move_preset_name_input
+            await handle_move_preset_name_input(update, context, text)
+
         # Manual trade preset states
         elif state_str == 'manual_preset_add_name':
             from .manual_trade_preset_handler import handle_manual_preset_name_input
