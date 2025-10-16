@@ -63,45 +63,45 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .api_handler import handle_api_secret_input
             await handle_api_secret_input(update, context)
         
-        # Straddle strategy states - USE straddle_input_handlers.py
+        # Straddle strategy states
         elif state_str == 'straddle_add_name':
-            logger.info("→ Calling handle_straddle_name_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_name_input
+            logger.info("→ Calling handle_straddle_name_input")
             await handle_straddle_name_input(update, context, text)
         
         elif state_str == 'straddle_add_description':
-            logger.info("→ Calling handle_straddle_description_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_description_input
+            logger.info("→ Calling handle_straddle_description_input")
             await handle_straddle_description_input(update, context, text)
         
         elif state_str == 'straddle_add_lot_size':
-            logger.info("→ Calling handle_straddle_lot_size_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_lot_size_input
+            logger.info("→ Calling handle_straddle_lot_size_input")
             await handle_straddle_lot_size_input(update, context, text)
         
         elif state_str == 'straddle_add_sl_trigger':
-            logger.info("→ Calling handle_straddle_sl_trigger_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_sl_trigger_input
+            logger.info("→ Calling handle_straddle_sl_trigger_input")
             await handle_straddle_sl_trigger_input(update, context, text)
         
         elif state_str == 'straddle_add_sl_limit':
-            logger.info("→ Calling handle_straddle_sl_limit_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_sl_limit_input
+            logger.info("→ Calling handle_straddle_sl_limit_input")
             await handle_straddle_sl_limit_input(update, context, text)
         
         elif state_str == 'straddle_add_target_trigger':
-            logger.info("→ Calling handle_straddle_target_trigger_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_target_trigger_input
+            logger.info("→ Calling handle_straddle_target_trigger_input")
             await handle_straddle_target_trigger_input(update, context, text)
         
         elif state_str == 'straddle_add_target_limit':
-            logger.info("→ Calling handle_straddle_target_limit_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_target_limit_input
+            logger.info("→ Calling handle_straddle_target_limit_input")
             await handle_straddle_target_limit_input(update, context, text)
         
         elif state_str == 'straddle_add_atm_offset':
-            logger.info("→ Calling handle_straddle_atm_offset_input FROM straddle_input_handlers")
             from .straddle_input_handlers import handle_straddle_atm_offset_input
+            logger.info("→ Calling handle_straddle_atm_offset_input")
             await handle_straddle_atm_offset_input(update, context, text)
 
         # Manual trade preset states
@@ -144,4 +144,4 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await state_manager.clear_state(update.effective_user.id)
         except Exception:
             pass
-          
+            
