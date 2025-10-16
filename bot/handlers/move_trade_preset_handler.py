@@ -114,11 +114,15 @@ async def move_preset_select_api_callback(update: Update, context: ContextTypes.
         )
         return
     
-    # Create keyboard with APIs
+    # ✅ FIXED: Proper Pydantic/dict handling
     keyboard = []
     for api in apis:
-        name = api.name if hasattr(api, 'name') else api.get('name', 'N/A')
-        api_id = str(api.id) if hasattr(api, 'id') else str(api.get('_id', ''))
+        if hasattr(api, 'name'):  # Pydantic model
+            name = api.name
+            api_id = str(api.id)
+        else:  # Dict
+            name = api.get('name', 'N/A')
+            api_id = str(api.get('_id', ''))
         
         keyboard.append([InlineKeyboardButton(
             f"🔑 {name}",
@@ -161,11 +165,15 @@ async def move_preset_api_selected_callback(update: Update, context: ContextType
         )
         return
     
-    # Create keyboard with strategies
+    # ✅ FIXED: Proper Pydantic/dict handling
     keyboard = []
     for strategy in strategies:
-        name = strategy.strategy_name if hasattr(strategy, 'strategy_name') else strategy.get('strategy_name', 'N/A')
-        strategy_id = str(strategy.id) if hasattr(strategy, 'id') else str(strategy.get('_id', ''))
+        if hasattr(strategy, 'strategy_name'):  # Pydantic model
+            name = strategy.strategy_name
+            strategy_id = str(strategy.id)
+        else:  # Dict
+            name = strategy.get('strategy_name', 'N/A')
+            strategy_id = str(strategy.get('_id', ''))
         
         keyboard.append([InlineKeyboardButton(
             f"📊 {name}",
@@ -211,15 +219,28 @@ async def move_preset_strategy_selected_callback(update: Update, context: Contex
         )
         return
     
-    # Extract details
-    api_name = api.name if hasattr(api, 'name') else api.get('name', 'N/A')
-    strategy_name = strategy.strategy_name if hasattr(strategy, 'strategy_name') else strategy.get('strategy_name', 'N/A')
-    asset = strategy.asset if hasattr(strategy, 'asset') else strategy.get('asset', 'N/A')
-    direction = strategy.direction if hasattr(strategy, 'direction') else strategy.get('direction', 'N/A')
-    lot_size = strategy.lot_size if hasattr(strategy, 'lot_size') else strategy.get('lot_size', 0)
-    atm_offset = strategy.atm_offset if hasattr(strategy, 'atm_offset') else strategy.get('atm_offset', 0)
-    sl_trigger = strategy.sl_trigger_pct if hasattr(strategy, 'sl_trigger_pct') else strategy.get('sl_trigger_pct', 0)
-    sl_limit = strategy.sl_limit_pct if hasattr(strategy, 'sl_limit_pct') else strategy.get('sl_limit_pct', 0)
+    # ✅ FIXED: Extract details properly
+    if hasattr(api, 'name'):
+        api_name = api.name
+    else:
+        api_name = api.get('name', 'N/A')
+    
+    if hasattr(strategy, 'strategy_name'):
+        strategy_name = strategy.strategy_name
+        asset = strategy.asset
+        direction = strategy.direction
+        lot_size = strategy.lot_size
+        atm_offset = strategy.atm_offset
+        sl_trigger = strategy.sl_trigger_pct
+        sl_limit = strategy.sl_limit_pct
+    else:
+        strategy_name = strategy.get('strategy_name', 'N/A')
+        asset = strategy.get('asset', 'N/A')
+        direction = strategy.get('direction', 'N/A')
+        lot_size = strategy.get('lot_size', 0)
+        atm_offset = strategy.get('atm_offset', 0)
+        sl_trigger = strategy.get('sl_trigger_pct', 0)
+        sl_limit = strategy.get('sl_limit_pct', 0)
     
     text = (
         f"<b>✅ Confirm Move Preset</b>\n\n"
@@ -314,14 +335,17 @@ async def move_preset_view_callback(update: Update, context: ContextTypes.DEFAUL
     
     text = "<b>👁️ Move Trade Presets</b>\n\n"
     
+    # ✅ FIXED: Proper handling
     for preset in presets:
-        name = preset.preset_name if hasattr(preset, 'preset_name') else preset.get('preset_name', 'N/A')
+        if hasattr(preset, 'preset_name'):
+            name = preset.preset_name
+            api_id = preset.api_id
+            strategy_id = preset.strategy_id
+        else:
+            name = preset.get('preset_name', 'N/A')
+            api_id = preset.get('api_id')
+            strategy_id = preset.get('strategy_id')
         
-        # Get linked API and strategy names
-        api_id = preset.api_id if hasattr(preset, 'api_id') else preset.get('api_id')
-        strategy_id = preset.strategy_id if hasattr(preset, 'strategy_id') else preset.get('strategy_id')
-        
-        # Fetch names (simplified for display)
         text += f"<b>📊 {name}</b>\n"
         text += f"API ID: {api_id}\n"
         text += f"Strategy ID: {strategy_id}\n\n"
@@ -357,11 +381,15 @@ async def move_preset_delete_list_callback(update: Update, context: ContextTypes
         )
         return
     
-    # Create keyboard
+    # ✅ FIXED: Proper handling
     keyboard = []
     for preset in presets:
-        name = preset.preset_name if hasattr(preset, 'preset_name') else preset.get('preset_name', 'N/A')
-        preset_id = str(preset.id) if hasattr(preset, 'id') else str(preset.get('_id', ''))
+        if hasattr(preset, 'preset_name'):
+            name = preset.preset_name
+            preset_id = str(preset.id)
+        else:
+            name = preset.get('preset_name', 'N/A')
+            preset_id = str(preset.get('_id', ''))
         
         keyboard.append([InlineKeyboardButton(
             f"🗑️ {name}",
@@ -397,7 +425,11 @@ async def move_preset_delete_callback(update: Update, context: ContextTypes.DEFA
     # Store preset ID
     await state_manager.set_state_data(user.id, {'delete_preset_id': preset_id})
     
-    name = preset.preset_name if hasattr(preset, 'preset_name') else preset.get('preset_name', 'N/A')
+    # ✅ FIXED
+    if hasattr(preset, 'preset_name'):
+        name = preset.preset_name
+    else:
+        name = preset.get('preset_name', 'N/A')
     
     keyboard = [
         [InlineKeyboardButton("✅ Confirm Delete", callback_data="move_preset_delete_confirm")],
@@ -451,7 +483,7 @@ async def move_preset_delete_confirm_callback(update: Update, context: ContextTy
     
     # Clear state
     await state_manager.clear_state(user.id)
-# Add these BEFORE register_move_preset_handlers() function
+
 
 # ========== EDIT PRESET ==========
 
@@ -475,11 +507,15 @@ async def move_preset_edit_list_callback(update: Update, context: ContextTypes.D
         )
         return
     
-    # Create keyboard
+    # ✅ FIXED
     keyboard = []
     for preset in presets:
-        name = preset.preset_name if hasattr(preset, 'preset_name') else preset.get('preset_name', 'N/A')
-        preset_id = str(preset.id) if hasattr(preset, 'id') else str(preset.get('_id', ''))
+        if hasattr(preset, 'preset_name'):
+            name = preset.preset_name
+            preset_id = str(preset.id)
+        else:
+            name = preset.get('preset_name', 'N/A')
+            preset_id = str(preset.get('_id', ''))
         
         keyboard.append([InlineKeyboardButton(
             f"✏️ {name}",
@@ -512,7 +548,11 @@ async def move_preset_edit_callback(update: Update, context: ContextTypes.DEFAUL
         await query.edit_message_text("❌ Preset not found")
         return
     
-    name = preset.preset_name if hasattr(preset, 'preset_name') else preset.get('preset_name', 'N/A')
+    # ✅ FIXED
+    if hasattr(preset, 'preset_name'):
+        name = preset.preset_name
+    else:
+        name = preset.get('preset_name', 'N/A')
     
     # Store preset ID for editing
     await state_manager.set_state_data(user.id, {'edit_preset_id': preset_id})
@@ -559,6 +599,7 @@ async def move_preset_edit_name_callback(update: Update, context: ContextTypes.D
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
+
 
 # ========== REGISTER HANDLERS ==========
 
@@ -614,22 +655,20 @@ def register_move_preset_handlers(application: Application):
         move_preset_delete_confirm_callback,
         pattern="^move_preset_delete_confirm$"
     ))
-
-    # Then add these to register function:
+    
     application.add_handler(CallbackQueryHandler(
         move_preset_edit_list_callback,
         pattern="^move_preset_edit_list$"
     ))
-
+    
     application.add_handler(CallbackQueryHandler(
         move_preset_edit_callback,
         pattern="^move_preset_edit_[a-f0-9]{24}$"
     ))
-
+    
     application.add_handler(CallbackQueryHandler(
         move_preset_edit_name_callback,
         pattern="^move_preset_edit_name_[a-f0-9]{24}$"
     ))
     
     logger.info("Move trade preset handlers registered")
-      
