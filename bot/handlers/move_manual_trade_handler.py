@@ -168,14 +168,21 @@ def register_move_manual_trade_handlers(application: Application):
         pattern="^menu_move_manual_trade$"
     ))
     
+    # ✅ FIXED: Added $ to end of patterns
     application.add_handler(CallbackQueryHandler(
         move_manual_api_callback,
-        pattern="^move_manual_api_"
+        pattern="^move_manual_api_[a-f0-9]{24}$"  # Added $ here
+    ))
+    
+    # ✅ FIXED: Added $ to end of patterns
+    application.add_handler(CallbackQueryHandler(
+        move_manual_strategy_callback,
+        pattern="^move_manual_strategy_[a-f0-9]{24}$"  # Added $ here
     ))
     
     application.add_handler(CallbackQueryHandler(
-        move_manual_strategy_callback,
-        pattern="^move_manual_strategy_"
+        move_manual_confirm_callback,
+        pattern="^move_manual_confirm$"
     ))
     
     logger.info("Move manual trade handlers registered")
