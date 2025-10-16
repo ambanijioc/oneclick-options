@@ -364,3 +364,120 @@ async def handle_strangle_otm_value_input(update: Update, context: ContextTypes.
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         
+
+# ADD THESE AT THE END OF strangle_input_handlers.py
+
+async def handle_strangle_edit_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle strategy name edit input."""
+    user = update.effective_user
+    
+    # Get strategy ID
+    state_data = await state_manager.get_state_data(user.id)
+    strategy_id = state_data.get('edit_strategy_id')
+    
+    if not strategy_id:
+        await update.message.reply_text("❌ Strategy not found")
+        return
+    
+    # Update strategy
+    from database.models.strategy_preset import StrategyPresetUpdate
+    from database.operations.strategy_ops import update_strategy_preset
+    from bot.handlers.strangle_strategy_handler import get_strangle_menu_keyboard
+    
+    update_data = StrategyPresetUpdate(name=text)
+    success = await update_strategy_preset(strategy_id, update_data)
+    
+    if success:
+        await update.message.reply_text(
+            f"<b>✅ Name Updated</b>\n\n"
+            f"New name: <b>{text}</b>",
+            reply_markup=get_strangle_menu_keyboard(),
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text(
+            "❌ Failed to update name",
+            reply_markup=get_strangle_menu_keyboard()
+        )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+
+
+async def handle_strangle_edit_desc_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle strategy description edit input."""
+    user = update.effective_user
+    
+    state_data = await state_manager.get_state_data(user.id)
+    strategy_id = state_data.get('edit_strategy_id')
+    
+    if not strategy_id:
+        await update.message.reply_text("❌ Strategy not found")
+        return
+    
+    from database.models.strategy_preset import StrategyPresetUpdate
+    from database.operations.strategy_ops import update_strategy_preset
+    from bot.handlers.strangle_strategy_handler import get_strangle_menu_keyboard
+    
+    update_data = StrategyPresetUpdate(description=text)
+    success = await update_strategy_preset(strategy_id, update_data)
+    
+    if success:
+        await update.message.reply_text(
+            f"<b>✅ Description Updated</b>\n\n"
+            f"New description: <i>{text}</i>",
+            reply_markup=get_strangle_menu_keyboard(),
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text(
+            "❌ Failed to update description",
+            reply_markup=get_strangle_menu_keyboard()
+        )
+    
+    await state_manager.clear_state(user.id)
+
+
+async def handle_strangle_edit_lot_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle strategy lot size edit input."""
+    user = update.effective_user
+    
+    try:
+        lot_size = int(text)
+        if lot_size <= 0:
+            raise ValueError("Lot size must be positive")
+        
+        state_data = await state_manager.get_state_data(user.id)
+        strategy_id = state_data.get('edit_strategy_id')
+        
+        if not strategy_id:
+            await update.message.reply_text("❌ Strategy not found")
+            return
+        
+        from database.models.strategy_preset import StrategyPresetUpdate
+        from database.operations.strategy_ops import update_strategy_preset
+        from bot.handlers.strangle_strategy_handler import get_strangle_menu_keyboard
+        
+        update_data = StrategyPresetUpdate(lot_size=lot_size)
+        success = await update_strategy_preset(strategy_id, update_data)
+        
+        if success:
+            await update.message.reply_text(
+                f"<b>✅ Lot Size Updated</b>\n\n"
+                f"New lot size: <b>{lot_size}</b>",
+                reply_markup=get_strangle_menu_keyboard(),
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Failed to update lot size",
+                reply_markup=get_strangle_menu_keyboard()
+            )
+        
+        await state_manager.clear_state(user.id)
+    
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Invalid lot size. Please enter a positive number."
+        )
+        
