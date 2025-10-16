@@ -19,9 +19,6 @@ async def handle_move_preset_name_input(update: Update, context: ContextTypes.DE
     await state_manager.set_state_data(user.id, {'preset_name': text})
     
     # Trigger API selection
-    # We need to call the select_api callback manually
-    # Store the name and redirect to API selection
-    
     from bot.handlers.move_trade_preset_handler import get_move_preset_menu_keyboard
     from database.operations.api_ops import get_api_credentials
     
@@ -41,8 +38,14 @@ async def handle_move_preset_name_input(update: Update, context: ContextTypes.DE
     # Create keyboard with APIs
     keyboard = []
     for api in apis:
-        name = api.name if hasattr(api, 'name') else api.get('name', 'N/A')
-        api_id = str(api.id) if hasattr(api, 'id') else str(api.get('_id', ''))
+        # ✅ FIXED: Only use hasattr, no .get() on Pydantic models
+        if hasattr(api, 'name'):
+            name = api.name
+            api_id = str(api.id)
+        else:
+            # Fallback for dict (shouldn't happen but safe)
+            name = api.get('name', 'N/A')
+            api_id = str(api.get('_id', ''))
         
         keyboard.append([InlineKeyboardButton(
             f"🔑 {name}",
@@ -57,5 +60,5 @@ async def handle_move_preset_name_input(update: Update, context: ContextTypes.DE
         f"Select API Credentials:",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
-      )
-      
+    )
+    
