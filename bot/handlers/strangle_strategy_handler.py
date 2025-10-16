@@ -1243,5 +1243,27 @@ def register_strangle_strategy_handlers(application: Application):
         strangle_edit_dir_set_callback,
         pattern="^strangle_edit_dir_set_(long|short)_[a-f0-9]{24}$"
     ))
-    
+
+    # Add these at the end of register_strangle_strategy_handlers function
+
+    application.add_handler(CallbackQueryHandler(
+        strangle_edit_sl_callback,
+        pattern="^strangle_edit_sl_[a-f0-9]{24}$"
+    ))
+
+    application.add_handler(CallbackQueryHandler(
+        strangle_edit_target_callback,
+        pattern="^strangle_edit_target_[a-f0-9]{24}$"
+    ))
+
+    application.add_handler(CallbackQueryHandler(
+        strangle_edit_otm_callback,
+        pattern="^strangle_edit_otm_[a-f0-9]{24}$"
+    ))
+
+    application.add_handler(CallbackQueryHandler(
+        strangle_edit_otm_type_callback,
+        pattern="^strangle_edit_otm_type_(percentage|numeral)_[a-f0-9]{24}$"
+    ))
+
     logger.info("Strangle strategy handlers registered")
