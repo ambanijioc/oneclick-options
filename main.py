@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
             logger.info(f"  Pending updates: {webhook_info.pending_update_count}")
         else:
             logger.error(f"✗ Webhook verification failed. Expected: {webhook_url}, Got: {webhook_info.url}")
-            await log_to_telegram(f"🔴 CRITICAL: Webhook verification failed!")
+            asyncio.create_task(log_to_telegram(f"🔴 CRITICAL: Webhook verification failed!"))
         
         # Initialize scheduler (existing job scheduler)
         logger.info("Initializing job scheduler...")
@@ -96,16 +96,16 @@ async def lifespan(app: FastAPI):
         logger.info("=" * 50)
         logger.info("Bot started successfully! Ready to receive updates.")
         logger.info("=" * 50)
-        await log_to_telegram(
+        asyncio.create_task(log_to_telegram(
             f"🟢 Bot started successfully!\n"
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}\n"
             f"Webhook: {webhook_url}\n"
             f"Algo Scheduler: Active"
-        )
+        ))
         
     except Exception as e:
         logger.critical(f"Failed to start bot: {e}", exc_info=True)
-        await log_to_telegram(f"🔴 CRITICAL: Failed to start bot!\nError: {str(e)}")
+        asyncio.create_task(log_to_telegram(f"🔴 CRITICAL: Failed to start bot!\nError: {str(e)}"))
         raise
     
     yield
@@ -151,10 +151,10 @@ async def lifespan(app: FastAPI):
         logger.info("=" * 50)
         logger.info("Bot shutdown complete")
         logger.info("=" * 50)
-        await log_to_telegram(
+        asyncio.create_task(log_to_telegram(
             f"🔴 Bot shutting down\n"
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}"
-        )
+        ))
         
     except Exception as e:
         logger.error(f"Error during shutdown: {e}", exc_info=True)
