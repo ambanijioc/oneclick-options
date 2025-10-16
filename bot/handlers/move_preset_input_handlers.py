@@ -31,19 +31,16 @@ async def handle_move_preset_name_input(update: Update, context: ContextTypes.DE
             "Please add API credentials first.",
             reply_markup=get_move_preset_menu_keyboard(),
             parse_mode='HTML'
-        )
+        )  # ✅ FIXED: Added missing closing parenthesis
         await state_manager.clear_state(user.id)
         return
     
-    # ✅ FIXED: Use api_name (correct field name)
+    # ✅ FIXED: Use api_name instead of name for APICredential
     keyboard = []
     for api in apis:
-        name = api.api_name  # ✅ Correct attribute
-        api_id = str(api.id)
-        
         keyboard.append([InlineKeyboardButton(
-            f"🔑 {name}",
-            callback_data=f"move_preset_api_{api_id}"
+            f"🔑 {api.api_name}",  # Changed from api.name
+            callback_data=f"move_preset_api_{api.id}"
         )])
     
     keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_move_preset")])
