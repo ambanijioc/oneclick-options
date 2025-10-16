@@ -35,10 +35,10 @@ async def handle_move_preset_name_input(update: Update, context: ContextTypes.DE
         await state_manager.clear_state(user.id)
         return
     
-    # ✅ FIXED: Use api_name instead of name
+    # ✅ FIXED: Use api_name (correct field name)
     keyboard = []
     for api in apis:
-        name = api.api_name  # ✅ Changed from api.name to api.api_name
+        name = api.api_name  # ✅ Correct attribute
         api_id = str(api.id)
         
         keyboard.append([InlineKeyboardButton(
