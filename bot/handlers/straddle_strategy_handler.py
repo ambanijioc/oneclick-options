@@ -151,6 +151,33 @@ async def straddle_skip_target_callback(update: Update, context: ContextTypes.DE
     )
 
 
+@error_handler
+async def straddle_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle cancel - return to straddle menu and clear state."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
+    # Show straddle menu
+    strategies = await get_strategy_presets_by_type(user.id, "straddle")
+    
+    await query.edit_message_text(
+        "<b>🎯 Straddle Strategy Management</b>\n\n"
+        "Manage your ATM straddle trading strategies:\n\n"
+        "• <b>Add:</b> Create new strategy\n"
+        "• <b>Edit:</b> Modify existing strategy\n"
+        "• <b>Delete:</b> Remove strategy\n"
+        "• <b>View:</b> See all strategies\n\n"
+        f"<b>Total Strategies:</b> {len(strategies)}",
+        reply_markup=get_straddle_menu_keyboard(),
+        parse_mode='HTML'
+    )
+
+
 # Register the skip handlers
 def register_straddle_strategy_handlers(application: Application):
     """Register straddle strategy handlers."""
