@@ -224,6 +224,18 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .move_preset_input_handlers import handle_move_preset_name_input
             await handle_move_preset_name_input(update, context, text)
 
+        # Add these after move_preset states (around line 230)
+
+        # Manual Trade Preset states
+        elif state_str == 'manual_preset_add_name':
+            from .manual_preset_input_handlers import handle_manual_preset_name_input
+            logger.info("→ Calling handle_manual_preset_name_input")
+            await handle_manual_preset_name_input(update, context, text)
+
+        elif state_str == 'manual_preset_edit_name':
+            from .manual_preset_input_handlers import handle_manual_preset_name_input
+            await handle_manual_preset_name_input(update, context, text)
+
         # Manual trade preset states
         elif state_str == 'manual_preset_add_name':
             from .manual_trade_preset_handler import handle_manual_preset_name_input
