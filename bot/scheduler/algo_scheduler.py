@@ -56,7 +56,8 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             await update_algo_execution(setup_id, 'failed', {'error': 'API credential not found'})
             return
         
-        credentials = await decrypt_api_credentials(preset['api_credential_id'])
+        credentials = await get_decrypted_api_credential(preset['api_credential_id'])
+
         if not credentials:
             logger.error(f"Failed to decrypt credentials for setup {setup_id}")
             await update_algo_execution(setup_id, 'failed', {'error': 'Failed to decrypt credentials'})
@@ -83,7 +84,7 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             
             # Get options
             products_response = await client.get_products(contract_types='call_options,put_options')
-            if not products_response.get('success'):
+            if not roducts_response.get('success'):
                 raise Exception(f"Failed to fetch options: {products_response.get('error', {}).get('message')}")
             
             products = products_response['result']
