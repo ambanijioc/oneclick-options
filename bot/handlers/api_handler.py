@@ -289,7 +289,7 @@ async def handle_api_name_input(update: Update, context: ContextTypes.DEFAULT_TY
     user = update.effective_user
     
     state = await state_manager.get_state(user.id)
-    if state != ConversationState.API_ADD_NAME:
+    if state != 'api_add_name':  # Compare as string!
         return
     
     result = validate_api_name(update.message.text)
@@ -321,7 +321,7 @@ async def handle_api_description_input(update: Update, context: ContextTypes.DEF
     user = update.effective_user
     
     state = await state_manager.get_state(user.id)
-    if state != ConversationState.API_ADD_DESCRIPTION:
+    if state != 'api_add_description':  # Compare as string!
         return
     
     description = ""
@@ -350,7 +350,7 @@ async def handle_api_key_input(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     
     state = await state_manager.get_state(user.id)
-    if state != ConversationState.API_ADD_KEY:
+    if state != 'api_add_key':  # Compare as string!
         return
     
     result = validate_api_key(update.message.text)
@@ -397,7 +397,7 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     
     state = await state_manager.get_state(user.id)
-    if state != ConversationState.API_ADD_SECRET:
+    if state != 'api_add_secret':  # Compare as string!
         return
     
     result = validate_api_key(update.message.text)
