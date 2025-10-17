@@ -39,10 +39,10 @@ class StrategyPreset(BaseModel):
     expiry_code: str = Field(..., description="Expiry code (D, D+1, W, M, etc.)")
     direction: Literal["long", "short"] = Field(..., description="Trade direction")
     lot_size: int = Field(..., gt=0, description="Lot size")
-    sl_trigger_pct: float = Field(..., ge=0, le=100, description="Stop-loss trigger percentage")
-    sl_limit_pct: float = Field(..., ge=0, le=100, description="Stop-loss limit percentage")
-    target_trigger_pct: float = Field(default=0, ge=0, le=100, description="Target trigger percentage (0 for none)")
-    target_limit_pct: float = Field(default=0, ge=0, le=100, description="Target limit percentage")
+    sl_trigger_pct: float = Field(..., ge=0, le=1000, description="Stop-loss trigger percentage")
+    sl_limit_pct: float = Field(..., ge=0, le=1000, description="Stop-loss limit percentage")
+    target_trigger_pct: float = Field(default=0, ge=0, le=1000, description="Target trigger percentage (0 for none)")
+    target_limit_pct: float = Field(default=0, ge=0, le=1000, description="Target limit percentage")
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = Field(default=True, description="Whether preset is active")
@@ -116,10 +116,10 @@ class StrategyPresetCreate(BaseModel):
     expiry_code: str
     direction: Literal["long", "short"]
     lot_size: int = Field(..., gt=0)
-    sl_trigger_pct: float = Field(..., ge=0, le=100)
-    sl_limit_pct: float = Field(..., ge=0, le=100)
-    target_trigger_pct: float = Field(default=0, ge=0, le=100)
-    target_limit_pct: float = Field(default=0, ge=0, le=100)
+    sl_trigger_pct: float = Field(..., ge=0, le=1000)
+    sl_limit_pct: float = Field(..., ge=0, le=1000)
+    target_trigger_pct: float = Field(default=0, ge=0, le=1000)
+    target_limit_pct: float = Field(default=0, ge=0, le=1000)
     
     # Straddle-specific
     atm_offset: Optional[int] = Field(default=0)
