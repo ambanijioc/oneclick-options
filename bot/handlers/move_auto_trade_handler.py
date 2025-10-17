@@ -176,6 +176,128 @@ async def move_auto_strategy_callback(update: Update, context: ContextTypes.DEFA
 
 
 @error_handler
+async def handle_move_auto_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle time input for move auto trade setup."""
+    user = update.effective_user
+    
+    # Validate time format (HH:MM AM/PM)
+    import re
+    time_pattern = r'^([01]?[0-9]):([0-5][0-9])\s*(AM|PM|am|pm)$'
+    
+    if not re.match(time_pattern, text):
+        await update.message.reply_text(
+            "<b>❌ Invalid Time Format</b>\n\n"
+            "Please enter time in <code>HH:MM AM</code> or <code>HH:MM PM</code> format.\n\n"
+            "<b>Examples:</b>\n"
+            "• <code>09:30 AM</code>\n"
+            "• <code>03:15 PM</code>",
+            parse_mode='HTML'
+        )
+        return
+    
+    # Convert to 24-hour format for storage
+    match = re.match(time_pattern, text)
+    hour = int(match.group(1))
+    minute = match.group(2)
+    period = match.group(3).upper()
+    
+    if period == 'PM' and hour != 12:
+        hour += 12
+    elif period == 'AM' and hour == 12:
+        hour = 0
+    
+    execution_time = f"{hour:02d}:{minute}"
+    
+    # Store time
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['execution_time'] = execution_time
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Get strategy details for confirmation
+    from database.operations.move_strategy_ops import get_move_strategy
+    strategy = await get_move_strategy(state_data['strategy_id'])
+    
+    if not strategy:
+        await update.message.reply_text("❌ Strategy not found")
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Handle both dict and Pydantic model
+    if isinstance(strategy, dict):
+        strategy_name = strategy.get('strategy_name', 'N/A')
+    else:
+        strategy_name = strategy.strategy_name
+    
+    # Show confirmation
+    text_msg = (
+        f"<b>➕ Confirm Auto Move Trade Schedule</b>\n\n"
+        f"<b>Strategy:</b> {strategy_name}\n"
+        f"<b>Execution Time:</b> {text} IST\n\n"
+        f"⚠️ This will execute automatically every day at the specified time.\n\n"
+        f"Confirm to create?"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm", callback_data="move_auto_confirm")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_move_auto_trade")]
+    ]
+    
+    await update.message.reply_text(
+        text_msg,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+    
+    # DON'T clear state yet - need it for confirmation
+    
+    log_user_action(user.id, "move_auto_time", f"Set execution time: {execution_time}")
+
+
+@error_handler
+async def move_auto_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Confirm and create move auto trade schedule."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get state data
+    state_data = await state_manager.get_state_data(user.id)
+    
+    if not state_data or not state_data.get('api_id') or not state_data.get('strategy_id'):
+        await query.edit_message_text(
+            "❌ Missing data. Please start again.",
+            reply_markup=get_move_auto_trade_keyboard(),
+            parse_mode='HTML'
+        )
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Create auto execution
+    result = await create_move_auto_execution(user.id, state_data)
+    
+    if result:
+        await query.edit_message_text(
+            f"<b>✅ Auto Move Trade Schedule Created</b>\n\n"
+            f"<b>Execution Time:</b> {state_data['execution_time']} IST\n\n"
+            f"🤖 The bot will now automatically execute this trade daily at the scheduled time.",
+            reply_markup=get_move_auto_trade_keyboard(),
+            parse_mode='HTML'
+        )
+        log_user_action(user.id, "move_auto_create", f"Created schedule for {state_data['execution_time']}")
+    else:
+        await query.edit_message_text(
+            "<b>❌ Failed to Create Schedule</b>\n\n"
+            "Please try again.",
+            reply_markup=get_move_auto_trade_keyboard(),
+            parse_mode='HTML'
+        )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+
+
+@error_handler
 async def move_auto_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Display all scheduled auto trades."""
     query = update.callback_query
@@ -368,6 +490,10 @@ def register_move_auto_trade_handlers(application: Application):
         move_auto_delete_confirm_callback,
         pattern="^move_auto_delete_confirm$"
     ))
-    
+
+    application.add_handler(CallbackQueryHandler(
+        move_auto_confirm_callback,
+        pattern="^move_auto_confirm$"
+    ))
     logger.info("Move auto trade handlers registered")
       
