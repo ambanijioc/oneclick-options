@@ -300,12 +300,12 @@ def format_strategy_preset(preset: Dict[str, Any]) -> str:
     return message
 
 
-def format_api_list(apis: List[Dict[str, Any]]) -> str:
+def format_api_list(apis: List) -> str:
     """
     Format API list for display.
     
     Args:
-        apis: List of API credentials
+        apis: List of API credentials (can be Pydantic models or dicts)
     
     Returns:
         Formatted API list message
@@ -316,20 +316,30 @@ def format_api_list(apis: List[Dict[str, Any]]) -> str:
     message = "<b>🔑 API Credentials</b>\n\n"
     
     for i, api in enumerate(apis, 1):
-        name = api.get('api_name', 'Unnamed')
-        description = api.get('api_description', 'No description')
-        created_at = api.get('created_at', 'N/A')
+        # Handle both Pydantic models and dicts
+        if hasattr(api, 'api_name'):
+            # Pydantic model
+            name = api.api_name or 'Unnamed'
+            description = api.api_description or 'No description'
+            created_at = api.created_at if hasattr(api, 'created_at') else None
+        else:
+            # Dict
+            name = api.get('api_name', 'Unnamed')
+            description = api.get('api_description', 'No description')
+            created_at = api.get('created_at')
         
         message += f"<b>{i}. {escape_html(name)}</b>\n"
-        message += f"<small>{escape_html(description)}</small>\n"
+        
+        if description and description != 'No description':
+            message += f"<i>{escape_html(description)}</i>\n"
         
         if isinstance(created_at, datetime):
-            message += f"<small>Added: {created_at.strftime('%Y-%m-%d')}</small>\n"
+            message += f"<small>Created: {created_at.strftime('%Y-%m-%d %H:%M')}</small>\n"
         
         message += "\n"
     
     return message
-
+    
 
 def format_error_message(error: str, context: Optional[str] = None) -> str:
     """
