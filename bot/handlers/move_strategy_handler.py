@@ -331,7 +331,7 @@ async def move_strategy_delete_list_callback(update: Update, context: ContextTyp
     keyboard = []
     for strategy in strategies:
         name = strategy.strategy_name if hasattr(strategy, 'strategy_name') else strategy.get('strategy_name')
-        strategy_id = str(strategy.id) if hasattr(strategy, 'id') else str(strategy.get('_id'))
+        strategy_id = str(strategy.id) if hasattr(strategy, 'id') else str(strategy.get('id', 'N/A'))
         
         keyboard.append([InlineKeyboardButton(
             f"🗑️ {name}",
