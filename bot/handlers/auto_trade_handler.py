@@ -506,6 +506,131 @@ async def auto_trade_edit_preset_callback(update: Update, context: ContextTypes.
     )
 
 
+# ✅ ADD THIS FUNCTION (place it after auto_trade_edit_preset_callback and before auto_trade_confirm_callback)
+
+@error_handler
+async def handle_auto_trade_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle time input for auto trade setup."""
+    user = update.effective_user
+    
+    # Validate time format (HH:MM)
+    import re
+    time_pattern = r'^([01]?[0-9]|2[0-3]):([0-5][0-9])$'
+    
+    if not re.match(time_pattern, text):
+        await update.message.reply_text(
+            "<b>❌ Invalid Time Format</b>\n\n"
+            "Please enter time in <code>HH:MM</code> format (24-hour).\n\n"
+            "<b>Examples:</b>\n"
+            "• <code>09:15</code>\n"
+            "• <code>15:30</code>\n"
+            "• <code>23:45</code>",
+            parse_mode='HTML'
+        )
+        return
+    
+    # Store time
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['execution_time'] = text
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Get preset details for confirmation
+    from database.operations.manual_trade_preset_ops import get_manual_trade_preset
+    preset = await get_manual_trade_preset(state_data['manual_preset_id'])
+    
+    if not preset:
+        await update.message.reply_text("❌ Preset not found")
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Show confirmation
+    text_msg = (
+        f"<b>➕ Confirm Algo Setup</b>\n\n"
+        f"<b>Preset:</b> {preset['preset_name']}\n"
+        f"<b>Execution Time:</b> {text} IST\n\n"
+        f"⚠️ This will execute automatically every day at the specified time.\n\n"
+        f"Confirm to create?"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm", callback_data="auto_trade_confirm")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_auto_trade")]
+    ]
+    
+    await update.message.reply_text(
+        text_msg,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
+    log_user_action(user.id, "auto_trade_time", f"Set execution time: {text}")
+
+
+# ✅ ADD ANOTHER FUNCTION for edit time
+
+@error_handler
+async def handle_auto_trade_edit_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle time input for editing auto trade setup."""
+    user = update.effective_user
+    
+    # Validate time format (HH:MM)
+    import re
+    time_pattern = r'^([01]?[0-9]|2[0-3]):([0-5][0-9])$'
+    
+    if not re.match(time_pattern, text):
+        await update.message.reply_text(
+            "<b>❌ Invalid Time Format</b>\n\n"
+            "Please enter time in <code>HH:MM</code> format (24-hour).\n\n"
+            "<b>Examples:</b>\n"
+            "• <code>09:15</code>\n"
+            "• <code>15:30</code>\n"
+            "• <code>23:45</code>",
+            parse_mode='HTML'
+        )
+        return
+    
+    # Store time
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['execution_time'] = text
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # Get preset details for confirmation
+    from database.operations.manual_trade_preset_ops import get_manual_trade_preset
+    preset = await get_manual_trade_preset(state_data['manual_preset_id'])
+    
+    if not preset:
+        await update.message.reply_text("❌ Preset not found")
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Show confirmation
+    text_msg = (
+        f"<b>✏️ Confirm Edit Algo Setup</b>\n\n"
+        f"<b>Preset:</b> {preset['preset_name']}\n"
+        f"<b>New Execution Time:</b> {text} IST\n\n"
+        f"Confirm to update?"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm", callback_data="auto_trade_edit_confirm")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_auto_trade")]
+    ]
+    
+    await update.message.reply_text(
+        text_msg,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
+    log_user_action(user.id, "auto_trade_edit_time", f"Set new execution time: {text}")
+
+
 @error_handler
 async def auto_trade_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Confirm and create algo setup."""
