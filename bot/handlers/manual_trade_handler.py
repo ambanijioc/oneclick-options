@@ -401,24 +401,24 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             # Determine order side based on direction
             side = 'buy' if pending_trade['direction'] == 'long' else 'sell'
             
-            # Place CE order
-            ce_order = await client.place_order(
-                product_symbol=pending_trade['ce_symbol'],
-                size=pending_trade['lot_size'],
-                side=side,
-                order_type='market'
-            )
+            # ✅ CORRECT:
+            ce_order = await client.place_order({
+                'product_symbol': pending_trade['ce_symbol'],
+                'size': pending_trade['lot_size'],
+                'side': side,
+                'order_type': 'market'
+            })
             
             if not ce_order.get('success'):
                 raise Exception(f"CE order failed: {ce_order.get('error', {}).get('message', 'Unknown error')}")
             
-            # Place PE order
-            pe_order = await client.place_order(
-                product_symbol=pending_trade['pe_symbol'],
-                size=pending_trade['lot_size'],
-                side=side,
-                order_type='market'
-            )
+            # ✅ CORRECT:
+            pe_order = await client.place_order({
+                'product_symbol': pending_trade['pe_symbol'],
+                'size': pending_trade['lot_size'],
+                'side': side,
+                'order_type': 'market'
+            })
             
             if not pe_order.get('success'):
                 raise Exception(f"PE order failed: {pe_order.get('error', {}).get('message', 'Unknown error')}")
