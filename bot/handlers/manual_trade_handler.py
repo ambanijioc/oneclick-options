@@ -134,7 +134,8 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
         
         try:
             # Get current spot price
-            ticker_response = await client.get_ticker(strategy.asset)
+            ticker_symbol = f"{strategy.asset}USD"
+            ticker_response = await client.get_ticker(ticker_symbol)
     
             # ✅ ADDED: Check if response is None
             if ticker_response is None:
