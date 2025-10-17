@@ -159,17 +159,16 @@ async def move_preset_api_selected_callback(update: Update, context: ContextType
         )
         return
     
-    # ✅ FIXED: Use Pydantic attributes
+    # ✅ FIXED: Use correct field name
     keyboard = []
     for strategy in strategies:
-    if hasattr(strategy, 'strategy_name'):
-        name = strategy.strategy_name
-        strategy_id = str(strategy.id)
-    else:
-        name = strategy.get('strategy_name', 'N/A')
-        # Use 'id' field added by get_move_strategies function
-        strategy_id = strategy.get('id', strategy.get('_id', 'UNKNOWN'))
-        
+        if hasattr(strategy, 'strategy_name'):  # Pydantic model
+            name = strategy.strategy_name
+            strategy_id = str(strategy.id)
+        else:  # Dict from database
+            name = strategy.get('strategy_name', 'N/A')
+            strategy_id = strategy.get('id', 'N/A')  # Changed from '_id' to 'id'
+    
         keyboard.append([InlineKeyboardButton(
             f"📊 {name}",
             callback_data=f"move_preset_strategy_{strategy_id}"
