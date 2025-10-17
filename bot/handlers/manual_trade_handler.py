@@ -134,7 +134,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
         
         try:
             # Get current spot price
-            ticker_response = await client.get_ticker(strategy['asset'])
+            ticker_response = await client.get_ticker(strategy.asset)
             
             if not ticker_response.get('success'):
                 await query.edit_message_text(
