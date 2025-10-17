@@ -2,7 +2,7 @@
 API credential management handlers.
 """
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -41,32 +41,24 @@ async def manage_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     """
     Handle manage API menu callback.
     Show API management options.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Check authorization
     if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access")
         return
     
-    # Get user's APIs
     apis = await get_api_credentials(user.id)
     
-    # API management text
     text = (
         "<b>🔑 API Management</b>\n\n"
         f"You have <b>{len(apis)}</b> API credential(s) configured.\n\n"
         "Select an option:"
     )
     
-    # Show API management menu
     await query.edit_message_text(
         text,
         reply_markup=get_api_management_keyboard(apis),
@@ -78,26 +70,15 @@ async def manage_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 @error_handler
 async def api_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle API list callback.
-    Display all configured APIs.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Display all configured APIs."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
-    
-    # Get user's APIs
     apis = await get_api_credentials(user.id)
     
-    # Format API list
     text = format_api_list(apis)
     
-    # Show API list
     await query.edit_message_text(
         text,
         reply_markup=get_api_list_keyboard(apis),
@@ -107,25 +88,54 @@ async def api_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_user_action(user.id, "api_list", f"Viewed {len(apis)} API(s)")
 
 
+# ✅ ADDED: View API details callback
+@error_handler
+async def api_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """View specific API details."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    api_id = query.data.split('_')[-1]
+    
+    api = await get_api_credential_by_id(api_id)
+    
+    if not api or api.user_id != user.id:
+        await query.edit_message_text("❌ API not found")
+        return
+    
+    text = (
+        f"<b>🔑 API Details</b>\n\n"
+        f"<b>Name:</b> {escape_html(api.api_name)}\n"
+        f"<b>Description:</b> {escape_html(api.api_description) if api.api_description else '<i>None</i>'}\n"
+        f"<b>API Key:</b> <code>{api.api_key[:10]}...{api.api_key[-4:]}</code>\n"
+        f"<b>Created:</b> {api.created_at.strftime('%Y-%m-%d %H:%M')}\n"
+        f"<b>Status:</b> {'✅ Active' if api.is_active else '❌ Inactive'}"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("✏️ Edit", callback_data=f"api_edit_{api_id}")],
+        [InlineKeyboardButton("🗑️ Delete", callback_data=f"api_delete_{api_id}")],
+        [InlineKeyboardButton("🔙 Back", callback_data="api_list")]
+    ]
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
 @error_handler
 async def add_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle add API callback.
-    Start API addition flow.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Start API addition flow."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Set conversation state
     await state_manager.set_state(user.id, ConversationState.API_ADD_NAME)
     
-    # Ask for API name
     text = (
         "<b>➕ Add New API</b>\n\n"
         "Please enter a name for this API credential:\n\n"
@@ -141,31 +151,127 @@ async def add_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_user_action(user.id, "add_api_start", "Started API addition")
 
 
+# ✅ ADDED: Edit API callback
+@error_handler
+async def api_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start API edit flow."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    api_id = query.data.split('_')[-1]
+    
+    api = await get_api_credential_by_id(api_id)
+    
+    if not api or api.user_id != user.id:
+        await query.edit_message_text("❌ API not found")
+        return
+    
+    text = (
+        f"<b>✏️ Edit API</b>\n\n"
+        f"<b>Current Name:</b> {escape_html(api.api_name)}\n\n"
+        "What would you like to edit?"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("📝 Edit Name", callback_data=f"api_edit_name_{api_id}")],
+        [InlineKeyboardButton("📄 Edit Description", callback_data=f"api_edit_desc_{api_id}")],
+        [InlineKeyboardButton("🔑 Edit Credentials", callback_data=f"api_edit_creds_{api_id}")],
+        [InlineKeyboardButton("🔙 Back", callback_data=f"api_view_{api_id}")]
+    ]
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# ✅ ADDED: Delete API callback
+@error_handler
+async def api_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show delete confirmation."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    api_id = query.data.split('_')[-1]
+    
+    api = await get_api_credential_by_id(api_id)
+    
+    if not api or api.user_id != user.id:
+        await query.edit_message_text("❌ API not found")
+        return
+    
+    text = (
+        f"<b>🗑️ Delete API</b>\n\n"
+        f"<b>Name:</b> {escape_html(api.api_name)}\n\n"
+        f"⚠️ Are you sure you want to delete this API credential?\n\n"
+        f"This action cannot be undone."
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("✅ Confirm Delete", callback_data=f"api_delete_confirm_{api_id}")],
+        [InlineKeyboardButton("❌ Cancel", callback_data=f"api_view_{api_id}")]
+    ]
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# ✅ ADDED: Confirm delete callback
+@error_handler
+async def api_delete_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Confirm and delete API."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    api_id = query.data.split('_')[-1]
+    
+    api = await get_api_credential_by_id(api_id)
+    
+    if not api or api.user_id != user.id:
+        await query.edit_message_text("❌ API not found")
+        return
+    
+    success = await delete_api_credential(api_id)
+    
+    if success:
+        await query.edit_message_text(
+            "<b>✅ API Deleted</b>\n\n"
+            "The API credential has been deleted successfully.",
+            reply_markup=get_back_keyboard("menu_manage_api"),
+            parse_mode='HTML'
+        )
+        log_user_action(user.id, "api_delete", f"Deleted API: {api.api_name}")
+    else:
+        await query.edit_message_text(
+            "<b>❌ Delete Failed</b>\n\n"
+            "Failed to delete API credential.",
+            reply_markup=get_back_keyboard("menu_manage_api"),
+            parse_mode='HTML'
+        )
+
+
 @error_handler
 async def handle_skip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle /skip command during conversations.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle /skip command during conversations."""
     user = update.effective_user
     state = await state_manager.get_state(user.id)
     
     if state is None:
-        return  # No active conversation
+        return
     
-    # Handle skip for API description
     if state == ConversationState.API_ADD_DESCRIPTION:
-        # Skip description, move to API key
         await state_manager.update_data(user.id, {'api_description': ''})
         await state_manager.set_state(user.id, ConversationState.API_ADD_KEY)
         
-        # Get current data
         data = await state_manager.get_data(user.id)
         
-        # Ask for API key
         text = (
             "<b>➕ Add New API</b>\n\n"
             f"<b>Name:</b> {escape_html(data.get('api_name', ''))}\n"
@@ -179,21 +285,13 @@ async def handle_skip_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 @error_handler
 async def handle_api_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle API name input.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle API name input."""
     user = update.effective_user
     
-    # Check state
     state = await state_manager.get_state(user.id)
     if state != ConversationState.API_ADD_NAME:
         return
     
-    # Validate name
     result = validate_api_name(update.message.text)
     if not result.is_valid:
         await update.message.reply_text(
@@ -202,11 +300,9 @@ async def handle_api_name_input(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
     
-    # Store name and move to next step
     await state_manager.update_data(user.id, {'api_name': result.value})
     await state_manager.set_state(user.id, ConversationState.API_ADD_DESCRIPTION)
     
-    # Ask for description
     text = (
         "<b>➕ Add New API</b>\n\n"
         f"<b>Name:</b> {escape_html(result.value)}\n\n"
@@ -216,39 +312,27 @@ async def handle_api_name_input(update: Update, context: ContextTypes.DEFAULT_TY
     )
     
     await update.message.reply_text(text, parse_mode='HTML')
-    
     log_user_action(user.id, "add_api_name", f"Set API name: {result.value}")
 
 
 @error_handler
 async def handle_api_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle API description input.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle API description input."""
     user = update.effective_user
     
-    # Check state
     state = await state_manager.get_state(user.id)
     if state != ConversationState.API_ADD_DESCRIPTION:
         return
     
-    # Get description (or skip)
     description = ""
     if update.message.text and update.message.text != "/skip":
         description = update.message.text.strip()
     
-    # Store description and move to next step
     await state_manager.update_data(user.id, {'api_description': description})
     await state_manager.set_state(user.id, ConversationState.API_ADD_KEY)
     
-    # Get current data
     data = await state_manager.get_data(user.id)
     
-    # Ask for API key
     text = (
         "<b>➕ Add New API</b>\n\n"
         f"<b>Name:</b> {escape_html(data.get('api_name', ''))}\n"
@@ -257,27 +341,18 @@ async def handle_api_description_input(update: Update, context: ContextTypes.DEF
     )
     
     await update.message.reply_text(text, parse_mode='HTML')
-    
     log_user_action(user.id, "add_api_description", "Set API description")
 
 
 @error_handler
 async def handle_api_key_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle API key input.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle API key input."""
     user = update.effective_user
     
-    # Check state
     state = await state_manager.get_state(user.id)
     if state != ConversationState.API_ADD_KEY:
         return
     
-    # Validate API key
     result = validate_api_key(update.message.text)
     if not result.is_valid:
         await update.message.reply_text(
@@ -286,28 +361,21 @@ async def handle_api_key_input(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return
     
-    # Delete user's message (contains API key)
     try:
         await update.message.delete()
     except Exception:
         pass
     
-    # Get existing data BEFORE updating
     existing_data = await state_manager.get_data(user.id)
     logger.info(f"Existing data before storing API key: {existing_data}")
     
-    # Store key
     await state_manager.update_data(user.id, {'api_key': result.value})
     
-    # Verify data was stored
     updated_data = await state_manager.get_data(user.id)
     logger.info(f"Data after storing API key: {updated_data}")
-    logger.info(f"API key stored: {updated_data.get('api_key')[:10]}..." if updated_data.get('api_key') else "API key NOT stored!")
     
-    # Move to next step
     await state_manager.set_state(user.id, ConversationState.API_ADD_SECRET)
     
-    # Ask for API secret
     text = (
         "<b>➕ Add New API</b>\n\n"
         "✅ API Key received\n\n"
@@ -325,21 +393,13 @@ async def handle_api_key_input(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @error_handler
 async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle API secret input and create credential.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle API secret input and create credential."""
     user = update.effective_user
     
-    # Check state
     state = await state_manager.get_state(user.id)
     if state != ConversationState.API_ADD_SECRET:
         return
     
-    # Validate API secret
     result = validate_api_key(update.message.text)
     if not result.is_valid:
         await update.message.reply_text(
@@ -348,31 +408,23 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     
-    # Delete user's message (contains API secret)
     try:
         await update.message.delete()
     except Exception:
         pass
     
-    # Get stored data
     data = await state_manager.get_data(user.id)
-    logger.info(f"Retrieved data in handle_api_secret_input: {data}")
-    logger.info(f"API key from data: {data.get('api_key')}")
-    logger.info(f"API name from data: {data.get('api_name')}")
+    logger.info(f"Retrieved data: {data}")
     
     api_key = data.get('api_key')
     api_secret = result.value
     
-    # Check if api_key exists
     if not api_key:
-        logger.error(f"API key missing for user {user.id}. Full data dump: {data}")
-        logger.error(f"Data keys: {list(data.keys())}")
-        logger.error(f"Data values: {list(data.values())}")
-        
+        logger.error(f"API key missing for user {user.id}")
         await context.bot.send_message(
             chat_id=user.id,
             text=format_error_message(
-                "API Key not found in conversation data.",
+                "API Key not found.",
                 "Please start over with /start"
             ),
             parse_mode='HTML'
@@ -380,9 +432,6 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
         await state_manager.clear_state(user.id)
         return
     
-    # Rest of the function remains the same...
-    
-    # Send processing message
     processing_msg = await context.bot.send_message(
         chat_id=user.id,
         text="⏳ <b>Processing...</b>\n\nValidating API credentials...",
@@ -390,17 +439,15 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
     )
     
     try:
-        # Validate credentials format
         is_valid, error = await validate_api_credentials(api_key, api_secret)
         if not is_valid:
             await processing_msg.edit_text(
-                format_error_message(error, "Please start over with /start"),
+                format_error_message(error, "Please start over."),
                 parse_mode='HTML'
             )
             await state_manager.clear_state(user.id)
             return
         
-        # Test API connection
         await processing_msg.edit_text(
             "⏳ <b>Processing...</b>\n\nTesting API connection...",
             parse_mode='HTML'
@@ -411,14 +458,13 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
             await processing_msg.edit_text(
                 format_error_message(
                     f"API connection test failed: {error}",
-                    "Please check your credentials and try again."
+                    "Please check your credentials."
                 ),
                 parse_mode='HTML'
             )
             await state_manager.clear_state(user.id)
             return
         
-        # Create API credential
         await processing_msg.edit_text(
             "⏳ <b>Processing...</b>\n\nSaving API credentials...",
             parse_mode='HTML'
@@ -434,7 +480,6 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
         
         credential_id = await create_api_credential(credential_data)
         
-        # Success message
         await processing_msg.edit_text(
             "✅ <b>API Credential Added!</b>\n\n"
             f"<b>Name:</b> {escape_html(data.get('api_name'))}\n"
@@ -444,11 +489,7 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
             parse_mode='HTML'
         )
         
-        log_user_action(
-            user.id,
-            "add_api_complete",
-            f"Added API: {data.get('api_name')}"
-        )
+        log_user_action(user.id, "add_api_complete", f"Added API: {data.get('api_name')}")
     
     except Exception as e:
         logger.error(f"Failed to create API credential: {e}", exc_info=True)
@@ -461,22 +502,14 @@ async def handle_api_secret_input(update: Update, context: ContextTypes.DEFAULT_
         )
     
     finally:
-        # Clear conversation state
         await state_manager.clear_state(user.id)
-        logger.info(f"Cleared conversation state for user {user.id}")
 
 
 def register_api_handlers(application: Application):
-    """
-    Register API management handlers.
+    """Register API management handlers."""
     
-    Args:
-        application: Bot application instance
-    """
-    # Command handlers
     application.add_handler(CommandHandler("skip", handle_skip_command))
     
-    # Callback query handlers  
     application.add_handler(CallbackQueryHandler(
         manage_api_callback,
         pattern="^menu_manage_api$"
@@ -487,13 +520,34 @@ def register_api_handlers(application: Application):
         pattern="^api_list$"
     ))
     
+    # ✅ ADDED: View API handler
+    application.add_handler(CallbackQueryHandler(
+        api_view_callback,
+        pattern="^api_view_[a-f0-9]{24}$"
+    ))
+    
     application.add_handler(CallbackQueryHandler(
         add_api_callback,
         pattern="^api_add$"
     ))
     
-    # DON'T ADD ANY MESSAGE HANDLERS HERE
-    # Messages are handled by message_router.py
+    # ✅ ADDED: Edit API handler
+    application.add_handler(CallbackQueryHandler(
+        api_edit_callback,
+        pattern="^api_edit_[a-f0-9]{24}$"
+    ))
+    
+    # ✅ ADDED: Delete API handler
+    application.add_handler(CallbackQueryHandler(
+        api_delete_callback,
+        pattern="^api_delete_[a-f0-9]{24}$"
+    ))
+    
+    # ✅ ADDED: Confirm delete handler
+    application.add_handler(CallbackQueryHandler(
+        api_delete_confirm_callback,
+        pattern="^api_delete_confirm_[a-f0-9]{24}$"
+    ))
     
     logger.info("API handlers registered")
 
