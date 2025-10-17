@@ -135,15 +135,34 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
         try:
             # Get current spot price
             ticker_response = await client.get_ticker(strategy.asset)
-            
-            if not ticker_response.get('success'):
+    
+            # ✅ ADDED: Check if response is None
+            if ticker_response is None:
                 await query.edit_message_text(
-                    f"❌ Failed to fetch spot price: {ticker_response.get('error', {}).get('message', 'Unknown error')}",
+                    "❌ Failed to connect to Delta Exchange API. Please try again later.",
                     reply_markup=get_manual_trade_keyboard(),
                     parse_mode='HTML'
                 )
                 return
             
+            if not ticker_response.get('success'):
+                error_msg = ticker_response.get('error', {}).get('message', 'Unknown error')
+                await query.edit_message_text(
+                    f"❌ Failed to fetch spot price: {error_msg}",
+                    reply_markup=get_manual_trade_keyboard(),
+                    parse_mode='HTML'
+                )
+                return
+    
+            # ✅ ADDED: Check if result exists
+            if not ticker_response.get('result'):
+                await query.edit_message_text(
+                    "❌ Invalid response from Delta Exchange API.",
+                    reply_markup=get_manual_trade_keyboard(),
+                    parse_mode='HTML'
+                )
+                return
+    
             spot_price = float(ticker_response['result']['spot_price'])
             
             # Get available options
