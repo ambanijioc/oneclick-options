@@ -230,7 +230,8 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             
             else:  # strangle
                 # Strangle: OTM strikes
-                otm_selection = strategy.get('otm_selection', {})
+                # ✅ FIXED: Use dot notation for Pydantic model
+                otm_selection = getattr(strategy, 'otm_selection', {})
                 otm_type = otm_selection.get('type', 'percentage')
                 otm_value = otm_selection.get('value', 0)
                 
@@ -244,17 +245,17 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                     strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
                     atm_strike = min(strikes, key=lambda x: abs(x - spot_price))
                     atm_index = strikes.index(atm_strike)
-                    
+        
                     # Get strikes N positions away
                     num_strikes = int(otm_value)
                     ce_target = strikes[min(atm_index + num_strikes, len(strikes) - 1)]
                     pe_target = strikes[max(atm_index - num_strikes, 0)]
-                
+    
                 # Find nearest strikes
                 strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
                 ce_strike = min(strikes, key=lambda x: abs(x - ce_target))
                 pe_strike = min(strikes, key=lambda x: abs(x - pe_target))
-                
+    
                 # Find CE and PE
                 ce_option = next((p for p in filtered_options 
                                  if float(p['strike_price']) == ce_strike 
@@ -262,7 +263,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 pe_option = next((p for p in filtered_options 
                                  if float(p['strike_price']) == pe_strike 
                                  and 'P' in p['symbol']), None)
-                
+    
                 if not ce_option or not pe_option:
                     await query.edit_message_text(
                         "❌ Could not find matching Call and Put options at the calculated strikes.",
@@ -270,19 +271,21 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                         parse_mode='HTML'
                     )
                     return
-                
+    
                 # Calculate trade details
                 ce_mark_price = float(ce_option.get('mark_price', 0) or 0)
                 pe_mark_price = float(pe_option.get('mark_price', 0) or 0)
-                total_premium = (ce_mark_price + pe_mark_price) * strategy['lot_size']
-                
+                # ✅ FIXED: Use dot notation
+                total_premium = (ce_mark_price + pe_mark_price) * strategy.lot_size
+    
                 # Build confirmation message
                 otm_desc = f"{otm_value}% (Spot-based)" if otm_type == 'percentage' else f"{int(otm_value)} strikes (ATM-based)"
-                
+    
                 text = f"<b>🎯 Confirm Trade Execution</b>\n\n"
                 text += f"<b>Preset:</b> {preset['preset_name']}\n"
+                # ✅ FIXED: Use dot notation for api and strategy
                 text += f"<b>API:</b> {api.api_name}\n"
-                text += f"<b>Strategy:</b> {strategy['name']}\n\n"
+                text += f"<b>Strategy:</b> {strategy.name}\n\n"
                 text += f"<b>📊 Market Data:</b>\n"
                 text += f"Spot Price: ${spot_price:,.2f}\n"
                 text += f"OTM Selection: {otm_desc}\n\n"
@@ -294,11 +297,12 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 text += f"  Strike: ${pe_strike:,.0f}\n"
                 text += f"  Mark: ${pe_mark_price:,.2f}\n\n"
                 text += f"<b>💰 Trade Summary:</b>\n"
-                text += f"Direction: {strategy['direction'].title()}\n"
-                text += f"Lot Size: {strategy['lot_size']}\n"
+                # ✅ FIXED: Use dot notation
+                text += f"Direction: {strategy.direction.title()}\n"
+                text += f"Lot Size: {strategy.lot_size}\n"
                 text += f"Total Premium: ${total_premium:,.2f}\n\n"
                 text += "⚠️ Execute this trade?"
-                
+    
                 # Store trade details in context for execution
                 context.user_data['pending_trade'] = {
                     'preset_id': preset_id,
@@ -306,8 +310,9 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                     'pe_symbol': pe_option['symbol'],
                     'ce_strike': ce_strike,
                     'pe_strike': pe_strike,
-                    'direction': strategy['direction'],
-                    'lot_size': strategy['lot_size'],
+                    # ✅ FIXED: Use dot notation
+                    'direction': strategy.direction,
+                    'lot_size': strategy.lot_size,
                     'api_key': api_key,
                     'api_secret': api_secret
                 }
