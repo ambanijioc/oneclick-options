@@ -94,6 +94,12 @@ async def lifespan(app: FastAPI):
         logger.info("Starting algo scheduler...")
         algo_scheduler_task = asyncio.create_task(start_algo_scheduler(bot_app))
         logger.info("✓ Algo scheduler started in background")
+
+        # ✅ NEW - Start keep-alive service
+        BASE_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://oneclick-options.onrender.com')
+        logger.info(f"Starting keep-alive service for {BASE_URL}...")
+        start_keepalive(BASE_URL)
+        logger.info("✓ Keep-alive service started")
         
         logger.info("=" * 50)
         logger.info("Bot started successfully! Ready to receive updates.")
@@ -127,6 +133,11 @@ async def lifespan(app: FastAPI):
             except asyncio.CancelledError:
                 pass
             logger.info("✓ Algo scheduler stopped")
+
+        # ✅ NEW - Stop keep-alive service
+        logger.info("Stopping keep-alive service...")
+        await stop_keepalive()
+        logger.info("✓ Keep-alive stopped")
         
         # Stop state manager cleanup task
         logger.info("Stopping state manager...")
