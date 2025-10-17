@@ -162,7 +162,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             # Filter by asset and expiry
             filtered_options = [
                 p for p in products
-                if strategy['asset'] in p.get('symbol', '')
+                if strategy.asset in p.get('symbol', '')
                 and p.get('state') == 'live'
             ]
             
