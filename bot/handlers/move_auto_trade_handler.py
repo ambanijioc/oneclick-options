@@ -19,6 +19,7 @@ def get_move_auto_trade_keyboard():
     keyboard = [
         [InlineKeyboardButton("📊 List Current Schedules", callback_data="move_auto_list")],
         [InlineKeyboardButton("➕ Add Schedule", callback_data="move_auto_add")],
+        [InlineKeyboardButton("✏️ Edit Schedule", callback_data="move_auto_edit_list")],  # ✅ ADD THIS LINE!
         [InlineKeyboardButton("🗑️ Delete Schedule", callback_data="move_auto_delete_list")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
     ]
