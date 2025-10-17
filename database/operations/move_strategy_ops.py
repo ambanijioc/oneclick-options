@@ -126,17 +126,32 @@ async def delete_move_strategy(strategy_id: str) -> bool:
 # Auto execution operations
 
 async def create_move_auto_execution(user_id: int, execution_data: dict) -> Optional[str]:
-    """Create a new move auto execution schedule."""
+    """Create a new move auto execution schedule using preset."""
     try:
         db = get_database()
         
+        # Get preset to extract API and strategy info
+        preset_id = execution_data.get('preset_id')
+        if not preset_id:
+            logger.error("No preset_id provided in execution_data")
+            return None
+        
+        # Get the preset
+        preset = await db.move_trade_presets.find_one({'_id': ObjectId(preset_id)})
+        if not preset:
+            logger.error(f"Preset not found: {preset_id}")
+            return None
+        
         execution = {
             'user_id': user_id,
-            'api_credential_id': execution_data['api_credential_id'],
-            'strategy_name': execution_data['strategy_name'],
+            'preset_id': preset_id,
+            'preset_name': preset.get('preset_name', 'Unknown'),
+            'api_credential_id': preset.get('api_credential_id'),
+            'strategy_id': preset.get('strategy_id'),
             'execution_time': execution_data['execution_time'],
             'enabled': True,
-            'created_at': datetime.utcnow()
+            'created_at': datetime.utcnow(),
+            'updated_at': datetime.utcnow()
         }
         
         result = await db.move_auto_executions.insert_one(execution)
@@ -146,6 +161,45 @@ async def create_move_auto_execution(user_id: int, execution_data: dict) -> Opti
     except Exception as e:
         logger.error(f"Failed to create move auto execution: {e}", exc_info=True)
         return None
+
+
+async def update_move_auto_execution(execution_id: str, execution_data: dict) -> bool:
+    """Update a move auto execution schedule."""
+    try:
+        db = get_database()
+        
+        # Get preset to extract API and strategy info
+        preset_id = execution_data.get('preset_id')
+        if not preset_id:
+            logger.error("No preset_id provided in execution_data")
+            return False
+        
+        # Get the preset
+        preset = await db.move_trade_presets.find_one({'_id': ObjectId(preset_id)})
+        if not preset:
+            logger.error(f"Preset not found: {preset_id}")
+            return False
+        
+        update_data = {
+            'preset_id': preset_id,
+            'preset_name': preset.get('preset_name', 'Unknown'),
+            'api_credential_id': preset.get('api_credential_id'),
+            'strategy_id': preset.get('strategy_id'),
+            'execution_time': execution_data['execution_time'],
+            'updated_at': datetime.utcnow()
+        }
+        
+        result = await db.move_auto_executions.update_one(
+            {'_id': ObjectId(execution_id)},
+            {'$set': update_data}
+        )
+        
+        logger.info(f"Updated move auto execution: {execution_id}")
+        return result.modified_count > 0
+    
+    except Exception as e:
+        logger.error(f"Failed to update move auto execution: {e}", exc_info=True)
+        return False
 
 
 async def get_move_auto_executions(user_id: int) -> List[dict]:
