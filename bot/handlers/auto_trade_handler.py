@@ -564,7 +564,7 @@ async def handle_auto_trade_time_input(update: Update, context: ContextTypes.DEF
     )
     
     # Clear state
-    await state_manager.clear_state(user.id)
+    #await state_manager.clear_state(user.id)
     
     log_user_action(user.id, "auto_trade_time", f"Set execution time: {text}")
 
@@ -626,7 +626,7 @@ async def handle_auto_trade_edit_time_input(update: Update, context: ContextType
     )
     
     # Clear state
-    await state_manager.clear_state(user.id)
+    #await state_manager.clear_state(user.id)
     
     log_user_action(user.id, "auto_trade_edit_time", f"Set new execution time: {text}")
 
