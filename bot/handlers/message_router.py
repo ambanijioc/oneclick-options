@@ -221,6 +221,15 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state_str == 'auto_trade_edit_time':
             from .auto_trade_handler import handle_auto_trade_edit_time_input
             await handle_auto_trade_edit_time_input(update, context, text)
+
+        # ==================== MOVE AUTO TRADE STATES ====================  ✅ ADD THIS SECTION!
+        elif state_str == 'move_auto_add_time':
+            from .move_auto_trade_handler import handle_move_auto_time_input
+            await handle_move_auto_time_input(update, context, text)
+
+        elif state_str == 'move_auto_edit_time':
+            from .move_auto_trade_handler import handle_move_auto_edit_time_input
+            await handle_move_auto_edit_time_input(update, context, text)
             
         else:
             logger.warning(f"Unhandled conversation state: {state_str}")
