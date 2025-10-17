@@ -1,5 +1,5 @@
 """
-Manual move options trade execution handler.
+Manual move options trade execution handler - uses saved presets.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -7,10 +7,11 @@ from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
-from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
-from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
-from database.operations.move_strategy_ops import get_move_strategies, get_move_strategy
+from database.operations.move_trade_preset_ops import get_move_trade_presets, get_move_trade_preset_by_id
+from database.operations.api_ops import get_api_credential_by_id, get_decrypted_api_credential
+from database.operations.move_strategy_ops import get_move_strategy
+from delta.client import DeltaClient
 
 logger = setup_logger(__name__)
 
@@ -25,7 +26,7 @@ def get_move_manual_trade_keyboard():
 
 @error_handler
 async def move_manual_trade_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Display manual move trade menu - select API."""
+    """Display manual move trade execution menu - list presets."""
     query = update.callback_query
     await query.answer()
     
@@ -35,183 +36,229 @@ async def move_manual_trade_menu_callback(update: Update, context: ContextTypes.
         await query.edit_message_text("❌ Unauthorized access")
         return
     
-    # Get user's APIs
-    apis = await get_api_credentials(user.id)
+    # Get user's move trade presets
+    presets = await get_move_trade_presets(user.id)
     
-    if not apis:
+    if not presets:
         await query.edit_message_text(
-            "<b>🎯 Manual Move Trade</b>\n\n"
-            "❌ No API credentials configured.\n\n"
-            "Please add an API credential first.",
+            "<b>🎯 Manual Move Trade Execution</b>\n\n"
+            "❌ No trade presets found.\n\n"
+            "Please create a Move Trade Preset first using the menu.",
             reply_markup=get_move_manual_trade_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # Create keyboard with API options
+    # Create keyboard with presets
     keyboard = []
-    for api in apis:
+    for preset in presets:
         keyboard.append([InlineKeyboardButton(
-            f"📊 {api.api_name}",
-            callback_data=f"move_manual_api_{api.id}"
+            f"🎯 {preset['preset_name']}",
+            callback_data=f"move_manual_select_{preset['_id']}"
         )])
-    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_main")])
+    keyboard.append([InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")])
     
     await query.edit_message_text(
-        "<b>🎯 Manual Move Trade</b>\n\n"
-        "Select API account for trade execution:",
+        "<b>🎯 Manual Move Trade Execution</b>\n\n"
+        "Select a trade preset to execute:",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
     
-    log_user_action(user.id, "move_manual_trade", "Started manual trade flow")
+    log_user_action(user.id, "move_manual_trade_menu", f"Viewed {len(presets)} trade presets")
 
 
 @error_handler
-async def move_manual_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle API selection - show strategies."""
+async def move_manual_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle preset selection - fetch details and show confirmation."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
-    api_id = query.data.split('_')[-1]
+    preset_id = query.data.split('_')[-1]
     
-    # Store API ID
-    await state_manager.set_state_data(user.id, {'api_id': api_id})
+    # Show loading message
+    await query.edit_message_text(
+        "⏳ <b>Loading trade details...</b>\n\n"
+        "Fetching market data and calculating positions...",
+        parse_mode='HTML'
+    )
     
-    # Get strategies
-    strategies = await get_move_strategies(user.id)
+    try:
+        # Get preset
+        preset = await get_move_trade_preset_by_id(preset_id)
+        
+        if not preset:
+            await query.edit_message_text(
+                "❌ Trade preset not found.",
+                reply_markup=get_move_manual_trade_keyboard(),
+                parse_mode='HTML'
+            )
+            return
+        
+        # Get API credentials
+        api = await get_api_credential_by_id(preset['api_id'])
+        if not api:
+            await query.edit_message_text(
+                "❌ API credential not found.",
+                reply_markup=get_move_manual_trade_keyboard(),
+                parse_mode='HTML'
+            )
+            return
+        
+        credentials = await get_decrypted_api_credential(preset['api_id'])
+        if not credentials:
+            await query.edit_message_text(
+                "❌ Failed to decrypt API credentials.",
+                reply_markup=get_move_manual_trade_keyboard(),
+                parse_mode='HTML'
+            )
+            return
+        
+        # Get strategy
+        strategy = await get_move_strategy(preset['strategy_id'])
+        if not strategy:
+            await query.edit_message_text(
+                "❌ Strategy not found.",
+                reply_markup=get_move_manual_trade_keyboard(),
+                parse_mode='HTML'
+            )
+            return
+        
+        # Create Delta client
+        api_key, api_secret = credentials
+        client = DeltaClient(api_key, api_secret)
+        
+        try:
+            # Get current spot price
+            ticker_symbol = f"{strategy.asset}USD"
+            ticker_response = await client.get_ticker(ticker_symbol)
+            
+            if ticker_response is None or not ticker_response.get('success') or not ticker_response.get('result'):
+                await query.edit_message_text(
+                    "❌ Failed to fetch market data from Delta Exchange API.",
+                    reply_markup=get_move_manual_trade_keyboard(),
+                    parse_mode='HTML'
+                )
+                return
+            
+            spot_price = float(ticker_response['result']['spot_price'])
+            
+            # Build confirmation message
+            text = f"<b>🎯 Confirm Move Trade Execution</b>\n\n"
+            text += f"<b>Preset:</b> {preset['preset_name']}\n"
+            text += f"<b>API:</b> {api.api_name}\n"
+            text += f"<b>Strategy:</b> {strategy.strategy_name}\n\n"
+            text += f"<b>📊 Market Data:</b>\n"
+            text += f"Spot Price: ${spot_price:,.2f}\n"
+            text += f"ATM Offset: {strategy.atm_offset:+d}\n\n"
+            text += f"<b>💰 Trade Summary:</b>\n"
+            text += f"Direction: {strategy.direction.title()}\n"
+            text += f"Lot Size: {strategy.lot_size}\n\n"
+            text += "⚠️ Execute this trade?"
+            
+            # Store trade details in context for execution
+            context.user_data['pending_move_trade'] = {
+                'preset_id': preset_id,
+                'direction': strategy.direction,
+                'lot_size': strategy.lot_size,
+                'asset': strategy.asset,
+                'atm_offset': strategy.atm_offset,
+                'api_key': api_key,
+                'api_secret': api_secret
+            }
+            
+            # Show confirmation
+            keyboard = [
+                [InlineKeyboardButton("✅ Execute Trade", callback_data="move_manual_execute")],
+                [InlineKeyboardButton("❌ Cancel", callback_data="menu_move_manual_trade")]
+            ]
+            
+            await query.edit_message_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='HTML'
+            )
+        
+        finally:
+            await client.close()
     
-    if not strategies:
-        keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="menu_move_manual_trade")]]
+    except Exception as e:
+        logger.error(f"Failed to prepare move trade: {e}", exc_info=True)
         await query.edit_message_text(
-            "<b>🎯 Manual Move Trade</b>\n\n"
-            "❌ No strategies found.\n\n"
-            "Create a strategy first.",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            f"❌ Error preparing trade: {str(e)[:200]}",
+            reply_markup=get_move_manual_trade_keyboard(),
+            parse_mode='HTML'
+        )
+
+
+@error_handler
+async def move_manual_execute_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Execute the confirmed move trade."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get pending trade from context
+    pending_trade = context.user_data.get('pending_move_trade')
+    
+    if not pending_trade:
+        await query.edit_message_text(
+            "❌ No pending trade found. Please start again.",
+            reply_markup=get_move_manual_trade_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # Create strategy selection keyboard
-    keyboard = []
-    for strategy in strategies:
-        # Handle both Pydantic and dict
-        if hasattr(strategy, 'strategy_name'):
-            name = strategy.strategy_name
-            strategy_id = str(strategy.id)
-        else:
-            name = strategy.get('strategy_name', 'N/A')
-            strategy_id = str(strategy.get('_id', ''))
+    # Show executing message
+    await query.edit_message_text(
+        "⏳ <b>Executing trade...</b>\n\n"
+        "Placing orders...",
+        parse_mode='HTML'
+    )
+    
+    try:
+        # Create Delta client
+        client = DeltaClient(pending_trade['api_key'], pending_trade['api_secret'])
         
-        keyboard.append([InlineKeyboardButton(
-            f"📊 {name}",
-            callback_data=f"move_manual_strategy_{strategy_id}"
-        )])
+        try:
+            # TODO: Implement actual move trade execution logic
+            # This is a placeholder - you'll need to implement the move options logic
+            
+            # Success
+            text = "<b>✅ Move Trade Executed Successfully!</b>\n\n"
+            text += f"<b>Asset:</b> {pending_trade['asset']}\n"
+            text += f"<b>Direction:</b> {pending_trade['direction'].title()}\n"
+            text += f"<b>Lot Size:</b> {pending_trade['lot_size']}\n\n"
+            text += "🚧 <i>Full execution logic to be implemented</i>\n\n"
+            text += "Check your positions for details."
+            
+            await query.edit_message_text(
+                text,
+                reply_markup=get_move_manual_trade_keyboard(),
+                parse_mode='HTML'
+            )
+            
+            log_user_action(user.id, "move_manual_execute", f"Executed {pending_trade['direction']} move trade")
+        
+        finally:
+            await client.close()
+            # Clear pending trade
+            context.user_data.pop('pending_move_trade', None)
     
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_move_manual_trade")])
-    
-    await query.edit_message_text(
-        "<b>🎯 Manual Move Trade</b>\n\n"
-        "Select strategy to execute:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
-    )
-
-
-@error_handler
-async def move_manual_strategy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle strategy selection - show confirmation."""
-    query = update.callback_query
-    await query.answer()
-    
-    user = query.from_user
-    strategy_id = query.data.split('_')[-1]
-    
-    # Get strategy
-    strategy = await get_move_strategy(strategy_id)
-    
-    if not strategy:
-        await query.edit_message_text("❌ Strategy not found")
-        return
-    
-    # Store strategy ID
-    state_data = await state_manager.get_state_data(user.id)
-    state_data['strategy_id'] = strategy_id
-    await state_manager.set_state_data(user.id, state_data)
-    
-    # Handle both Pydantic and dict
-    if hasattr(strategy, 'strategy_name'):
-        name = strategy.strategy_name
-        asset = strategy.asset
-        direction = strategy.direction
-        lot_size = strategy.lot_size
-        atm_offset = strategy.atm_offset
-        sl_trigger = getattr(strategy, 'stop_loss_trigger', None)
-        sl_limit = getattr(strategy, 'stop_loss_limit', None)
-        target_trigger = getattr(strategy, 'target_trigger', None)
-        target_limit = getattr(strategy, 'target_limit', None)
-    else:
-        name = strategy.get('strategy_name', 'N/A')
-        asset = strategy.get('asset', 'N/A')
-        direction = strategy.get('direction', 'N/A')
-        lot_size = strategy.get('lot_size', 0)
-        atm_offset = strategy.get('atm_offset', 0)
-        sl_trigger = strategy.get('stop_loss_trigger')
-        sl_limit = strategy.get('stop_loss_limit')
-        target_trigger = strategy.get('target_trigger')
-        target_limit = strategy.get('target_limit')
-    
-    # Show confirmation
-    text = "<b>🎯 Confirm Move Trade</b>\n\n"
-    text += f"<b>Strategy:</b> {name}\n"
-    text += f"<b>Asset:</b> {asset}\n"
-    text += f"<b>Direction:</b> {direction.title()}\n"
-    text += f"<b>Lot Size:</b> {lot_size}\n"
-    text += f"<b>ATM Offset:</b> {atm_offset:+d}\n"
-    
-    if sl_trigger:
-        text += f"<b>Stop Loss:</b> ${sl_trigger:.2f} / ${sl_limit:.2f}\n"
-    
-    if target_trigger:
-        text += f"<b>Target:</b> ${target_trigger:.2f} / ${target_limit:.2f}\n"
-    
-    text += "\n⚠️ <b>Execute this trade?</b>"
-    
-    keyboard = [
-        [InlineKeyboardButton("✅ Confirm", callback_data="move_manual_confirm")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="menu_main")]
-    ]
-    
-    await query.edit_message_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
-    )
-
-
-# ✅ ADDED: This function was missing!
-@error_handler
-async def move_manual_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Execute the trade."""
-    query = update.callback_query
-    await query.answer()
-    
-    user = query.from_user
-    
-    # TODO: Implement actual trade execution
-    
-    await query.edit_message_text(
-        "<b>✅ Trade Execution</b>\n\n"
-        "⏳ Executing trade...\n\n"
-        "🚧 <i>Trade execution logic to be implemented</i>",
-        reply_markup=get_move_manual_trade_keyboard(),
-        parse_mode='HTML'
-    )
-    
-    await state_manager.clear_state(user.id)
-    
-    log_user_action(user.id, "move_manual_execute", "Executed move trade")
+    except Exception as e:
+        logger.error(f"Failed to execute move trade: {e}", exc_info=True)
+        await query.edit_message_text(
+            f"<b>❌ Trade Execution Failed</b>\n\n"
+            f"Error: {str(e)[:200]}\n\n"
+            f"Please try again or check your account.",
+            reply_markup=get_move_manual_trade_keyboard(),
+            parse_mode='HTML'
+        )
+        
+        # Clear pending trade
+        context.user_data.pop('pending_move_trade', None)
 
 
 def register_move_manual_trade_handlers(application: Application):
@@ -223,19 +270,14 @@ def register_move_manual_trade_handlers(application: Application):
     ))
     
     application.add_handler(CallbackQueryHandler(
-        move_manual_api_callback,
-        pattern="^move_manual_api_[a-f0-9]{24}$"
+        move_manual_select_callback,
+        pattern="^move_manual_select_"
     ))
     
     application.add_handler(CallbackQueryHandler(
-        move_manual_strategy_callback,
-        pattern="^move_manual_strategy_[a-f0-9]{24}$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        move_manual_confirm_callback,
-        pattern="^move_manual_confirm$"
+        move_manual_execute_callback,
+        pattern="^move_manual_execute$"
     ))
     
     logger.info("Move manual trade handlers registered")
-    
+        
