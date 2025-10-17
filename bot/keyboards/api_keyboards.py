@@ -4,7 +4,6 @@ Keyboards for API credential management.
 
 from typing import List
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
 from database.models.api_credentials import APICredential
 from .main_menu import get_back_to_main_menu_button
 
@@ -15,14 +14,14 @@ def get_api_management_keyboard(apis: List[APICredential] = None) -> InlineKeybo
     
     Args:
         apis: List of existing API credentials
-    
+        
     Returns:
         InlineKeyboardMarkup with API management options
     """
     keyboard = [
         [InlineKeyboardButton("➕ Add API", callback_data="api_add")],
-        [InlineKeyboardButton("✏️ Edit API", callback_data="api_edit")],
-        [InlineKeyboardButton("🗑️ Delete API", callback_data="api_delete")]
+        [InlineKeyboardButton("✏️ Edit API", callback_data="api_edit_list")],  # ✅ FIXED
+        [InlineKeyboardButton("🗑️ Delete API", callback_data="api_delete_list")]  # ✅ FIXED
     ]
     
     # Show existing APIs if provided
@@ -44,7 +43,7 @@ def get_api_list_keyboard(apis: List[APICredential]) -> InlineKeyboardMarkup:
     
     Args:
         apis: List of API credentials
-    
+        
     Returns:
         InlineKeyboardMarkup with API list
     """
@@ -55,7 +54,7 @@ def get_api_list_keyboard(apis: List[APICredential]) -> InlineKeyboardMarkup:
         desc = api.api_description[:30] + "..." if len(api.api_description) > 30 else api.api_description
         button_text = f"🔑 {api.api_name}"
         if desc:
-            button_text += f"\n   {desc}"
+            button_text += f"\n  {desc}"
         
         keyboard.append([InlineKeyboardButton(
             button_text,
@@ -74,7 +73,7 @@ def get_api_edit_keyboard(apis: List[APICredential]) -> InlineKeyboardMarkup:
     
     Args:
         apis: List of API credentials
-    
+        
     Returns:
         InlineKeyboardMarkup with edit options
     """
@@ -92,21 +91,43 @@ def get_api_edit_keyboard(apis: List[APICredential]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_api_delete_keyboard(apis: List[APICredential]) -> InlineKeyboardMarkup:
+    """
+    Get keyboard for deleting APIs.
+    
+    Args:
+        apis: List of API credentials
+        
+    Returns:
+        InlineKeyboardMarkup with delete options
+    """
+    keyboard = []
+    
+    for api in apis:
+        keyboard.append([InlineKeyboardButton(
+            f"🗑️ {api.api_name}",
+            callback_data=f"api_delete_{api.id}"
+        )])
+    
+    # Add back button
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_manage_api")])
+    
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_api_delete_confirmation_keyboard(api_id: str) -> InlineKeyboardMarkup:
     """
     Get confirmation keyboard for API deletion.
     
     Args:
         api_id: API credential ID
-    
+        
     Returns:
         InlineKeyboardMarkup with confirmation buttons
     """
     keyboard = [
-        [
-            InlineKeyboardButton("✅ Yes, Delete", callback_data=f"api_delete_confirm_{api_id}"),
-            InlineKeyboardButton("❌ Cancel", callback_data="menu_manage_api")
-        ]
+        [InlineKeyboardButton("✅ Yes, Delete", callback_data=f"api_delete_confirm_{api_id}")],  # ✅ FIXED
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manage_api")]  # ✅ FIXED
     ]
     
     return InlineKeyboardMarkup(keyboard)
@@ -119,4 +140,4 @@ if __name__ == "__main__":
     for row in keyboard.inline_keyboard:
         for button in row:
             print(f"- {button.text}: {button.callback_data}")
-          
+            
