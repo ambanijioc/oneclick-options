@@ -146,9 +146,9 @@ async def move_preset_api_selected_callback(update: Update, context: ContextType
     state_data['api_id'] = api_id
     await state_manager.set_state_data(user.id, state_data)
     
-    # ✅ NEW - use the correct function name from your database ops:
-    from database.operations.move_strategy_ops import get_move_strategy_presets
-    strategies = await get_move_strategy_presets(user.id)
+    # ✅ CORRECT:
+    from database.operations.move_strategy_ops import get_move_strategies
+    strategies = await get_move_strategies(user.id)
     
     if not strategies:
         await query.edit_message_text(
