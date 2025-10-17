@@ -250,10 +250,16 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             
             else:  # strangle
                 # Strangle: OTM strikes
-                # ✅ FIXED: Use dot notation for Pydantic model
-                otm_selection = getattr(strategy, 'otm_selection', {})
-                otm_type = otm_selection.get('type', 'percentage')
-                otm_value = otm_selection.get('value', 0)
+                # ✅ CORRECT:
+                otm_selection = getattr(strategy, 'otm_selection', None)
+                if otm_selection:
+                    # otm_selection is a Pydantic model, use dot notation
+                    otm_type = getattr(otm_selection, 'type', 'percentage')
+                    otm_value = getattr(otm_selection, 'value', 0)
+                else:
+                    # Fallback defaults
+                    otm_type = 'percentage'
+                    otm_value = 0
                 
                 if otm_type == 'percentage':
                     # Percentage-based: from spot price
