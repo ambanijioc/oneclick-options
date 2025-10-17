@@ -163,6 +163,26 @@ async def create_move_auto_execution(user_id: int, execution_data: dict) -> Opti
         return None
 
 
+async def get_move_auto_executions(user_id: int) -> List[dict]:
+    """Get all move auto executions for a user."""
+    try:
+        db = get_database()
+        
+        cursor = db.move_auto_executions.find({'user_id': user_id})
+        executions = await cursor.to_list(length=100)
+        
+        # Convert ObjectId to string
+        for execution in executions:
+            execution['id'] = str(execution['_id'])
+            del execution['_id']
+        
+        return executions
+    
+    except Exception as e:
+        logger.error(f"Failed to get move auto executions: {e}", exc_info=True)
+        return []
+
+
 async def update_move_auto_execution(execution_id: str, execution_data: dict) -> bool:
     """Update a move auto execution schedule."""
     try:
@@ -202,26 +222,6 @@ async def update_move_auto_execution(execution_id: str, execution_data: dict) ->
         return False
 
 
-async def get_move_auto_executions(user_id: int) -> List[dict]:
-    """Get all move auto executions for a user."""
-    try:
-        db = get_database()
-        
-        cursor = db.move_auto_executions.find({'user_id': user_id})
-        executions = await cursor.to_list(length=100)
-        
-        # Convert ObjectId to string
-        for execution in executions:
-            execution['id'] = str(execution['_id'])
-            del execution['_id']
-        
-        return executions
-    
-    except Exception as e:
-        logger.error(f"Failed to get move auto executions: {e}", exc_info=True)
-        return []
-
-
 async def delete_move_auto_execution(execution_id: str) -> bool:
     """Delete a move auto execution."""
     try:
@@ -254,4 +254,4 @@ async def get_enabled_move_auto_executions() -> List[dict]:
     except Exception as e:
         logger.error(f"Failed to get enabled move auto executions: {e}", exc_info=True)
         return []
-      
+        
