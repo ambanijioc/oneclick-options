@@ -618,7 +618,7 @@ def register_move_preset_handlers(application: Application):
     # ✅ FIXED: Added $ to end of pattern
     application.add_handler(CallbackQueryHandler(
         move_preset_strategy_selected_callback,
-        pattern="^move_preset_strategy_[a-f0-9]{24}$"  # ✅ Added $ here!
+        pattern="^move_preset_strategy_"
     ))
     
     application.add_handler(CallbackQueryHandler(
