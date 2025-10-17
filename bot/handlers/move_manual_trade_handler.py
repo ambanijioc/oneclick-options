@@ -124,16 +124,32 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
                 parse_mode='HTML'
             )
             return
+
+        # ✅ ADDED: Handle both dict and Pydantic model
+        if isinstance(strategy, dict):
+            # It's a dict from MongoDB
+            strategy_name = strategy.get('strategy_name', 'N/A')
+            asset = strategy.get('asset', 'BTC')
+            direction = strategy.get('direction', 'long')
+            lot_size = strategy.get('lot_size', 1)
+            atm_offset = strategy.get('atm_offset', 0)
+        else:
+            # It's a Pydantic model
+            strategy_name = strategy.strategy_name
+            asset = strategy.asset
+            direction = strategy.direction
+            lot_size = strategy.lot_size
+            atm_offset = strategy.atm_offset
         
         # Create Delta client
         api_key, api_secret = credentials
         client = DeltaClient(api_key, api_secret)
         
         try:
-            # Get current spot price
-            ticker_symbol = f"{strategy.asset}USD"
+            # Get current spot price - ✅ FIXED: Use variable instead of strategy.asset
+            ticker_symbol = f"{asset}USD"
             ticker_response = await client.get_ticker(ticker_symbol)
-            
+    
             if ticker_response is None or not ticker_response.get('success') or not ticker_response.get('result'):
                 await query.edit_message_text(
                     "❌ Failed to fetch market data from Delta Exchange API.",
@@ -143,27 +159,27 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
                 return
             
             spot_price = float(ticker_response['result']['spot_price'])
-            
-            # Build confirmation message
+    
+            # Build confirmation message - ✅ FIXED: Use variables
             text = f"<b>🎯 Confirm Move Trade Execution</b>\n\n"
             text += f"<b>Preset:</b> {preset['preset_name']}\n"
             text += f"<b>API:</b> {api.api_name}\n"
-            text += f"<b>Strategy:</b> {strategy.strategy_name}\n\n"
+            text += f"<b>Strategy:</b> {strategy_name}\n\n"
             text += f"<b>📊 Market Data:</b>\n"
             text += f"Spot Price: ${spot_price:,.2f}\n"
-            text += f"ATM Offset: {strategy.atm_offset:+d}\n\n"
+            text += f"ATM Offset: {atm_offset:+d}\n\n"
             text += f"<b>💰 Trade Summary:</b>\n"
-            text += f"Direction: {strategy.direction.title()}\n"
-            text += f"Lot Size: {strategy.lot_size}\n\n"
+            text += f"Direction: {direction.title()}\n"
+            text += f"Lot Size: {lot_size}\n\n"
             text += "⚠️ Execute this trade?"
             
-            # Store trade details in context for execution
+            # Store trade details in context for execution - ✅ FIXED: Use variables
             context.user_data['pending_move_trade'] = {
                 'preset_id': preset_id,
-                'direction': strategy.direction,
-                'lot_size': strategy.lot_size,
-                'asset': strategy.asset,
-                'atm_offset': strategy.atm_offset,
+                'direction': direction,
+                'lot_size': lot_size,
+                'asset': asset,
+                'atm_offset': atm_offset,
                 'api_key': api_key,
                 'api_secret': api_secret
             }
