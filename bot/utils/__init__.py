@@ -15,6 +15,7 @@ from .message_formatter import (
 )
 from .error_handler import error_handler, api_error_handler
 from .state_manager import StateManager, ConversationState
+from .keepalive import start_keepalive, stop_keepalive  # ✅ ADD THIS!
 
 __all__ = [
     'setup_logger',
@@ -31,4 +32,6 @@ __all__ = [
     'api_error_handler',
     'StateManager',
     'ConversationState'
+    'start_keepalive',  # ✅ ADD THIS!
+    'stop_keepalive'    # ✅ ADD THIS!
 ]
