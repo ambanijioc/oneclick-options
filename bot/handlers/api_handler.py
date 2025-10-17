@@ -134,7 +134,7 @@ async def add_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user = query.from_user
     
-    await state_manager.set_state(user.id, ConversationState.API_ADD_NAME)
+    await state_manager.set_state(user.id, 'api_add_name')  # Use string!
     
     text = (
         "<b>➕ Add New API</b>\n\n"
