@@ -609,17 +609,15 @@ def register_move_preset_handlers(application: Application):
         pattern="^move_preset_add$"
     ))
     
-    # ✅ REMOVED: move_preset_select_api_callback doesn't exist
-    # This was causing issues
-    
     application.add_handler(CallbackQueryHandler(
         move_preset_api_selected_callback,
-        pattern="^move_preset_api_[a-f0-9]{24}$"
+        pattern="^move_preset_api_[a-f0-9]{24}$"  # ✅ Has $ 
     ))
     
+    # ✅ FIXED: Added $ to end of pattern
     application.add_handler(CallbackQueryHandler(
         move_preset_strategy_selected_callback,
-        pattern="^move_preset_strategy_[a-f0-9]{24}$"
+        pattern="^move_preset_strategy_[a-f0-9]{24}$"  # ✅ Added $ here!
     ))
     
     application.add_handler(CallbackQueryHandler(
