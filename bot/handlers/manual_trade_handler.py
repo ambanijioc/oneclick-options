@@ -2,6 +2,7 @@
 Manual trade execution handler - uses saved presets.
 """
 
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
