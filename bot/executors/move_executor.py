@@ -34,72 +34,102 @@ class MoveTradeExecutor:
         atm_offset: int = 0
     ) -> Optional[Dict[str, Any]]:
         """
-        Find ATM option contract dynamically.
-        
+        Find ATM option contract dynamically with proper strike increments.
+    
         Args:
             asset: BTC or ETH
             direction: 'long' or 'short'
-            atm_offset: Strike offset from ATM (0 = ATM, +1 = OTM by 1 strike, etc.)
-        
+            atm_offset: Strike offset from ATM in number of strikes
+                       0 = ATM
+                       +1 = 1 strike OTM (higher for calls, lower for puts)
+                       -1 = 1 strike ITM (lower for calls, higher for puts)
+    
         Returns:
             Product dict or None
         """
         try:
+            # Strike increments for each asset
+            STRIKE_INCREMENTS = {
+                'BTC': 200,
+                'ETH': 20
+            }
+        
+            strike_increment = STRIKE_INCREMENTS.get(asset.upper(), 100)
+        
             # Get spot price
             spot_price = await self.client.get_spot_price(asset)
             logger.info(f"Current {asset} spot price: ${spot_price:,.2f}")
             
+            # Round spot price to nearest strike
+            atm_strike = round(spot_price / strike_increment) * strike_increment
+            logger.info(f"Rounded ATM strike: ${atm_strike:,.2f} (increment: ${strike_increment})")
+        
             # Determine option type based on direction
             # For LONG move: Buy CALL (expect upward move)
             # For SHORT move: Buy PUT (expect downward move)
             contract_type = "call_options" if direction.lower() == "long" else "put_options"
+        
+            # Calculate target strike based on offset
+            # For calls: Positive offset = higher strike (more OTM)
+            # For puts: Positive offset = lower strike (more OTM)
+            if direction.lower() == "long":
+                # Long = Call, so +offset means higher strike
+                target_strike = atm_strike + (atm_offset * strike_increment)
+            else:
+                # Short = Put, so +offset means lower strike
+                target_strike = atm_strike - (atm_offset * strike_increment)
+        
+            logger.info(f"Target strike with offset {atm_offset}: ${target_strike:,.2f}")
             
             # Get all products of this type
             products_response = await self.client.get_products(contract_types=contract_type)
-            
+        
             if not products_response.get('success') or not products_response.get('result'):
                 logger.error(f"Failed to fetch {contract_type} products")
                 return None
-            
+        
             products = products_response['result']
-            
-            # Filter products for the asset
-            asset_products = [
+        
+            # Filter products for the asset and target strike
+            matching_products = [
                 p for p in products
                 if p.get('underlying_asset', {}).get('symbol') == asset
                 and p.get('contract_type') == contract_type.replace('_options', '')
+                and abs(float(p.get('strike_price', 0)) - target_strike) < (strike_increment / 2)
             ]
-            
-            if not asset_products:
-                logger.error(f"No {contract_type} found for {asset}")
-                return None
-            
-            # Find ATM strike (closest to spot price)
-            strikes = []
-            for product in asset_products:
-                strike = product.get('strike_price')
-                if strike:
-                    strikes.append((abs(float(strike) - spot_price), product))
-            
-            if not strikes:
-                logger.error("No valid strikes found")
-                return None
-            
-            # Sort by distance from spot price
-            strikes.sort(key=lambda x: x[0])
-            
-            # Apply ATM offset
-            offset_index = max(0, min(atm_offset, len(strikes) - 1))
-            selected_product = strikes[offset_index][1]
-            
-            logger.info(
-                f"Selected {contract_type} contract: {selected_product.get('symbol')} "
-                f"(Strike: ${selected_product.get('strike_price')}, "
-                f"Offset: {atm_offset})"
-            )
-            
-            return selected_product
         
+            if not matching_products:
+                logger.warning(f"No exact match for strike ${target_strike}. Finding nearest...")
+            
+                # Fallback: Find nearest available strike
+                asset_products = [
+                    p for p in products
+                    if p.get('underlying_asset', {}).get('symbol') == asset
+                    and p.get('contract_type') == contract_type.replace('_options', '')
+                ]
+            
+                if not asset_products:
+                    logger.error(f"No {contract_type} found for {asset}")
+                    return None
+            
+                # Find closest strike to target
+                closest_product = min(
+                    asset_products,
+                    key=lambda p: abs(float(p.get('strike_price', 0)) - target_strike)
+                )
+                matching_products = [closest_product]
+        
+            # Get the product (should be only one with exact strike match)
+            selected_product = matching_products[0]
+        
+            logger.info(
+                f"✅ Selected {contract_type} contract: {selected_product.get('symbol')} "
+                f"(Strike: ${selected_product.get('strike_price')}, "
+                f"Offset: {atm_offset} strikes = ${atm_offset * strike_increment})"
+            )
+        
+            return selected_product
+    
         except Exception as e:
             logger.error(f"Error finding ATM option: {e}", exc_info=True)
             return None
