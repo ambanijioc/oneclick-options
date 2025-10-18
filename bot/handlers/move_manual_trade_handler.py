@@ -230,7 +230,9 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
     # Show executing message
     await query.edit_message_text(
         "⏳ <b>Executing trade...</b>\n\n"
-        "Placing orders...",
+        "📊 Finding ATM option...\n"
+        "📈 Placing entry order...\n"
+        "🛡️ Setting up SL/Target orders...",
         parse_mode='HTML'
     )
     
@@ -239,101 +241,77 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
         client = DeltaClient(pending_trade['api_key'], pending_trade['api_secret'])
         
         try:
-            # Extract trade parameters
-            asset = pending_trade['asset']
-            direction = pending_trade['direction']
-            lot_size = pending_trade['lot_size']
-            atm_offset = pending_trade['atm_offset']
+            # ✅ NEW: Import and use the executor
+            from bot.executors.move_executor import MoveTradeExecutor
             
-            # Get current spot price
-            ticker_symbol = f"{asset}USD"
-            ticker_response = await client.get_ticker(ticker_symbol)
+            executor = MoveTradeExecutor(client)
             
-            if not ticker_response or not ticker_response.get('success'):
-                raise Exception("Failed to fetch market data")
+            # Get strategy details from pending trade
+            preset_id = pending_trade.get('preset_id')
+            preset = await get_move_trade_preset_by_id(preset_id)
+            strategy = await get_move_strategy(preset['strategy_id'])
             
-            spot_price = float(ticker_response['result']['spot_price'])
+            # Handle dict vs Pydantic model
+            if isinstance(strategy, dict):
+                sl_trigger = strategy.get('stop_loss_trigger')
+                sl_limit = strategy.get('stop_loss_limit')
+                target_trigger = strategy.get('target_trigger')
+                target_limit = strategy.get('target_limit')
+            else:
+                sl_trigger = strategy.stop_loss_trigger
+                sl_limit = strategy.stop_loss_limit
+                target_trigger = strategy.target_trigger
+                target_limit = strategy.target_limit
             
-            # Calculate strike price with ATM offset
-            # Round to nearest 100 for BTC (adjust for other assets)
-            strike_rounding = 200 if asset == "BTC" else 20
-            atm_strike = round(spot_price / strike_rounding) * strike_rounding
-            target_strike = atm_strike + (atm_offset * strike_rounding)
-            
-            # Get contract details
-            contracts_response = await client.get_contracts()
-            if not contracts_response or not contracts_response.get('success'):
-                raise Exception("Failed to fetch contracts")
-            
-            contracts = contracts_response['result']
-            
-            # Find the contract with matching strike
-            # For Move: We need the CALL option at target strike
-            target_contract = None
-            for contract in contracts:
-                if (contract.get('underlying_asset', {}).get('symbol') == asset and
-                    contract.get('contract_type') == 'call_options' and
-                    abs(contract.get('strike_price', 0) - target_strike) < strike_rounding / 2):
-                    target_contract = contract
-                    break
-            
-            if not target_contract:
-                raise Exception(f"No contract found for strike {target_strike}")
-            
-            product_id = target_contract['id']
-            contract_symbol = target_contract['symbol']
-            
-            # Determine order side based on direction
-            # Long Move = Buy Call
-            # Short Move = Sell Call
-            order_side = 'buy' if direction == 'long' else 'sell'
-            
-            # Place market order
-            order_payload = {
-                'product_id': product_id,
-                'size': lot_size,
-                'side': order_side,
-                'order_type': 'market_order',
-                'time_in_force': 'ioc'  # Immediate or cancel
-            }
-            
-            order_response = await client.place_order(order_payload)
-            
-            if not order_response or not order_response.get('success'):
-                error_msg = order_response.get('error', {}).get('message', 'Unknown error') if order_response else 'API request failed'
-                raise Exception(f"Order placement failed: {error_msg}")
-            
-            order_result = order_response['result']
-            order_id = order_result.get('id', 'N/A')
-            filled_qty = order_result.get('size', 0)
-            avg_fill_price = order_result.get('average_fill_price', 0)
-            
-            # Success message with details
-            text = "<b>✅ Move Trade Executed Successfully!</b>\n\n"
-            text += f"<b>📊 Trade Details:</b>\n"
-            text += f"Asset: {asset}\n"
-            text += f"Direction: {direction.title()}\n"
-            text += f"Strike: ${target_strike:,.0f}\n"
-            text += f"Contract: {contract_symbol}\n\n"
-            text += f"<b>💰 Execution:</b>\n"
-            text += f"Side: {order_side.title()}\n"
-            text += f"Quantity: {filled_qty}\n"
-            text += f"Avg Price: ${avg_fill_price:.2f}\n"
-            text += f"Order ID: {order_id}\n\n"
-            text += f"<b>📍 Market Data:</b>\n"
-            text += f"Spot Price: ${spot_price:,.2f}\n"
-            text += f"ATM Strike: ${atm_strike:,.0f}\n"
-            text += f"ATM Offset: {atm_offset:+d}\n\n"
-            text += "Check your positions for details."
-            
-            await query.edit_message_text(
-                text,
-                reply_markup=get_move_manual_trade_keyboard(),
-                parse_mode='HTML'
+            # ✅ Execute trade with full automation
+            result = await executor.execute_move_trade(
+                asset=pending_trade['asset'],
+                direction=pending_trade['direction'],
+                lot_size=pending_trade['lot_size'],
+                atm_offset=pending_trade['atm_offset'],
+                stop_loss_trigger=sl_trigger,
+                stop_loss_limit=sl_limit,
+                target_trigger=target_trigger,
+                target_limit=target_limit
             )
             
-            log_user_action(user.id, "move_manual_execute", 
-                          f"Executed {direction} {asset} move @ {target_strike}, filled {filled_qty} @ {avg_fill_price}")
+            if result['success']:
+                # Build success message
+                product = result['product']
+                entry_price = result['entry_price']
+                sl_price = result.get('sl_price')
+                target_price = result.get('target_price')
+                
+                text = "<b>✅ Move Trade Executed Successfully!</b>\n\n"
+                text += f"<b>📊 Contract:</b> {product['symbol']}\n"
+                text += f"<b>Strike:</b> ${product['strike_price']}\n"
+                text += f"<b>Direction:</b> {pending_trade['direction'].title()}\n"
+                text += f"<b>Lot Size:</b> {pending_trade['lot_size']}\n\n"
+                text += f"<b>💰 Entry Price:</b> ${entry_price:.2f}\n"
+                
+                if sl_price:
+                    text += f"<b>🛑 Stop Loss:</b> ${sl_price:.2f}\n"
+                if target_price:
+                    text += f"<b>🎯 Target:</b> ${target_price:.2f}\n"
+                
+                text += "\n✅ All orders placed successfully!"
+                
+                await query.edit_message_text(
+                    text,
+                    reply_markup=get_move_manual_trade_keyboard(),
+                    parse_mode='HTML'
+                )
+                
+                log_user_action(user.id, "move_manual_execute", f"Executed {pending_trade['direction']} move trade with SL/Target")
+            else:
+                # Execution failed
+                await query.edit_message_text(
+                    f"<b>❌ Trade Execution Failed</b>\n\n"
+                    f"Error: {result.get('error', 'Unknown error')}\n\n"
+                    f"Please check your account and try again.",
+                    reply_markup=get_move_manual_trade_keyboard(),
+                    parse_mode='HTML'
+                )
         
         finally:
             await client.close()
@@ -344,12 +322,8 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
         logger.error(f"Failed to execute move trade: {e}", exc_info=True)
         await query.edit_message_text(
             f"<b>❌ Trade Execution Failed</b>\n\n"
-            f"Error: {str(e)[:300]}\n\n"
-            f"Please check:\n"
-            f"• API credentials are valid\n"
-            f"• Sufficient balance\n"
-            f"• Market is open\n"
-            f"• Contract is available",
+            f"Error: {str(e)[:200]}\n\n"
+            f"Please try again or check your account.",
             reply_markup=get_move_manual_trade_keyboard(),
             parse_mode='HTML'
         )
