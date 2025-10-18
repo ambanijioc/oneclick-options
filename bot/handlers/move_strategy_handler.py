@@ -29,7 +29,7 @@ state_manager = StateManager()
 
 @error_handler
 async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Main MOVE Strategy menu with Add/View/Back options."""
+    """Main MOVE Strategy menu with improved formatting."""
     query = update.callback_query
     await query.answer()
     
@@ -41,31 +41,33 @@ async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFA
     
     # Get existing strategies
     strategies = await get_move_strategies(user.id)
+    strategy_count = len(strategies)
     
-    # Build keyboard
-    keyboard = []
+    # Build message text like Straddle menu
+    text = "<b>📊 MOVE Strategy Management</b>\n\n"
+    text += "Manage your MOVE options trading strategies:\n\n"
+    text += "• <b>Add:</b> Create new strategy\n"
+    text += "• <b>Edit:</b> Modify existing strategy\n"
+    text += "• <b>Delete:</b> Remove strategy\n"
+    text += "• <b>View:</b> See all strategies\n\n"
+    text += f"<b>Total Strategies:</b> {strategy_count}"
     
-    if strategies:
-        keyboard.append([InlineKeyboardButton("📋 View Strategies", callback_data="move_strategy_view")])
-    
-    keyboard.extend([
+    # Build keyboard with individual buttons
+    keyboard = [
         [InlineKeyboardButton("➕ Add Strategy", callback_data="move_strategy_add")],
+        [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_strategy_edit_menu")],
+        [InlineKeyboardButton("🗑️ Delete Strategy", callback_data="move_strategy_delete_menu")],
+        [InlineKeyboardButton("👁️ View Strategies", callback_data="move_strategy_view")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
-    ])
+    ]
     
     await query.edit_message_text(
-        "<b>📊 MOVE Strategy Management</b>\n\n"
-        f"You have <b>{len(strategies)}</b> MOVE {'strategy' if len(strategies) == 1 else 'strategies'}.\n\n"
-        "<b>What are MOVE Options?</b>\n"
-        "MOVE contracts are ATM straddles (Call + Put at same strike):\n"
-        "• <b>Long:</b> Profit from HIGH volatility (big moves)\n"
-        "• <b>Short:</b> Profit from LOW volatility (stability)\n\n"
-        "What would you like to do?",
+        text,
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
     
-    log_user_action(user.id, "move_strategy_menu", f"Viewed menu with {len(strategies)} strategies")
+    log_user_action(user.id, "move_strategy_menu", f"Viewed menu with {strategy_count} strategies")
 
 
 # ============================================================================
