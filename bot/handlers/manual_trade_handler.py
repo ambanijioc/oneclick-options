@@ -27,6 +27,15 @@ def get_manual_trade_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
+def safe_get_attr(obj, attr, default=None):
+    """Safely get attribute from Pydantic object or dict."""
+    if hasattr(obj, attr):
+        return getattr(obj, attr, default)
+    elif isinstance(obj, dict):
+        return obj.get(attr, default)
+    return default
+
+
 @error_handler
 async def manual_trade_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Display manual trade execution menu - list presets."""
@@ -55,9 +64,12 @@ async def manual_trade_menu_callback(update: Update, context: ContextTypes.DEFAU
     # Create keyboard with presets
     keyboard = []
     for preset in presets:
+        preset_name = safe_get_attr(preset, 'preset_name', 'Unnamed')
+        preset_id = safe_get_attr(preset, 'id', safe_get_attr(preset, '_id'))
+        
         keyboard.append([InlineKeyboardButton(
-            f"🎯 {preset['preset_name']}",
-            callback_data=f"manual_trade_select_{preset['id']}"
+            f"🎯 {preset_name}",
+            callback_data=f"manual_trade_select_{preset_id}"
         )])
     keyboard.append([InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")])
     
@@ -99,8 +111,14 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
+        # ✅ FIXED: Safe attribute access
+        api_credential_id = safe_get_attr(preset, 'api_credential_id')
+        strategy_preset_id = safe_get_attr(preset, 'strategy_preset_id')
+        strategy_type = safe_get_attr(preset, 'strategy_type', 'straddle')
+        preset_name = safe_get_attr(preset, 'preset_name', 'Unnamed')
+        
         # Get API credentials
-        api = await get_api_credential_by_id(preset['api_credential_id'])
+        api = await get_api_credential_by_id(api_credential_id)
         if not api:
             await query.edit_message_text(
                 "❌ API credential not found.",
@@ -109,7 +127,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
-        credentials = await get_decrypted_api_credential(preset['api_credential_id'])
+        credentials = await get_decrypted_api_credential(api_credential_id)
         if not credentials:
             await query.edit_message_text(
                 "❌ Failed to decrypt API credentials.",
@@ -119,7 +137,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             return
         
         # Get strategy
-        strategy = await get_strategy_preset_by_id(preset['strategy_preset_id'])
+        strategy = await get_strategy_preset_by_id(strategy_preset_id)
         if not strategy:
             await query.edit_message_text(
                 "❌ Strategy not found.",
@@ -128,16 +146,23 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
+        # ✅ FIXED: Safe attribute access for strategy
+        asset = safe_get_attr(strategy, 'asset', 'BTC')
+        direction = safe_get_attr(strategy, 'direction', 'short')
+        lot_size = safe_get_attr(strategy, 'lot_size', 1)
+        strategy_name = safe_get_attr(strategy, 'name', 'Unnamed Strategy')
+        api_name = safe_get_attr(api, 'api_name', 'Unknown API')
+        
         # Create Delta client
         api_key, api_secret = credentials
         client = DeltaClient(api_key, api_secret)
         
         try:
             # Get current spot price
-            ticker_symbol = f"{strategy.asset}USD"
+            ticker_symbol = f"{asset}USD"
             ticker_response = await client.get_ticker(ticker_symbol)
     
-            # ✅ ADDED: Check if response is None
+            # ✅ Check if response is None
             if ticker_response is None:
                 await query.edit_message_text(
                     "❌ Failed to connect to Delta Exchange API. Please try again later.",
@@ -155,7 +180,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 )
                 return
     
-            # ✅ ADDED: Check if result exists
+            # ✅ Check if result exists
             if not ticker_response.get('result'):
                 await query.edit_message_text(
                     "❌ Invalid response from Delta Exchange API.",
@@ -182,14 +207,14 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             # Filter by asset and expiry
             filtered_options = [
                 p for p in products
-                if strategy.asset in p.get('symbol', '')
+                if asset in p.get('symbol', '')
                 and p.get('state') == 'live'
             ]
             
             # Calculate strikes based on strategy type
-            if preset['strategy_type'] == 'straddle':
+            if strategy_type == 'straddle':
                 # Straddle: ATM with offset
-                atm_offset = getattr(strategy, 'atm_offset', 0)
+                atm_offset = safe_get_attr(strategy, 'atm_offset', 0)
                 target_strike = spot_price + atm_offset
     
                 # Find nearest strike
@@ -215,13 +240,13 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 # Calculate trade details
                 ce_mark_price = float(ce_option.get('mark_price', 0) or 0)
                 pe_mark_price = float(pe_option.get('mark_price', 0) or 0)
-                total_premium = (ce_mark_price + pe_mark_price) * strategy.lot_size
+                total_premium = (ce_mark_price + pe_mark_price) * lot_size
     
                 # Build confirmation message
                 text = f"<b>🎯 Confirm Trade Execution</b>\n\n"
-                text += f"<b>Preset:</b> {preset['preset_name']}\n"
-                text += f"<b>API:</b> {api.api_name}\n"
-                text += f"<b>Strategy:</b> {strategy.name}\n\n"
+                text += f"<b>Preset:</b> {preset_name}\n"
+                text += f"<b>API:</b> {api_name}\n"
+                text += f"<b>Strategy:</b> {strategy_name}\n\n"
                 text += f"<b>📊 Market Data:</b>\n"
                 text += f"Spot Price: ${spot_price:,.2f}\n"
                 text += f"ATM Strike: ${float(atm_strike):,.0f}\n\n"
@@ -231,8 +256,8 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 text += f"PE: {pe_option['symbol']}\n"
                 text += f"  Mark: ${pe_mark_price:,.2f}\n\n"
                 text += f"<b>💰 Trade Summary:</b>\n"
-                text += f"Direction: {strategy.direction.title()}\n"
-                text += f"Lot Size: {strategy.lot_size}\n"
+                text += f"Direction: {direction.title()}\n"
+                text += f"Lot Size: {lot_size}\n"
                 text += f"Total Premium: ${total_premium:,.2f}\n\n"
                 text += "⚠️ Execute this trade?"
     
@@ -242,20 +267,19 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                     'ce_symbol': ce_option['symbol'],
                     'pe_symbol': pe_option['symbol'],
                     'strike': float(atm_strike),
-                    'direction': strategy.direction,
-                    'lot_size': strategy.lot_size,
+                    'direction': direction,
+                    'lot_size': lot_size,
                     'api_key': api_key,
                     'api_secret': api_secret
                 }
             
             else:  # strangle
                 # Strangle: OTM strikes
-                # ✅ CORRECT:
-                otm_selection = getattr(strategy, 'otm_selection', None)
+                # ✅ FIXED: Safe nested attribute access
+                otm_selection = safe_get_attr(strategy, 'otm_selection')
                 if otm_selection:
-                    # otm_selection is a Pydantic model, use dot notation
-                    otm_type = getattr(otm_selection, 'type', 'percentage')
-                    otm_value = getattr(otm_selection, 'value', 0)
+                    otm_type = safe_get_attr(otm_selection, 'type', 'percentage')
+                    otm_value = safe_get_attr(otm_selection, 'value', 0)
                 else:
                     # Fallback defaults
                     otm_type = 'percentage'
@@ -301,17 +325,15 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 # Calculate trade details
                 ce_mark_price = float(ce_option.get('mark_price', 0) or 0)
                 pe_mark_price = float(pe_option.get('mark_price', 0) or 0)
-                # ✅ FIXED: Use dot notation
-                total_premium = (ce_mark_price + pe_mark_price) * strategy.lot_size
+                total_premium = (ce_mark_price + pe_mark_price) * lot_size
     
                 # Build confirmation message
                 otm_desc = f"{otm_value}% (Spot-based)" if otm_type == 'percentage' else f"{int(otm_value)} strikes (ATM-based)"
     
                 text = f"<b>🎯 Confirm Trade Execution</b>\n\n"
-                text += f"<b>Preset:</b> {preset['preset_name']}\n"
-                # ✅ FIXED: Use dot notation for api and strategy
-                text += f"<b>API:</b> {api.api_name}\n"
-                text += f"<b>Strategy:</b> {strategy.name}\n\n"
+                text += f"<b>Preset:</b> {preset_name}\n"
+                text += f"<b>API:</b> {api_name}\n"
+                text += f"<b>Strategy:</b> {strategy_name}\n\n"
                 text += f"<b>📊 Market Data:</b>\n"
                 text += f"Spot Price: ${spot_price:,.2f}\n"
                 text += f"OTM Selection: {otm_desc}\n\n"
@@ -323,9 +345,8 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 text += f"  Strike: ${pe_strike:,.0f}\n"
                 text += f"  Mark: ${pe_mark_price:,.2f}\n\n"
                 text += f"<b>💰 Trade Summary:</b>\n"
-                # ✅ FIXED: Use dot notation
-                text += f"Direction: {strategy.direction.title()}\n"
-                text += f"Lot Size: {strategy.lot_size}\n"
+                text += f"Direction: {direction.title()}\n"
+                text += f"Lot Size: {lot_size}\n"
                 text += f"Total Premium: ${total_premium:,.2f}\n\n"
                 text += "⚠️ Execute this trade?"
     
@@ -336,9 +357,8 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                     'pe_symbol': pe_option['symbol'],
                     'ce_strike': ce_strike,
                     'pe_strike': pe_strike,
-                    # ✅ FIXED: Use dot notation
-                    'direction': strategy.direction,
-                    'lot_size': strategy.lot_size,
+                    'direction': direction,
+                    'lot_size': lot_size,
                     'api_key': api_key,
                     'api_secret': api_secret
                 }
@@ -401,7 +421,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             # Determine order side based on direction
             side = 'buy' if pending_trade['direction'] == 'long' else 'sell'
             
-            # ✅ CORRECT:
+            # Place CE order
             ce_order = await client.place_order({
                 'product_symbol': pending_trade['ce_symbol'],
                 'size': pending_trade['lot_size'],
@@ -412,7 +432,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             if not ce_order.get('success'):
                 raise Exception(f"CE order failed: {ce_order.get('error', {}).get('message', 'Unknown error')}")
             
-            # ✅ CORRECT:
+            # Place PE order
             pe_order = await client.place_order({
                 'product_symbol': pending_trade['pe_symbol'],
                 'size': pending_trade['lot_size'],
@@ -477,4 +497,3 @@ def register_manual_trade_handlers(application: Application):
     ))
     
     logger.info("Manual trade handlers registered")
-                                                  
