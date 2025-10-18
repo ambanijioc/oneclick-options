@@ -426,7 +426,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 'product_symbol': pending_trade['ce_symbol'],
                 'size': pending_trade['lot_size'],
                 'side': side,
-                'order_type': 'market'
+                'order_type': 'market_order'
             })
             
             if not ce_order.get('success'):
@@ -437,7 +437,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 'product_symbol': pending_trade['pe_symbol'],
                 'size': pending_trade['lot_size'],
                 'side': side,
-                'order_type': 'market'
+                'order_type': 'market_order'
             })
             
             if not pe_order.get('success'):
