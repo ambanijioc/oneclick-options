@@ -582,6 +582,155 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
         # Clear pending trade
         context.user_data.pop('pending_trade', None)
 
+# ========== PLACE SL/TARGET BRACKET ORDERS ==========
+sl_orders_placed = []
+target_orders_placed = []
+
+# Try different possible attribute names for SL/Target
+sl_trigger = (
+    safe_get_attr(strategy, 'stop_loss_trigger') or 
+    safe_get_attr(strategy, 'sl_trigger_percentage') or
+    safe_get_attr(strategy, 'sl_trigger')
+)
+
+sl_limit = (
+    safe_get_attr(strategy, 'stop_loss_limit') or 
+    safe_get_attr(strategy, 'sl_limit_percentage') or
+    safe_get_attr(strategy, 'sl_limit')
+)
+
+target_trigger = (
+    safe_get_attr(strategy, 'target_trigger') or 
+    safe_get_attr(strategy, 'target_percentage') or
+    safe_get_attr(strategy, 'target_trigger_percentage')
+)
+
+target_limit = (
+    safe_get_attr(strategy, 'target_limit') or 
+    safe_get_attr(strategy, 'target_limit_percentage') or
+    safe_get_attr(strategy, 'target_limit_pct')
+)
+
+# Debug logging
+logger.info("=" * 50)
+logger.info("SL/TARGET DEBUG")
+logger.info(f"Strategy: {safe_get_attr(strategy, 'name')}")
+logger.info(f"Direction: {side}")
+logger.info(f"sl_trigger: {sl_trigger}")
+logger.info(f"sl_limit: {sl_limit}")
+logger.info(f"target_trigger: {target_trigger}")
+logger.info(f"target_limit: {target_limit}")
+logger.info(f"ce_avg_fill_price: ${ce_avg_fill_price:.4f}")
+logger.info(f"pe_avg_fill_price: ${pe_avg_fill_price:.4f}")
+logger.info("=" * 50)
+
+if sl_trigger and sl_limit:
+    try:
+        # ✅ FIXED LOGIC: For SELL (short), SL is when price goes UP
+        # For BUY (long), SL is when price goes UP
+        if side == 'buy':
+            # Long position: SL when price goes DOWN
+            ce_sl_trigger = ce_avg_fill_price * (1 - abs(sl_trigger) / 100)
+            ce_sl_limit = ce_avg_fill_price * (1 - abs(sl_limit) / 100)
+            pe_sl_trigger = pe_avg_fill_price * (1 - abs(sl_trigger) / 100)
+            pe_sl_limit = pe_avg_fill_price * (1 - abs(sl_limit) / 100)
+        else:
+            # Short position: SL when price goes UP
+            ce_sl_trigger = ce_avg_fill_price * (1 + abs(sl_trigger) / 100)
+            ce_sl_limit = ce_avg_fill_price * (1 + abs(sl_limit) / 100)
+            pe_sl_trigger = pe_avg_fill_price * (1 + abs(sl_trigger) / 100)
+            pe_sl_limit = pe_avg_fill_price * (1 + abs(sl_limit) / 100)
+        
+        logger.info(f"CE SL Trigger: ${ce_sl_trigger:.4f}, Limit: ${ce_sl_limit:.4f}")
+        logger.info(f"PE SL Trigger: ${pe_sl_trigger:.4f}, Limit: ${pe_sl_limit:.4f}")
+        
+        # Place SL for CE
+        ce_sl_order = await client.place_order({
+            'product_symbol': pending_trade['ce_symbol'],
+            'size': pending_trade['lot_size'],
+            'side': 'sell' if side == 'buy' else 'buy',  # Opposite side
+            'order_type': 'stop_loss_order',
+            'stop_price': str(ce_sl_trigger),
+            'limit_price': str(ce_sl_limit)
+        })
+        
+        if ce_sl_order.get('success'):
+            sl_orders_placed.append(f"CE SL: {ce_sl_order['result']['id']}")
+            logger.info(f"✅ CE SL order placed: {ce_sl_order['result']['id']}")
+        else:
+            logger.error(f"❌ CE SL order failed: {ce_sl_order.get('error')}")
+        
+        # Place SL for PE
+        pe_sl_order = await client.place_order({
+            'product_symbol': pending_trade['pe_symbol'],
+            'size': pending_trade['lot_size'],
+            'side': 'sell' if side == 'buy' else 'buy',  # Opposite side
+            'order_type': 'stop_loss_order',
+            'stop_price': str(pe_sl_trigger),
+            'limit_price': str(pe_sl_limit)
+        })
+        
+        if pe_sl_order.get('success'):
+            sl_orders_placed.append(f"PE SL: {pe_sl_order['result']['id']}")
+            logger.info(f"✅ PE SL order placed: {pe_sl_order['result']['id']}")
+        else:
+            logger.error(f"❌ PE SL order failed: {pe_sl_order.get('error')}")
+            
+    except Exception as e:
+        logger.error(f"Failed to place SL orders: {e}", exc_info=True)
+
+if target_trigger and target_limit:
+    try:
+        # ✅ FIXED LOGIC: For both LONG and SHORT, target is profit side
+        if side == 'buy':
+            # Long position: Target when price goes DOWN (for options sellers)
+            ce_target_trigger = ce_avg_fill_price * (1 - abs(target_trigger) / 100)
+            ce_target_limit = ce_avg_fill_price * (1 - abs(target_limit) / 100)
+            pe_target_trigger = pe_avg_fill_price * (1 - abs(target_trigger) / 100)
+            pe_target_limit = pe_avg_fill_price * (1 - abs(target_limit) / 100)
+        else:
+            # Short position: Target when price goes DOWN
+            ce_target_trigger = ce_avg_fill_price * (1 - abs(target_trigger) / 100)
+            ce_target_limit = ce_avg_fill_price * (1 - abs(target_limit) / 100)
+            pe_target_trigger = pe_avg_fill_price * (1 - abs(target_trigger) / 100)
+            pe_target_limit = pe_avg_fill_price * (1 - abs(target_limit) / 100)
+        
+        logger.info(f"CE Target Trigger: ${ce_target_trigger:.4f}, Limit: ${ce_target_limit:.4f}")
+        logger.info(f"PE Target Trigger: ${pe_target_trigger:.4f}, Limit: ${pe_target_limit:.4f}")
+        
+        # Place Target for CE
+        ce_target_order = await client.place_order({
+            'product_symbol': pending_trade['ce_symbol'],
+            'size': pending_trade['lot_size'],
+            'side': 'sell' if side == 'buy' else 'buy',  # Opposite side
+            'order_type': 'limit_order',
+            'limit_price': str(ce_target_limit)
+        })
+        
+        if ce_target_order.get('success'):
+            target_orders_placed.append(f"CE Target: {ce_target_order['result']['id']}")
+            logger.info(f"✅ CE Target order placed: {ce_target_order['result']['id']}")
+        else:
+            logger.error(f"❌ CE Target order failed: {ce_target_order.get('error')}")
+        
+        # Place Target for PE
+        pe_target_order = await client.place_order({
+            'product_symbol': pending_trade['pe_symbol'],
+            'size': pending_trade['lot_size'],
+            'side': 'sell' if side == 'buy' else 'buy',  # Opposite side
+            'order_type': 'limit_order',
+            'limit_price': str(pe_target_limit)
+        })
+        
+        if pe_target_order.get('success'):
+            target_orders_placed.append(f"PE Target: {pe_target_order['result']['id']}")
+            logger.info(f"✅ PE Target order placed: {pe_target_order['result']['id']}")
+        else:
+            logger.error(f"❌ PE Target order failed: {pe_target_order.get('error')}")
+            
+    except Exception as e:
+        logger.error(f"Failed to place Target orders: {e}", exc_info=True)
+
 
 def register_manual_trade_handlers(application: Application):
     """Register manual trade handlers."""
