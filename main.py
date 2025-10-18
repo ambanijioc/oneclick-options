@@ -6,6 +6,7 @@ Initializes FastAPI app, sets up webhook, and starts the server.
 import asyncio
 import logging
 import os
+from bot.scheduler.move_scheduler import get_move_scheduler  # ✅ Singular 'scheduler'
 from bot.utils.keepalive import start_keepalive, stop_keepalive
 from contextlib import asynccontextmanager
 from datetime import datetime
