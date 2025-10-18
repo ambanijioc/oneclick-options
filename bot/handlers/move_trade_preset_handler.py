@@ -725,6 +725,8 @@ def register_move_trade_preset_handlers(application: Application):
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
         handle_move_preset_text_input
-    )), group=0  # ← FIX: Explicit priority
+        ),
+        group=0
+    )
     
     logger.info("MOVE trade preset handlers registered successfully")
