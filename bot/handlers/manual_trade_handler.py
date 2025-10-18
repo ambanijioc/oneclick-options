@@ -386,7 +386,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             reply_markup=get_manual_trade_keyboard(),
             parse_mode='HTML'
         )
-
+        
 
 @error_handler
 async def manual_trade_execute_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -415,35 +415,16 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
     )
     
     try:
-        # Get preset and strategy for SL/Target settings
+        # ✅ GET STRATEGY WITH SL/TARGET SETTINGS
         preset = await get_manual_trade_preset(pending_trade['preset_id'])
         strategy_preset_id = safe_get_attr(preset, 'strategy_preset_id')
         strategy = await get_strategy_preset_by_id(strategy_preset_id)
         
-        # Extract SL/Target settings
-        sl_trigger = (
-            safe_get_attr(strategy, 'stop_loss_trigger') or 
-            safe_get_attr(strategy, 'sl_trigger_percentage') or
-            safe_get_attr(strategy, 'sl_trigger')
-        )
-        
-        sl_limit = (
-            safe_get_attr(strategy, 'stop_loss_limit') or 
-            safe_get_attr(strategy, 'sl_limit_percentage') or
-            safe_get_attr(strategy, 'sl_limit')
-        )
-        
-        target_trigger = (
-            safe_get_attr(strategy, 'target_trigger') or 
-            safe_get_attr(strategy, 'target_percentage') or
-            safe_get_attr(strategy, 'target_trigger_percentage')
-        )
-        
-        target_limit = (
-            safe_get_attr(strategy, 'target_limit') or 
-            safe_get_attr(strategy, 'target_limit_percentage') or
-            safe_get_attr(strategy, 'target_limit_pct')
-        )
+        # ✅ EXTRACT SL/TARGET SETTINGS
+        sl_trigger = safe_get_attr(strategy, 'sl_trigger_pct')
+        sl_limit = safe_get_attr(strategy, 'sl_limit_pct')
+        target_trigger = safe_get_attr(strategy, 'target_trigger_pct')
+        target_limit = safe_get_attr(strategy, 'target_limit_pct')
         
         logger.info(f"📊 Strategy Settings - SL Trigger: {sl_trigger}, SL Limit: {sl_limit}, Target Trigger: {target_trigger}, Target Limit: {target_limit}")
         
@@ -497,29 +478,26 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 try:
                     logger.info(f"📍 Placing SL orders - Trigger: {sl_trigger}%, Limit: {sl_limit}%")
                     
-                    # For SHORT (sell): SL when price INCREASES
-                    # For LONG (buy): SL when price DECREASES
-                    
                     if side == 'sell':
-                        # Short position: SL when price goes UP
+                        # Short: SL when price goes UP
                         ce_sl_trigger = ce_avg_fill_price * (1 + abs(float(sl_trigger)) / 100)
                         ce_sl_limit = ce_avg_fill_price * (1 + abs(float(sl_limit)) / 100)
                         pe_sl_trigger = pe_avg_fill_price * (1 + abs(float(sl_trigger)) / 100)
                         pe_sl_limit = pe_avg_fill_price * (1 + abs(float(sl_limit)) / 100)
-                        sl_side = 'buy'  # Close short with buy
+                        sl_side = 'buy'
                     else:
-                        # Long position: SL when price goes DOWN
+                        # Long: SL when price goes DOWN
                         ce_sl_trigger = ce_avg_fill_price * (1 - abs(float(sl_trigger)) / 100)
                         ce_sl_limit = ce_avg_fill_price * (1 - abs(float(sl_limit)) / 100)
                         pe_sl_trigger = pe_avg_fill_price * (1 - abs(float(sl_trigger)) / 100)
                         pe_sl_limit = pe_avg_fill_price * (1 - abs(float(sl_limit)) / 100)
-                        sl_side = 'sell'  # Close long with sell
+                        sl_side = 'sell'
                     
                     logger.info(f"CE SL - Trigger: ${ce_sl_trigger:.4f}, Limit: ${ce_sl_limit:.4f}, Side: {sl_side}")
                     logger.info(f"PE SL - Trigger: ${pe_sl_trigger:.4f}, Limit: ${pe_sl_limit:.4f}, Side: {sl_side}")
                     
                     # Place SL for CE
-                    ce_sl_payload = {
+                    ce_sl_order = await client.place_order({
                         'product_symbol': pending_trade['ce_symbol'],
                         'size': pending_trade['lot_size'],
                         'side': sl_side,
@@ -527,24 +505,17 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                         'limit_price': str(ce_sl_limit),
                         'stop_order_type': 'stop_loss_order',
                         'stop_price': str(ce_sl_trigger),
-                        'reduce_only': True  # ✅ CRITICAL for closing orders
-                    }
-                    
-                    logger.info(f"📤 Sending CE SL order: {ce_sl_payload}")
-                    
-                    ce_sl_order = await client.place_order(ce_sl_payload)
-                    
-                    logger.info(f"📥 CE SL Response: {ce_sl_order}")
+                        'reduce_only': True
+                    })
                     
                     if ce_sl_order.get('success'):
                         sl_orders_placed.append(f"CE SL: {ce_sl_order['result']['id']}")
                         logger.info(f"✅ CE SL order placed: {ce_sl_order['result']['id']}")
                     else:
-                        error_msg = ce_sl_order.get('error', {})
-                        logger.error(f"❌ CE SL failed: {error_msg}")
+                        logger.error(f"❌ CE SL failed: {ce_sl_order.get('error')}")
                     
                     # Place SL for PE
-                    pe_sl_payload = {
+                    pe_sl_order = await client.place_order({
                         'product_symbol': pending_trade['pe_symbol'],
                         'size': pending_trade['lot_size'],
                         'side': sl_side,
@@ -552,92 +523,69 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                         'limit_price': str(pe_sl_limit),
                         'stop_order_type': 'stop_loss_order',
                         'stop_price': str(pe_sl_trigger),
-                        'reduce_only': True  # ✅ CRITICAL for closing orders
-                    }
-                    
-                    logger.info(f"📤 Sending PE SL order: {pe_sl_payload}")
-                    
-                    pe_sl_order = await client.place_order(pe_sl_payload)
-                    
-                    logger.info(f"📥 PE SL Response: {pe_sl_order}")
+                        'reduce_only': True
+                    })
                     
                     if pe_sl_order.get('success'):
                         sl_orders_placed.append(f"PE SL: {pe_sl_order['result']['id']}")
                         logger.info(f"✅ PE SL order placed: {pe_sl_order['result']['id']}")
                     else:
-                        error_msg = pe_sl_order.get('error', {})
-                        logger.error(f"❌ PE SL failed: {error_msg}")
+                        logger.error(f"❌ PE SL failed: {pe_sl_order.get('error')}")
                         
                 except Exception as e:
                     logger.error(f"❌ SL order placement exception: {e}", exc_info=True)
             else:
                 logger.warning("⚠️ SL settings not found - skipping SL orders")
             
-            if target_trigger is not None and target_limit is not None:
+            if target_trigger is not None and target_limit is not None and target_trigger > 0:
                 try:
                     logger.info(f"📍 Placing Target orders - Trigger: {target_trigger}%, Limit: {target_limit}%")
                     
-                    # For both LONG and SHORT: Target is when price moves favorably
-                    
                     if side == 'sell':
-                        # Short position: Target when price goes DOWN
+                        # Short: Target when price goes DOWN
                         ce_target_limit = ce_avg_fill_price * (1 - abs(float(target_limit)) / 100)
                         pe_target_limit = pe_avg_fill_price * (1 - abs(float(target_limit)) / 100)
-                        target_side = 'buy'  # Close short with buy
+                        target_side = 'buy'
                     else:
-                        # Long position: Target when price goes UP
+                        # Long: Target when price goes UP
                         ce_target_limit = ce_avg_fill_price * (1 + abs(float(target_limit)) / 100)
                         pe_target_limit = pe_avg_fill_price * (1 + abs(float(target_limit)) / 100)
-                        target_side = 'sell'  # Close long with sell
+                        target_side = 'sell'
                     
                     logger.info(f"CE Target Limit: ${ce_target_limit:.4f}, Side: {target_side}")
                     logger.info(f"PE Target Limit: ${pe_target_limit:.4f}, Side: {target_side}")
                     
-                    # Place Target for CE (limit order)
-                    ce_target_payload = {
+                    # Place Target for CE
+                    ce_target_order = await client.place_order({
                         'product_symbol': pending_trade['ce_symbol'],
                         'size': pending_trade['lot_size'],
                         'side': target_side,
                         'order_type': 'limit_order',
                         'limit_price': str(ce_target_limit),
-                        'reduce_only': True  # ✅ CRITICAL for closing orders
-                    }
-                    
-                    logger.info(f"📤 Sending CE Target order: {ce_target_payload}")
-                    
-                    ce_target_order = await client.place_order(ce_target_payload)
-                    
-                    logger.info(f"📥 CE Target Response: {ce_target_order}")
+                        'reduce_only': True
+                    })
                     
                     if ce_target_order.get('success'):
                         target_orders_placed.append(f"CE Target: {ce_target_order['result']['id']}")
                         logger.info(f"✅ CE Target order placed: {ce_target_order['result']['id']}")
                     else:
-                        error_msg = ce_target_order.get('error', {})
-                        logger.error(f"❌ CE Target failed: {error_msg}")
+                        logger.error(f"❌ CE Target failed: {ce_target_order.get('error')}")
                     
-                    # Place Target for PE (limit order)
-                    pe_target_payload = {
+                    # Place Target for PE
+                    pe_target_order = await client.place_order({
                         'product_symbol': pending_trade['pe_symbol'],
                         'size': pending_trade['lot_size'],
                         'side': target_side,
                         'order_type': 'limit_order',
                         'limit_price': str(pe_target_limit),
-                        'reduce_only': True  # ✅ CRITICAL for closing orders
-                    }
-                    
-                    logger.info(f"📤 Sending PE Target order: {pe_target_payload}")
-                    
-                    pe_target_order = await client.place_order(pe_target_payload)
-                    
-                    logger.info(f"📥 PE Target Response: {pe_target_order}")
+                        'reduce_only': True
+                    })
                     
                     if pe_target_order.get('success'):
                         target_orders_placed.append(f"PE Target: {pe_target_order['result']['id']}")
                         logger.info(f"✅ PE Target order placed: {pe_target_order['result']['id']}")
                     else:
-                        error_msg = pe_target_order.get('error', {})
-                        logger.error(f"❌ PE Target failed: {error_msg}")
+                        logger.error(f"❌ PE Target failed: {pe_target_order.get('error')}")
                         
                 except Exception as e:
                     logger.error(f"❌ Target order placement exception: {e}", exc_info=True)
@@ -661,16 +609,12 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 for sl in sl_orders_placed:
                     text += f"  {sl}\n"
                 text += "\n"
-            else:
-                text += "<b>⚠️ Stop Loss:</b> Not placed (check logs)\n\n"
             
             if target_orders_placed:
                 text += f"<b>✅ Target Orders ({len(target_orders_placed)}):</b>\n"
                 for target in target_orders_placed:
                     text += f"  {target}\n"
                 text += "\n"
-            else:
-                text += "<b>⚠️ Target Orders:</b> Not placed (check logs)\n\n"
             
             text += "Check 'Open Orders' for live status."
             
