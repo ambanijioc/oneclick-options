@@ -1,333 +1,185 @@
 """
-Input handlers for move strategy creation flow.
-Handles text input during strategy creation.
+MOVE strategy input handlers with expiry selection support.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from bot.utils.logger import setup_logger
-from bot.utils.state_manager import state_manager
+from bot.utils.state_manager import StateManager
 
 logger = setup_logger(__name__)
+state_manager = StateManager()
 
 
-async def handle_move_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy name input."""
-    user = update.effective_user
+async def handle_move_expiry_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle expiry selection for MOVE strategy."""
+    query = update.callback_query
+    await query.answer()
     
-    # Store strategy name
-    await state_manager.set_state_data(user.id, {'strategy_name': text})
+    user = query.from_user
+    expiry = query.data.split('_')[-1]  # daily, weekly, or monthly
     
-    # Ask for description
-    await state_manager.set_state(user.id, 'move_strategy_add_description')
-    
-    keyboard = [
-        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]
-    ]
-    
-    await update.message.reply_text(
-        f"<b>➕ Add Move Strategy</b>\n\n"
-        f"Name: <b>{text}</b>\n\n"
-        f"Enter description (optional):",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
-    )
-
-
-async def handle_move_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy description input."""
-    user = update.effective_user
-    
-    # Store description
+    # Store expiry
     state_data = await state_manager.get_state_data(user.id)
-    state_data['description'] = text
+    state_data['expiry'] = expiry
     await state_manager.set_state_data(user.id, state_data)
     
-    # Ask for asset
+    # Move to direction selection
     keyboard = [
-        [InlineKeyboardButton("🟠 BTC", callback_data="move_asset_btc")],
-        [InlineKeyboardButton("🔵 ETH", callback_data="move_asset_eth")],
-        [InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]
+        [InlineKeyboardButton("📈 Long (High Volatility)", callback_data="move_direction_long")],
+        [InlineKeyboardButton("📉 Short (Low Volatility)", callback_data="move_direction_short")],
+        [InlineKeyboardButton("🔙 Back", callback_data="move_strategy_create")]
     ]
     
-    await update.message.reply_text(
-        f"<b>➕ Add Move Strategy</b>\n\n"
-        f"Name: <b>{state_data['strategy_name']}</b>\n"
-        f"Description: <i>{text}</i>\n\n"
-        f"Select asset:",
+    await query.edit_message_text(
+        f"<b>📊 MOVE Strategy - Direction</b>\n\n"
+        f"<b>Selected Expiry:</b> {expiry.title()}\n\n"
+        f"Choose your trading direction:\n\n"
+        f"<b>Long (Buy):</b> Profit from high volatility\n"
+        f"• You expect BIG price movement (up or down)\n"
+        f"• Premium rises when volatility increases\n\n"
+        f"<b>Short (Sell):</b> Profit from stability\n"
+        f"• You expect SMALL price movement\n"
+        f"• Premium drops when volatility is low",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
 
 
-async def handle_move_lot_size_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy lot size input."""
+async def handle_move_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle ATM offset input for MOVE strategy."""
     user = update.effective_user
     
     try:
-        lot_size = int(text)
-        if lot_size <= 0:
-            raise ValueError("Lot size must be positive")
+        atm_offset = int(text)
         
-        # Store lot size
+        # Validate offset range (-5 to +5 is reasonable)
+        if not -5 <= atm_offset <= 5:
+            await update.message.reply_text(
+                "❌ ATM offset must be between -5 and +5.\n\n"
+                "Examples:\n"
+                "• 0 = ATM strike\n"
+                "• +1 = One strike above ATM\n"
+                "• -1 = One strike below ATM",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Store offset
         state_data = await state_manager.get_state_data(user.id)
-        state_data['lot_size'] = lot_size
+        state_data['atm_offset'] = atm_offset
         await state_manager.set_state_data(user.id, state_data)
         
-        # Ask for stop loss trigger percentage
-        await state_manager.set_state(user.id, 'move_strategy_add_sl_trigger')
-        
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
+        # Move to lot size input
+        await state_manager.set_state(user.id, 'awaiting_move_lot_size')
         
         await update.message.reply_text(
-            f"<b>➕ Add Move Strategy</b>\n\n"
-            f"Lot Size: <b>{lot_size}</b>\n\n"
-            f"Enter stop loss trigger percentage:\n\n"
-            f"Example: <code>50</code> (for 50% loss)",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            f"<b>📊 MOVE Strategy - Lot Size</b>\n\n"
+            f"<b>ATM Offset:</b> {atm_offset:+d}\n\n"
+            f"Enter the number of contracts (lot size):\n\n"
+            f"Examples:\n"
+            f"• 1 = 1 contract\n"
+            f"• 5 = 5 contracts\n"
+            f"• 10 = 10 contracts",
             parse_mode='HTML'
         )
     
     except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
         await update.message.reply_text(
-            "❌ Invalid lot size. Please enter a positive number.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            "❌ Invalid input. Please enter a whole number.\n\n"
+            "Examples: 0, 1, -1, 2, -2",
+            parse_mode='HTML'
         )
 
 
-async def handle_move_sl_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy stop loss trigger input."""
+async def handle_move_stop_loss_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle stop loss trigger percentage input."""
     user = update.effective_user
     
     try:
         sl_trigger = float(text)
-        if sl_trigger < 0 or sl_trigger > 100:
-            raise ValueError("Percentage must be between 0 and 100")
         
-        # Store SL trigger
+        # Validate percentage (0-100%)
+        if not 0 < sl_trigger <= 100:
+            await update.message.reply_text(
+                "❌ Stop loss trigger must be between 0% and 100%.\n\n"
+                "Examples:\n"
+                "• 30 = 30% loss triggers stop\n"
+                "• 50 = 50% loss triggers stop",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Store trigger
         state_data = await state_manager.get_state_data(user.id)
         state_data['stop_loss_trigger'] = sl_trigger
         await state_manager.set_state_data(user.id, state_data)
         
-        # Ask for stop loss limit percentage
-        await state_manager.set_state(user.id, 'move_strategy_add_sl_limit')
-        
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
+        # Move to stop loss limit input
+        await state_manager.set_state(user.id, 'awaiting_move_stop_loss_limit')
         
         await update.message.reply_text(
-            f"<b>➕ Add Move Strategy</b>\n\n"
-            f"SL Trigger: <b>{sl_trigger}%</b>\n\n"
+            f"<b>📊 MOVE Strategy - Stop Loss Limit</b>\n\n"
+            f"<b>SL Trigger:</b> {sl_trigger}%\n\n"
             f"Enter stop loss limit percentage:\n\n"
-            f"Example: <code>55</code> (exit at 55% loss if triggered)",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            f"The limit should be slightly worse than trigger to ensure execution.\n\n"
+            f"Examples:\n"
+            f"• If trigger is 30%, limit could be 35%\n"
+            f"• If trigger is 50%, limit could be 55%",
             parse_mode='HTML'
         )
     
     except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
         await update.message.reply_text(
-            "❌ Invalid percentage. Please enter a number between 0 and 100.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-
-async def handle_move_sl_limit_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy stop loss limit input."""
-    user = update.effective_user
-    
-    try:
-        sl_limit = float(text)
-        if sl_limit < 0 or sl_limit > 100:
-            raise ValueError("Percentage must be between 0 and 100")
-        
-        # Store SL limit
-        state_data = await state_manager.get_state_data(user.id)
-        state_data['stop_loss_limit'] = sl_limit
-        await state_manager.set_state_data(user.id, state_data)
-        
-        # Ask for target percentage (optional)
-        await state_manager.set_state(user.id, 'move_strategy_add_target_trigger')
-        
-        keyboard = [
-            [InlineKeyboardButton("⏭️ Skip Target (0)", callback_data="move_skip_target")],
-            [InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]
-        ]
-        
-        await update.message.reply_text(
-            f"<b>➕ Add Move Strategy</b>\n\n"
-            f"SL Trigger: <b>{state_data['stop_loss_trigger']}%</b>\n"
-            f"SL Limit: <b>{sl_limit}%</b>\n\n"
-            f"Enter target trigger percentage (optional):\n\n"
-            f"Example: <code>100</code> (for 100% profit)\n"
-            f"Or enter <code>0</code> to skip",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            "❌ Invalid input. Please enter a number (percentage).\n\n"
+            "Examples: 30, 50, 70",
             parse_mode='HTML'
-        )
-    
-    except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
-        await update.message.reply_text(
-            "❌ Invalid percentage. Please enter a number between 0 and 100.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
 
 async def handle_move_target_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy target trigger input."""
+    """Handle target trigger percentage input."""
     user = update.effective_user
     
     try:
         target_trigger = float(text)
-        if target_trigger < 0 or target_trigger > 1000:
-            raise ValueError("Percentage must be between 0 and 1000")
         
-        # Store target trigger
+        # Validate percentage (0-500% is reasonable for MOVE)
+        if not 0 < target_trigger <= 500:
+            await update.message.reply_text(
+                "❌ Target trigger must be between 0% and 500%.\n\n"
+                "Examples:\n"
+                "• 50 = 50% profit triggers target\n"
+                "• 100 = 100% profit (2x) triggers target\n"
+                "• 200 = 200% profit (3x) triggers target",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Store trigger
         state_data = await state_manager.get_state_data(user.id)
         state_data['target_trigger'] = target_trigger
-        
-        if target_trigger == 0:
-            # Skip target - go to ATM offset
-            state_data['target_limit'] = 0  # ✅ FIXED
-            await state_manager.set_state_data(user.id, state_data)
-            await state_manager.set_state(user.id, 'move_strategy_add_atm_offset')
-            
-            keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
-            
-            await update.message.reply_text(
-                f"<b>➕ Add Move Strategy</b>\n\n"
-                f"Enter ATM offset (in strikes):\n\n"
-                f"• <code>0</code> = ATM (At The Money)\n"
-                f"• <code>+1</code> = 1 strike above ATM (BTC: $200, ETH: $20)\n"
-                f"• <code>-1</code> = 1 strike below ATM\n"
-                f"• <code>+5</code> = 5 strikes above ATM (BTC: $1000, ETH: $100)",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='HTML'
-            )
-        else:
-            # Ask for target limit
-            await state_manager.set_state_data(user.id, state_data)
-            await state_manager.set_state(user.id, 'move_strategy_add_target_limit')
-            
-            keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
-            
-            await update.message.reply_text(
-                f"<b>➕ Add Move Strategy</b>\n\n"
-                f"Target Trigger: <b>{target_trigger}%</b>\n\n"
-                f"Enter target limit percentage:\n\n"
-                f"Example: <code>105</code> (exit at 105% profit if triggered)",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='HTML'
-            )
-    
-    except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
-        await update.message.reply_text(
-            "❌ Invalid percentage. Please enter a number between 0 and 1000.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-
-async def handle_move_target_limit_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy target limit input."""
-    user = update.effective_user
-    
-    try:
-        target_limit = float(text)
-        if target_limit < 0 or target_limit > 1000:
-            raise ValueError("Percentage must be between 0 and 1000")
-        
-        # Store target limit
-        state_data = await state_manager.get_state_data(user.id)
-        state_data['target_limit'] = target_limit
         await state_manager.set_state_data(user.id, state_data)
         
-        # Ask for ATM offset
-        await state_manager.set_state(user.id, 'move_strategy_add_atm_offset')
-        
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
+        # Move to target limit input
+        await state_manager.set_state(user.id, 'awaiting_move_target_limit')
         
         await update.message.reply_text(
-            f"<b>➕ Add Move Strategy</b>\n\n"
-            f"Enter ATM offset (in strikes):\n\n"
-            f"• <code>0</code> = ATM (At The Money)\n"
-            f"• <code>+1</code> = 1 strike above ATM (BTC: $200, ETH: $20)\n"
-            f"• <code>-1</code> = 1 strike below ATM\n"
-            f"• <code>+5</code> = 5 strikes above ATM (BTC: $1000, ETH: $100)",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            f"<b>📊 MOVE Strategy - Target Limit</b>\n\n"
+            f"<b>Target Trigger:</b> {target_trigger}%\n\n"
+            f"Enter target limit percentage:\n\n"
+            f"The limit should be slightly lower than trigger to ensure execution.\n\n"
+            f"Examples:\n"
+            f"• If trigger is 100%, limit could be 95%\n"
+            f"• If trigger is 200%, limit could be 190%",
             parse_mode='HTML'
         )
     
     except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
         await update.message.reply_text(
-            "❌ Invalid percentage. Please enter a number between 0 and 1000.",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-
-async def handle_move_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle move strategy ATM offset input."""
-    user = update.effective_user
-    
-    try:
-        # Parse ATM offset (in strikes)
-        atm_strikes = int(text)
-        
-        # Get state data
-        state_data = await state_manager.get_state_data(user.id)
-        
-        # ✅ Convert strikes to dollar offset (BTC = 200, ETH = 20)
-        strike_increment = 200 if state_data['asset'] == 'BTC' else 20
-        atm_offset = atm_strikes * strike_increment
-        
-        # Store ATM offset
-        state_data['atm_offset'] = atm_offset
-        await state_manager.set_state_data(user.id, state_data)
-        
-        # Save to database
-        from database.operations.move_strategy_ops import create_move_strategy
-        from bot.handlers.move_strategy_handler import get_move_strategy_menu_keyboard
-        
-        result = await create_move_strategy(user.id, state_data)
-        
-        if result:
-            target_text = ""
-            if state_data.get('target_trigger', 0) > 0:
-                target_text = f"Target: <b>{state_data['target_trigger']}% / {state_data['target_limit']}%</b>\n"
-            
-            await update.message.reply_text(
-                f"<b>✅ Move Strategy Created</b>\n\n"
-                f"Name: <b>{state_data['strategy_name']}</b>\n"
-                f"Asset: <b>{state_data['asset']}</b>\n"
-                f"Direction: <b>{state_data['direction'].title()}</b>\n"
-                f"Lot Size: <b>{state_data['lot_size']}</b>\n"
-                f"ATM Offset: <b>{atm_strikes:+d} strikes</b> ({atm_offset:+d} USD)\n"
-                f"Stop Loss: <b>{state_data['stop_loss_trigger']}% / {state_data['stop_loss_limit']}%</b>\n"
-                + target_text,
-                reply_markup=get_move_strategy_menu_keyboard(),
-                parse_mode='HTML'
-            )
-        else:
-            await update.message.reply_text(
-                "❌ Failed to create strategy.",
-                reply_markup=get_move_strategy_menu_keyboard()
-            )
-        
-        # Clear state
-        await state_manager.clear_state(user.id)
-    
-    except ValueError:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="move_cancel")]]
-        await update.message.reply_text(
-            "❌ Invalid offset. Please enter a whole number.\n\n"
-            "Example:\n"
-            "• <code>0</code> = ATM\n"
-            "• <code>1</code> = 1 strike away (BTC: $200, ETH: $20)\n"
-            "• <code>-2</code> = 2 strikes below ATM",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            "❌ Invalid input. Please enter a number (percentage).\n\n"
+            "Examples: 50, 100, 200",
             parse_mode='HTML'
-        )  # ✅ FIXED - Added closing parenthesis
+        )
         
