@@ -71,6 +71,136 @@ async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFA
 
 
 # ============================================================================
+# EDIT MENU (Select which strategy to edit)
+# ============================================================================
+
+@error_handler
+async def move_strategy_edit_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of strategies to edit."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    strategies = await get_move_strategies(user.id)
+    
+    if not strategies:
+        await query.edit_message_text(
+            "<b>✏️ Edit MOVE Strategy</b>\n\n"
+            "❌ No strategies found.\n\n"
+            "Create your first strategy to get started!",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Add Strategy", callback_data="move_strategy_add")],
+                [InlineKeyboardButton("🔙 Back", callback_data="menu_move_strategy")]
+            ]),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Build strategy list for editing
+    keyboard = []
+    for strategy in strategies:
+        name = strategy.get('strategy_name', 'Unnamed')
+        asset = strategy.get('asset', 'BTC')
+        direction = strategy.get('direction', 'long')
+        direction_emoji = "📈" if direction == "long" else "📉"
+        
+        button_text = f"{direction_emoji} {name} ({asset})"
+        
+        keyboard.append([InlineKeyboardButton(
+            button_text,
+            callback_data=f"move_strategy_edit_{strategy['id']}"
+        )])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_move_strategy")])
+    
+    await query.edit_message_text(
+        f"<b>✏️ Edit MOVE Strategy</b>\n\n"
+        f"Select a strategy to edit:\n\n"
+        f"You have {len(strategies)} {'strategy' if len(strategies) == 1 else 'strategies'}.",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# ============================================================================
+# DELETE MENU (Select which strategy to delete)
+# ============================================================================
+
+@error_handler
+async def move_strategy_delete_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show list of strategies to delete."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    strategies = await get_move_strategies(user.id)
+    
+    if not strategies:
+        await query.edit_message_text(
+            "<b>🗑️ Delete MOVE Strategy</b>\n\n"
+            "❌ No strategies found.\n\n"
+            "There are no strategies to delete.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Back", callback_data="menu_move_strategy")]
+            ]),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Build strategy list for deletion
+    keyboard = []
+    for strategy in strategies:
+        name = strategy.get('strategy_name', 'Unnamed')
+        asset = strategy.get('asset', 'BTC')
+        direction = strategy.get('direction', 'long')
+        direction_emoji = "📈" if direction == "long" else "📉"
+        
+        button_text = f"{direction_emoji} {name} ({asset})"
+        
+        keyboard.append([InlineKeyboardButton(
+            button_text,
+            callback_data=f"move_strategy_delete_confirm_{strategy['id']}"
+        )])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_move_strategy")])
+    
+    await query.edit_message_text(
+        f"<b>🗑️ Delete MOVE Strategy</b>\n\n"
+        f"Select a strategy to delete:\n\n"
+        f"⚠️ This action cannot be undone!",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# ============================================================================
+# EDIT STRATEGY DETAIL (Placeholder for future implementation)
+# ============================================================================
+
+@error_handler
+async def move_strategy_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle edit strategy selection."""
+    query = update.callback_query
+    await query.answer()
+    
+    strategy_id = query.data.split('_')[-1]
+    strategy = await get_move_strategy(strategy_id)
+    
+    if not strategy:
+        await query.edit_message_text(
+            "❌ Strategy not found.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Back", callback_data="menu_move_strategy")]
+            ]),
+            parse_mode='HTML'
+        )
+        return
+    
+    # For now, show detail view with edit option
+    # Full edit functionality can be added later
+    await move_strategy_detail_callback(update, context)
+    
+# ============================================================================
 # VIEW STRATEGIES
 # ============================================================================
 
@@ -949,6 +1079,24 @@ def register_move_strategy_handlers(application: Application):
     application.add_handler(CallbackQueryHandler(
         move_strategy_menu_callback,
         pattern="^menu_move_strategy$"
+    ))
+
+    # Edit menu (NEW)
+    application.add_handler(CallbackQueryHandler(
+        move_strategy_edit_menu_callback,
+        pattern="^move_strategy_edit_menu$"
+    ))
+    
+    # Delete menu (NEW)
+    application.add_handler(CallbackQueryHandler(
+        move_strategy_delete_menu_callback,
+        pattern="^move_strategy_delete_menu$"
+    ))
+    
+    # Edit strategy selection (NEW)
+    application.add_handler(CallbackQueryHandler(
+        move_strategy_edit_callback,
+        pattern="^move_strategy_edit_(?!menu)"
     ))
     
     # View strategies
