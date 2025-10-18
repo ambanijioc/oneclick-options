@@ -294,14 +294,19 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             # Execute entry orders
             side = 'buy' if direction == 'long' else 'sell'
             
+            # Get CE product_id
+            ce_product_id = ce_option['id']
+
             # Place CE order
             logger.info(f"Placing CE order: {side} {lot_size} {ce_symbol}")
-            ce_order = await client.place_order(
-                product_symbol=ce_symbol,
-                size=lot_size,
-                side=side,
-                order_type='market'
-            )
+            ce_order = await client.place_order({
+                'product_id': ce_product_id,  # ✅ FIXED
+                'size': lot_size,
+                'side': side,
+                'order_type': 'market_order',  # ✅ FIXED
+                'time_in_force': 'ioc'
+            })
+
             
             if not ce_order.get('success'):
                 raise Exception(f"CE order failed: {ce_order.get('error', {}).get('message')}")
@@ -310,14 +315,19 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             ce_fill_price = float(ce_order['result'].get('average_fill_price', 0))
             logger.info(f"CE order filled: ID={ce_order_id}, Price={ce_fill_price}")
             
+            # Get PE product_id
+            pe_product_id = pe_option['id']
+
             # Place PE order
             logger.info(f"Placing PE order: {side} {lot_size} {pe_symbol}")
-            pe_order = await client.place_order(
-                product_symbol=pe_symbol,
-                size=lot_size,
-                side=side,
-                order_type='market'
-            )
+            pe_order = await client.place_order({
+                'product_id': pe_product_id,  # ✅ FIXED
+                'size': lot_size,
+                'side': side,
+                'order_type': 'market_order',  # ✅ FIXED
+                'time_in_force': 'ioc'
+            })
+
             
             if not pe_order.get('success'):
                 raise Exception(f"PE order failed: {pe_order.get('error', {}).get('message')}")
