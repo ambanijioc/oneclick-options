@@ -109,7 +109,7 @@ async def handle_move_sl_trigger_input(update: Update, context: ContextTypes.DEF
         
         # Store SL trigger
         state_data = await state_manager.get_state_data(user.id)
-        state_data['sl_trigger_pct'] = sl_trigger
+        state_data['stop_loss_trigger'] = sl_trigger
         await state_manager.set_state_data(user.id, state_data)
         
         # Ask for stop loss limit percentage
@@ -145,7 +145,7 @@ async def handle_move_sl_limit_input(update: Update, context: ContextTypes.DEFAU
         
         # Store SL limit
         state_data = await state_manager.get_state_data(user.id)
-        state_data['sl_limit_pct'] = sl_limit
+        state_data['stop_loss_limit'] = sl_limit
         await state_manager.set_state_data(user.id, state_data)
         
         # Ask for target percentage (optional)
@@ -186,7 +186,7 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
         
         # Store target trigger
         state_data = await state_manager.get_state_data(user.id)
-        state_data['target_trigger_pct'] = target_trigger
+        state_data['target_trigger'] = target_trigger
         
         if target_trigger == 0:
             # Skip target - go to ATM offset
@@ -241,7 +241,7 @@ async def handle_move_target_limit_input(update: Update, context: ContextTypes.D
         
         # Store target limit
         state_data = await state_manager.get_state_data(user.id)
-        state_data['target_limit_pct'] = target_limit
+        state_data['target_limit'] = target_limit
         await state_manager.set_state_data(user.id, state_data)
         
         # Ask for ATM offset
@@ -295,8 +295,8 @@ async def handle_move_atm_offset_input(update: Update, context: ContextTypes.DEF
         
         if result:
             target_text = ""
-            if state_data.get('target_trigger_pct', 0) > 0:
-                target_text = f"Target: <b>{state_data['target_trigger_pct']}% / {state_data['target_limit_pct']}%</b>\n"
+            if state_data.get('target_trigger', 0) > 0:
+                target_text = f"Target: <b>{state_data['target_trigger']}% / {state_data['target_limit']}%</b>\n"
             
             await update.message.reply_text(
                 f"<b>✅ Move Strategy Created</b>\n\n"
@@ -305,7 +305,7 @@ async def handle_move_atm_offset_input(update: Update, context: ContextTypes.DEF
                 f"Direction: <b>{state_data['direction'].title()}</b>\n"
                 f"Lot Size: <b>{state_data['lot_size']}</b>\n"
                 f"ATM Offset: <b>{atm_strikes:+d} strikes</b> ({atm_offset:+d} USD)\n"
-                f"Stop Loss: <b>{state_data['sl_trigger_pct']}% / {state_data['sl_limit_pct']}%</b>\n"
+                f"Stop Loss: <b>{state_data['stop_loss_trigger']}% / {state_data['stop_loss_limit']}%</b>\n"
                 + target_text,
                 reply_markup=get_move_strategy_menu_keyboard(),
                 parse_mode='HTML'
