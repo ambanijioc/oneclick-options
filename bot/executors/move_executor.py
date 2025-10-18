@@ -1,9 +1,9 @@
 """
-Universal Move Options Trade Executor - Dynamically executes ANY move strategy.
-Fetches strategy, places entry order, and auto-places SL/Target bracket orders.
+Universal Move Options Trade Executor - For Delta Exchange MOVE contracts.
+MOVE contracts are volatility products (straddles: ATM Call + ATM Put at same strike).
 """
 
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 from datetime import datetime
 from bot.utils.logger import setup_logger
 from delta.client import DeltaClient
@@ -14,7 +14,7 @@ logger = setup_logger(__name__)
 class MoveTradeExecutor:
     """
     Universal executor for Move options trades.
-    Dynamically executes trades based on strategy configuration.
+    MOVE contracts are ATM straddles - you profit from volatility magnitude, not direction.
     """
     
     def __init__(self, client: DeltaClient):
@@ -25,113 +25,125 @@ class MoveTradeExecutor:
             client: Initialized DeltaClient instance
         """
         self.client = client
-        logger.info("MoveTradeExecutor initialized")
+        logger.info("MoveTradeExecutor initialized for MOVE contracts")
     
-    async def find_atm_option(
+    async def find_move_contract(
         self,
         asset: str,
         direction: str,
         atm_offset: int = 0
     ) -> Optional[Dict[str, Any]]:
         """
-        Find ATM option contract dynamically with proper strike increments.
-    
+        Find MOVE contract (volatility straddle product).
+        
+        MOVE contracts are ATM straddles with predetermined strike prices.
+        Strike is set at start of measurement period (30min TWAP).
+        
         Args:
             asset: BTC or ETH
-            direction: 'long' or 'short'
-            atm_offset: Strike offset from ATM in number of strikes
-                       0 = ATM
-                       +1 = 1 strike OTM (higher for calls, lower for puts)
-                       -1 = 1 strike ITM (lower for calls, higher for puts)
-    
+            direction: 'long' (expect volatility) or 'short' (expect stability)
+            atm_offset: Strike offset from ATM (0 = ATM, +1 = one strike higher, etc.)
+        
         Returns:
             Product dict or None
         """
         try:
-            # Strike increments for each asset
-            STRIKE_INCREMENTS = {
-                'BTC': 200,
-                'ETH': 20
-            }
-        
-            strike_increment = STRIKE_INCREMENTS.get(asset.upper(), 100)
-        
-            # Get spot price
-            spot_price = await self.client.get_spot_price(asset)
-            logger.info(f"Current {asset} spot price: ${spot_price:,.2f}")
+            # Get all MOVE options products
+            products_response = await self.client.get_products(contract_types='move_options')
             
-            # Round spot price to nearest strike
-            atm_strike = round(spot_price / strike_increment) * strike_increment
-            logger.info(f"Rounded ATM strike: ${atm_strike:,.2f} (increment: ${strike_increment})")
-        
-            # Determine option type based on direction
-            # For LONG move: Buy CALL (expect upward move)
-            # For SHORT move: Buy PUT (expect downward move)
-            contract_type = "call_options" if direction.lower() == "long" else "put_options"
-        
-            # Calculate target strike based on offset
-            # For calls: Positive offset = higher strike (more OTM)
-            # For puts: Positive offset = lower strike (more OTM)
-            if direction.lower() == "long":
-                # Long = Call, so +offset means higher strike
-                target_strike = atm_strike + (atm_offset * strike_increment)
-            else:
-                # Short = Put, so +offset means lower strike
-                target_strike = atm_strike - (atm_offset * strike_increment)
-        
-            logger.info(f"Target strike with offset {atm_offset}: ${target_strike:,.2f}")
-            
-            # Get all products of this type
-            products_response = await self.client.get_products(contract_types=contract_type)
-        
             if not products_response.get('success') or not products_response.get('result'):
-                logger.error(f"Failed to fetch {contract_type} products")
+                logger.error("Failed to fetch MOVE contracts")
                 return None
-        
+            
             products = products_response['result']
-        
-            # Filter products for the asset and target strike
-            matching_products = [
+            
+            # Filter MOVE contracts for the asset
+            asset_moves = [
                 p for p in products
                 if p.get('underlying_asset', {}).get('symbol') == asset
-                and p.get('contract_type') == contract_type.replace('_options', '')
-                and abs(float(p.get('strike_price', 0)) - target_strike) < (strike_increment / 2)
+                and p.get('contract_type') == 'move_options'
+                and p.get('state') in ['live', 'auction']  # Include live and auction states
             ]
-        
-            if not matching_products:
-                logger.warning(f"No exact match for strike ${target_strike}. Finding nearest...")
             
-                # Fallback: Find nearest available strike
-                asset_products = [
-                    p for p in products
-                    if p.get('underlying_asset', {}).get('symbol') == asset
-                    and p.get('contract_type') == contract_type.replace('_options', '')
-                ]
+            if not asset_moves:
+                logger.error(f"No MOVE contracts found for {asset}")
+                return None
             
-                if not asset_products:
-                    logger.error(f"No {contract_type} found for {asset}")
-                    return None
+            # If ATM offset is 0, select nearest expiry with live trading
+            if atm_offset == 0:
+                # Sort by settlement time (nearest first)
+                asset_moves.sort(key=lambda x: x.get('settlement_time', float('inf')))
+                
+                # Select first live contract (or auction if no live available)
+                for product in asset_moves:
+                    if product.get('state') == 'live':
+                        selected_product = product
+                        break
+                else:
+                    # No live contracts, use first auction
+                    selected_product = asset_moves[0]
+                    logger.warning(f"Selected MOVE in auction mode: {selected_product.get('symbol')}")
             
-                # Find closest strike to target
-                closest_product = min(
-                    asset_products,
-                    key=lambda p: abs(float(p.get('strike_price', 0)) - target_strike)
-                )
-                matching_products = [closest_product]
-        
-            # Get the product (should be only one with exact strike match)
-            selected_product = matching_products[0]
-        
+            else:
+                # ATM offset specified - need to get spot price and find strike
+                spot_price = await self.get_spot_price_safe(asset)
+                
+                if not spot_price:
+                    logger.error("Failed to get spot price for ATM offset calculation")
+                    # Fallback to nearest expiry
+                    asset_moves.sort(key=lambda x: x.get('settlement_time', float('inf')))
+                    selected_product = asset_moves[0]
+                else:
+                    # Calculate target strike with offset
+                    # Get strike increment from first contract
+                    strike_increment = asset_moves[0].get('strike_price_increment', 100 if asset == 'BTC' else 10)
+                    
+                    # Round spot to nearest strike
+                    atm_strike = round(spot_price / strike_increment) * strike_increment
+                    target_strike = atm_strike + (atm_offset * strike_increment)
+                    
+                    logger.info(f"Spot: ${spot_price:.2f}, ATM: ${atm_strike}, Target: ${target_strike}")
+                    
+                    # Find MOVE contract with closest strike to target
+                    # Filter by nearest expiry first
+                    asset_moves.sort(key=lambda x: x.get('settlement_time', float('inf')))
+                    nearest_expiry = asset_moves[0].get('settlement_time')
+                    
+                    same_expiry = [p for p in asset_moves if p.get('settlement_time') == nearest_expiry]
+                    
+                    # Find closest strike
+                    selected_product = min(
+                        same_expiry,
+                        key=lambda x: abs(x.get('strike_price', 0) - target_strike)
+                    )
+            
             logger.info(
-                f"✅ Selected {contract_type} contract: {selected_product.get('symbol')} "
-                f"(Strike: ${selected_product.get('strike_price')}, "
-                f"Offset: {atm_offset} strikes = ${atm_offset * strike_increment})"
+                f"✅ Selected MOVE contract: {selected_product.get('symbol')} "
+                f"Strike: ${selected_product.get('strike_price', 'TBD')}, "
+                f"Settlement: {selected_product.get('settlement_time')}, "
+                f"Direction: {direction} = {'High Volatility' if direction.lower() == 'long' else 'Low Volatility'}"
             )
-        
+            
             return selected_product
-    
+        
         except Exception as e:
-            logger.error(f"Error finding ATM option: {e}", exc_info=True)
+            logger.error(f"Error finding MOVE contract: {e}", exc_info=True)
+            return None
+    
+    async def get_spot_price_safe(self, asset: str) -> Optional[float]:
+        """
+        Safely get spot price without failing on API errors.
+        
+        Args:
+            asset: BTC or ETH
+        
+        Returns:
+            Spot price or None
+        """
+        try:
+            return await self.client.get_spot_price(asset)
+        except Exception as e:
+            logger.warning(f"Could not fetch spot price: {e}")
             return None
     
     async def calculate_sl_target_prices(
@@ -139,52 +151,72 @@ class MoveTradeExecutor:
         entry_price: float,
         direction: str,
         stop_loss_trigger: Optional[float],
-        target_trigger: Optional[float]
-    ) -> Tuple[Optional[float], Optional[float]]:
+        stop_loss_limit: Optional[float],
+        target_trigger: Optional[float],
+        target_limit: Optional[float]
+    ) -> Dict[str, Optional[float]]:
         """
-        Calculate SL and Target prices based on strategy percentages.
+        Calculate SL and Target prices for MOVE options with trigger and limit.
+        
+        For MOVE options:
+        - Long MOVE: Profit from high volatility (price rises)
+        - Short MOVE: Profit from low volatility (price drops)
         
         Args:
-            entry_price: Entry order price
-            direction: 'long' or 'short'
-            stop_loss_trigger: SL percentage (e.g., 50 for 50% loss)
-            target_trigger: Target percentage (e.g., 100 for 100% profit)
+            entry_price: Entry order premium
+            direction: 'long' (volatility) or 'short' (stability)
+            stop_loss_trigger: SL trigger percentage (e.g., 50 for 50%)
+            stop_loss_limit: SL limit percentage (e.g., 55 for 55%)
+            target_trigger: Target trigger percentage (e.g., 100 for 100%)
+            target_limit: Target limit percentage (e.g., 95 for 95%)
         
         Returns:
-            (sl_price, target_price) tuple
+            Dict with trigger and limit prices for SL and Target
         """
-        sl_price = None
-        target_price = None
+        result = {
+            'sl_trigger': None,
+            'sl_limit': None,
+            'target_trigger': None,
+            'target_limit': None
+        }
         
-        if stop_loss_trigger:
-            # SL trigger is % of entry price we're willing to lose
-            # For long: SL = entry - (entry * sl_pct)
-            # For short: SL = entry + (entry * sl_pct)
-            sl_pct = stop_loss_trigger / 100.0
+        # Calculate Stop Loss (if configured)
+        if stop_loss_trigger and stop_loss_limit:
+            sl_trigger_pct = stop_loss_trigger / 100.0
+            sl_limit_pct = stop_loss_limit / 100.0
             
             if direction.lower() == "long":
-                sl_price = entry_price * (1 - sl_pct)
+                # Long MOVE: Loss if premium drops (volatility doesn't materialize)
+                result['sl_trigger'] = entry_price * (1 - sl_trigger_pct)
+                result['sl_limit'] = entry_price * (1 - sl_limit_pct)
             else:  # short
-                sl_price = entry_price * (1 + sl_pct)
+                # Short MOVE: Loss if premium rises (unexpected volatility)
+                result['sl_trigger'] = entry_price * (1 + sl_trigger_pct)
+                result['sl_limit'] = entry_price * (1 + sl_limit_pct)
         
-        if target_trigger:
-            # Target trigger is % profit we want
-            # For long: Target = entry + (entry * target_pct)
-            # For short: Target = entry - (entry * target_pct)
-            target_pct = target_trigger / 100.0
+        # Calculate Target (if configured)
+        if target_trigger and target_limit:
+            target_trigger_pct = target_trigger / 100.0
+            target_limit_pct = target_limit / 100.0
             
             if direction.lower() == "long":
-                target_price = entry_price * (1 + target_pct)
+                # Long MOVE: Profit if premium rises (high volatility)
+                result['target_trigger'] = entry_price * (1 + target_trigger_pct)
+                result['target_limit'] = entry_price * (1 + target_limit_pct)
             else:  # short
-                target_price = entry_price * (1 - target_pct)
+                # Short MOVE: Profit if premium drops (low volatility)
+                result['target_trigger'] = entry_price * (1 - target_trigger_pct)
+                result['target_limit'] = entry_price * (1 - target_limit_pct)
         
         logger.info(
             f"Calculated prices - Entry: ${entry_price:.2f}, "
-            f"SL: ${sl_price:.2f if sl_price else 'None'}, "
-            f"Target: ${target_price:.2f if target_price else 'None'}"
+            f"SL Trigger: ${result['sl_trigger']:.2f if result['sl_trigger'] else 'None'}, "
+            f"SL Limit: ${result['sl_limit']:.2f if result['sl_limit'] else 'None'}, "
+            f"Target Trigger: ${result['target_trigger']:.2f if result['target_trigger'] else 'None'}, "
+            f"Target Limit: ${result['target_limit']:.2f if result['target_limit'] else 'None'}"
         )
         
-        return (sl_price, target_price)
+        return result
     
     async def execute_move_trade(
         self,
@@ -198,13 +230,13 @@ class MoveTradeExecutor:
         target_limit: Optional[float]
     ) -> Dict[str, Any]:
         """
-        Execute complete move trade with entry + SL + Target orders.
+        Execute complete MOVE trade with entry + SL + Target orders.
         
         Args:
             asset: BTC or ETH
-            direction: 'long' or 'short'
+            direction: 'long' (volatility) or 'short' (stability)
             lot_size: Number of contracts
-            atm_offset: ATM strike offset
+            atm_offset: Strike offset from ATM (0 = ATM, +/- for offset)
             stop_loss_trigger: SL trigger percentage
             stop_loss_limit: SL limit percentage
             target_trigger: Target trigger percentage
@@ -214,28 +246,32 @@ class MoveTradeExecutor:
             Execution result dict with order details
         """
         try:
-            # Step 1: Find ATM option
-            product = await self.find_atm_option(asset, direction, atm_offset)
+            # Step 1: Find MOVE contract with strike selection
+            product = await self.find_move_contract(asset, direction, atm_offset)
             
             if not product:
                 return {
                     'success': False,
-                    'error': 'Failed to find suitable option contract'
+                    'error': 'Failed to find MOVE contract'
                 }
             
             product_id = product['id']
             product_symbol = product['symbol']
             
-            # Step 2: Place entry market order
-            logger.info(f"Placing entry order: {direction} {lot_size} contracts of {product_symbol}")
+            # Step 2: Determine order side based on direction
+            # Long MOVE = Buy (expect volatility)
+            # Short MOVE = Sell (expect stability)
+            order_side = 'buy' if direction.lower() == 'long' else 'sell'
             
-            # Delta order side: 'buy' for both long and short (we're opening position)
+            # Step 3: Place entry market order
+            logger.info(f"Placing MOVE entry order: {direction} {lot_size} contracts of {product_symbol}")
+            
             entry_order_data = {
                 'product_id': product_id,
                 'size': lot_size,
-                'side': 'buy',  # Always buy for move options
+                'side': order_side,
                 'order_type': 'market_order',
-                'time_in_force': 'ioc'  # Immediate or cancel
+                'time_in_force': 'ioc'
             }
             
             entry_response = await self.client.place_order(entry_order_data)
@@ -249,46 +285,47 @@ class MoveTradeExecutor:
             entry_order = entry_response['result']
             entry_order_id = entry_order['id']
             
-            # Get fill price (wait a moment for fill)
+            # Get fill price
             import asyncio
             await asyncio.sleep(1)
             
-            # Fetch filled order to get average price
             filled_order_response = await self.client.get_order(entry_order_id)
             filled_order = filled_order_response.get('result', {})
             
             avg_fill_price = float(filled_order.get('average_fill_price', 0))
             
             if avg_fill_price == 0:
-                # Fallback to mark price if fill price not available
                 ticker_response = await self.client.get_ticker(product_symbol)
                 avg_fill_price = float(ticker_response.get('result', {}).get('mark_price', 0))
             
-            logger.info(f"✅ Entry order filled! Average price: ${avg_fill_price:.2f}")
+            logger.info(f"✅ MOVE entry order filled! Average premium: ${avg_fill_price:.2f}")
             
-            # Step 3: Calculate SL and Target prices
-            sl_price, target_price = await self.calculate_sl_target_prices(
+            # Step 4: Calculate SL and Target prices (trigger + limit)
+            prices = await self.calculate_sl_target_prices(
                 avg_fill_price,
                 direction,
                 stop_loss_trigger,
-                target_trigger
+                stop_loss_limit,
+                target_trigger,
+                target_limit
             )
             
-            # Step 4: Place bracket orders (SL and/or Target)
+            # Step 5: Place Stop Loss order (with trigger and limit)
             sl_order_id = None
-            target_order_id = None
-            
-            # Place Stop Loss order
-            if sl_price:
-                logger.info(f"Placing Stop Loss order at ${sl_price:.2f}")
+            if prices['sl_trigger'] and prices['sl_limit']:
+                logger.info(f"Placing Stop Loss: Trigger=${prices['sl_trigger']:.2f}, Limit=${prices['sl_limit']:.2f}")
+                
+                # For MOVE: If long, SL sells. If short, SL buys.
+                sl_side = 'sell' if direction.lower() == 'long' else 'buy'
                 
                 sl_order_data = {
                     'product_id': product_id,
                     'size': lot_size,
-                    'side': 'sell',  # Close position
-                    'order_type': 'stop_market_order',
-                    'stop_price': round(sl_price, 2),
-                    'time_in_force': 'gtc'  # Good til cancelled
+                    'side': sl_side,
+                    'order_type': 'stop_limit_order',
+                    'stop_price': round(prices['sl_trigger'], 2),
+                    'limit_price': round(prices['sl_limit'], 2),
+                    'time_in_force': 'gtc'
                 }
                 
                 sl_response = await self.client.place_order(sl_order_data)
@@ -299,16 +336,21 @@ class MoveTradeExecutor:
                 else:
                     logger.warning(f"⚠️ SL order failed: {sl_response.get('error', {}).get('message')}")
             
-            # Place Target order
-            if target_price:
-                logger.info(f"Placing Target order at ${target_price:.2f}")
+            # Step 6: Place Target order (with trigger and limit)
+            target_order_id = None
+            if prices['target_trigger'] and prices['target_limit']:
+                logger.info(f"Placing Target: Trigger=${prices['target_trigger']:.2f}, Limit=${prices['target_limit']:.2f}")
+                
+                # For MOVE: If long, Target sells. If short, Target buys.
+                target_side = 'sell' if direction.lower() == 'long' else 'buy'
                 
                 target_order_data = {
                     'product_id': product_id,
                     'size': lot_size,
-                    'side': 'sell',  # Close position
-                    'order_type': 'limit_order',
-                    'limit_price': round(target_price, 2),
+                    'side': target_side,
+                    'order_type': 'stop_limit_order',
+                    'stop_price': round(prices['target_trigger'], 2),
+                    'limit_price': round(prices['target_limit'], 2),
                     'time_in_force': 'gtc'
                 }
                 
@@ -327,15 +369,17 @@ class MoveTradeExecutor:
                 'entry_order': entry_order,
                 'entry_price': avg_fill_price,
                 'sl_order_id': sl_order_id,
-                'sl_price': sl_price,
+                'sl_trigger': prices['sl_trigger'],
+                'sl_limit': prices['sl_limit'],
                 'target_order_id': target_order_id,
-                'target_price': target_price
+                'target_trigger': prices['target_trigger'],
+                'target_limit': prices['target_limit']
             }
         
         except Exception as e:
-            logger.error(f"Error executing move trade: {e}", exc_info=True)
+            logger.error(f"Error executing MOVE trade: {e}", exc_info=True)
             return {
                 'success': False,
                 'error': f"Execution failed: {str(e)}"
-          }
-      
+    }
+        
