@@ -1,5 +1,5 @@
 """
-Database operations for move strategies with expiry support.
+Database operations for MOVE strategies - COMPLETE CRUD.
 """
 
 from typing import List, Optional
@@ -13,17 +13,17 @@ logger = setup_logger(__name__)
 
 
 async def create_move_strategy(user_id: int, strategy_data: dict) -> Optional[str]:
-    """Create a new move strategy with expiry support."""
+    """Create a new MOVE strategy."""
     try:
         db = get_database()
         
         strategy = {
             'user_id': user_id,
             'strategy_name': strategy_data['strategy_name'],
+            'description': strategy_data.get('description', ''),
             'asset': strategy_data['asset'],
-            'expiry': strategy_data.get('expiry', 'daily'),  # ✅ NEW FIELD
+            'expiry': strategy_data.get('expiry', 'daily'),
             'direction': strategy_data['direction'],
-            'lot_size': strategy_data['lot_size'],
             'atm_offset': strategy_data.get('atm_offset', 0),
             'stop_loss_trigger': strategy_data.get('stop_loss_trigger'),
             'stop_loss_limit': strategy_data.get('stop_loss_limit'),
@@ -34,39 +34,40 @@ async def create_move_strategy(user_id: int, strategy_data: dict) -> Optional[st
         }
         
         result = await db.move_strategies.insert_one(strategy)
-        logger.info(f"Created move strategy: {result.inserted_id}")
+        logger.info(f"Created MOVE strategy: {result.inserted_id}")
         return str(result.inserted_id)
     
     except Exception as e:
-        logger.error(f"Failed to create move strategy: {e}", exc_info=True)
+        logger.error(f"Failed to create MOVE strategy: {e}", exc_info=True)
         return None
 
 
 async def get_move_strategies(user_id: int) -> List[dict]:
-    """Get all move strategies for a user."""
+    """Get all MOVE strategies for a user."""
     try:
         db = get_database()
-        cursor = db.move_strategies.find({'user_id': user_id})
+        cursor = db.move_strategies.find({'user_id': user_id}).sort('created_at', -1)
         strategies = await cursor.to_list(length=100)
         
-        # Convert ObjectId to string
         for strategy in strategies:
             strategy['id'] = str(strategy['_id'])
             del strategy['_id']
             
-            # ✅ Add default expiry if missing (backward compatibility)
+            # Backward compatibility
             if 'expiry' not in strategy:
                 strategy['expiry'] = 'daily'
+            if 'description' not in strategy:
+                strategy['description'] = ''
         
         return strategies
     
     except Exception as e:
-        logger.error(f"Failed to get move strategies: {e}", exc_info=True)
+        logger.error(f"Failed to get MOVE strategies: {e}", exc_info=True)
         return []
 
 
 async def get_move_strategy(strategy_id: str) -> Optional[dict]:
-    """Get a specific move strategy."""
+    """Get a specific MOVE strategy."""
     try:
         db = get_database()
         strategy = await db.move_strategies.find_one({'_id': ObjectId(strategy_id)})
@@ -75,27 +76,30 @@ async def get_move_strategy(strategy_id: str) -> Optional[dict]:
             strategy['id'] = str(strategy['_id'])
             del strategy['_id']
             
-            # ✅ Add default expiry if missing (backward compatibility)
+            # Backward compatibility
             if 'expiry' not in strategy:
                 strategy['expiry'] = 'daily'
+            if 'description' not in strategy:
+                strategy['description'] = ''
         
         return strategy
     
     except Exception as e:
-        logger.error(f"Failed to get move strategy: {e}", exc_info=True)
+        logger.error(f"Failed to get MOVE strategy: {e}", exc_info=True)
         return None
 
 
 async def update_move_strategy(strategy_id: str, strategy_data: dict) -> bool:
-    """Update a move strategy."""
+    """Update a MOVE strategy."""
     try:
         db = get_database()
         
         update_data = {
+            'strategy_name': strategy_data['strategy_name'],
+            'description': strategy_data.get('description', ''),
             'asset': strategy_data['asset'],
-            'expiry': strategy_data.get('expiry', 'daily'),  # ✅ INCLUDE EXPIRY
+            'expiry': strategy_data.get('expiry', 'daily'),
             'direction': strategy_data['direction'],
-            'lot_size': strategy_data['lot_size'],
             'atm_offset': strategy_data.get('atm_offset', 0),
             'stop_loss_trigger': strategy_data.get('stop_loss_trigger'),
             'stop_loss_limit': strategy_data.get('stop_loss_limit'),
@@ -109,149 +113,127 @@ async def update_move_strategy(strategy_id: str, strategy_data: dict) -> bool:
             {'$set': update_data}
         )
         
+        logger.info(f"Updated MOVE strategy: {strategy_id}")
         return result.modified_count > 0
     
     except Exception as e:
-        logger.error(f"Failed to update move strategy: {e}", exc_info=True)
+        logger.error(f"Failed to update MOVE strategy: {e}", exc_info=True)
         return False
 
 
 async def delete_move_strategy(strategy_id: str) -> bool:
-    """Delete a move strategy."""
+    """Delete a MOVE strategy."""
     try:
         db = get_database()
         result = await db.move_strategies.delete_one({'_id': ObjectId(strategy_id)})
+        
+        if result.deleted_count > 0:
+            logger.info(f"Deleted MOVE strategy: {strategy_id}")
+        
         return result.deleted_count > 0
     
     except Exception as e:
-        logger.error(f"Failed to delete move strategy: {e}", exc_info=True)
+        logger.error(f"Failed to delete MOVE strategy: {e}", exc_info=True)
         return False
 
 
-# Auto execution operations (unchanged from your original)
-async def create_move_auto_execution(user_id: int, execution_data: dict) -> Optional[str]:
-    """Create a new move auto execution schedule using preset."""
+# Trade Preset Operations
+
+async def create_move_trade_preset(user_id: int, preset_data: dict) -> Optional[str]:
+    """Create a new MOVE trade preset."""
     try:
         db = get_database()
         
-        # Get preset to extract API and strategy info
-        preset_id = execution_data.get('preset_id')
-        if not preset_id:
-            logger.error("No preset_id provided in execution_data")
-            return None
-        
-        # Get the preset
-        preset = await db.move_trade_presets.find_one({'_id': ObjectId(preset_id)})
-        if not preset:
-            logger.error(f"Preset not found: {preset_id}")
-            return None
-        
-        execution = {
+        preset = {
             'user_id': user_id,
-            'preset_id': preset_id,
-            'preset_name': preset.get('preset_name', 'Unknown'),
-            'api_credential_id': preset.get('api_credential_id'),
-            'strategy_id': preset.get('strategy_id'),
-            'execution_time': execution_data['execution_time'],
-            'enabled': True,
+            'preset_name': preset_data['preset_name'],
+            'api_id': preset_data['api_id'],
+            'strategy_id': preset_data['strategy_id'],
             'created_at': datetime.utcnow(),
             'updated_at': datetime.utcnow()
         }
         
-        result = await db.move_auto_executions.insert_one(execution)
-        logger.info(f"Created move auto execution: {result.inserted_id}")
+        result = await db.move_trade_presets.insert_one(preset)
+        logger.info(f"Created MOVE trade preset: {result.inserted_id}")
         return str(result.inserted_id)
     
     except Exception as e:
-        logger.error(f"Failed to create move auto execution: {e}", exc_info=True)
+        logger.error(f"Failed to create MOVE trade preset: {e}", exc_info=True)
         return None
 
 
-async def get_move_auto_executions(user_id: int) -> List[dict]:
-    """Get all move auto executions for a user."""
+async def get_move_trade_presets(user_id: int) -> List[dict]:
+    """Get all MOVE trade presets for a user."""
     try:
         db = get_database()
-        cursor = db.move_auto_executions.find({'user_id': user_id})
-        executions = await cursor.to_list(length=100)
+        cursor = db.move_trade_presets.find({'user_id': user_id}).sort('created_at', -1)
+        presets = await cursor.to_list(length=100)
         
-        # Convert ObjectId to string
-        for execution in executions:
-            execution['id'] = str(execution['_id'])
-            del execution['_id']
+        for preset in presets:
+            preset['id'] = str(preset['_id'])
+            del preset['_id']
         
-        return executions
+        return presets
     
     except Exception as e:
-        logger.error(f"Failed to get move auto executions: {e}", exc_info=True)
+        logger.error(f"Failed to get MOVE trade presets: {e}", exc_info=True)
         return []
 
 
-async def update_move_auto_execution(execution_id: str, execution_data: dict) -> bool:
-    """Update a move auto execution schedule."""
+async def get_move_trade_preset(preset_id: str) -> Optional[dict]:
+    """Get a specific MOVE trade preset."""
+    try:
+        db = get_database()
+        preset = await db.move_trade_presets.find_one({'_id': ObjectId(preset_id)})
+        
+        if preset:
+            preset['id'] = str(preset['_id'])
+            del preset['_id']
+        
+        return preset
+    
+    except Exception as e:
+        logger.error(f"Failed to get MOVE trade preset: {e}", exc_info=True)
+        return None
+
+
+async def update_move_trade_preset(preset_id: str, preset_data: dict) -> bool:
+    """Update a MOVE trade preset."""
     try:
         db = get_database()
         
-        # Get preset to extract API and strategy info
-        preset_id = execution_data.get('preset_id')
-        if not preset_id:
-            logger.error("No preset_id provided in execution_data")
-            return False
-        
-        # Get the preset
-        preset = await db.move_trade_presets.find_one({'_id': ObjectId(preset_id)})
-        if not preset:
-            logger.error(f"Preset not found: {preset_id}")
-            return False
-        
         update_data = {
-            'preset_id': preset_id,
-            'preset_name': preset.get('preset_name', 'Unknown'),
-            'api_credential_id': preset.get('api_credential_id'),
-            'strategy_id': preset.get('strategy_id'),
-            'execution_time': execution_data['execution_time'],
+            'preset_name': preset_data['preset_name'],
+            'api_id': preset_data['api_id'],
+            'strategy_id': preset_data['strategy_id'],
             'updated_at': datetime.utcnow()
         }
         
-        result = await db.move_auto_executions.update_one(
-            {'_id': ObjectId(execution_id)},
+        result = await db.move_trade_presets.update_one(
+            {'_id': ObjectId(preset_id)},
             {'$set': update_data}
         )
         
-        logger.info(f"Updated move auto execution: {execution_id}")
+        logger.info(f"Updated MOVE trade preset: {preset_id}")
         return result.modified_count > 0
     
     except Exception as e:
-        logger.error(f"Failed to update move auto execution: {e}", exc_info=True)
+        logger.error(f"Failed to update MOVE trade preset: {e}", exc_info=True)
         return False
 
 
-async def delete_move_auto_execution(execution_id: str) -> bool:
-    """Delete a move auto execution."""
+async def delete_move_trade_preset(preset_id: str) -> bool:
+    """Delete a MOVE trade preset."""
     try:
         db = get_database()
-        result = await db.move_auto_executions.delete_one({'_id': ObjectId(execution_id)})
+        result = await db.move_trade_presets.delete_one({'_id': ObjectId(preset_id)})
+        
+        if result.deleted_count > 0:
+            logger.info(f"Deleted MOVE trade preset: {preset_id}")
+        
         return result.deleted_count > 0
     
     except Exception as e:
-        logger.error(f"Failed to delete move auto execution: {e}", exc_info=True)
+        logger.error(f"Failed to delete MOVE trade preset: {e}", exc_info=True)
         return False
-
-
-async def get_enabled_move_auto_executions() -> List[dict]:
-    """Get all enabled move auto executions."""
-    try:
-        db = get_database()
-        cursor = db.move_auto_executions.find({'enabled': True})
-        executions = await cursor.to_list(length=1000)
-        
-        # Convert ObjectId to string
-        for execution in executions:
-            execution['id'] = str(execution['_id'])
-            del execution['_id']
-        
-        return executions
-    
-    except Exception as e:
-        logger.error(f"Failed to get enabled move auto executions: {e}", exc_info=True)
-        return []
         
