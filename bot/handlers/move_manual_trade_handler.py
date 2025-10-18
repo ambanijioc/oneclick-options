@@ -1,5 +1,6 @@
 """
-Manual move options trade execution handler - uses saved presets.
+Manual MOVE options trade execution handler - WITH STRIKE CONFIRMATION.
+Includes fallback strike selection if exact ATM+offset not available.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -70,7 +71,7 @@ async def move_manual_trade_menu_callback(update: Update, context: ContextTypes.
 
 @error_handler
 async def move_manual_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle preset selection - fetch details and show confirmation."""
+    """Handle preset selection - fetch details and check strike availability."""
     query = update.callback_query
     await query.answer()
     
@@ -80,7 +81,7 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
     # Show loading message
     await query.edit_message_text(
         "⏳ <b>Loading trade details...</b>\n\n"
-        "Fetching market data and calculating positions...",
+        "Fetching market data and checking strike availability...",
         parse_mode='HTML'
     )
     
@@ -125,76 +126,185 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
             )
             return
 
-        # ✅ ADDED: Handle both dict and Pydantic model
+        # Handle both dict and Pydantic model
         if isinstance(strategy, dict):
-            # It's a dict from MongoDB
             strategy_name = strategy.get('strategy_name', 'N/A')
             asset = strategy.get('asset', 'BTC')
+            expiry = strategy.get('expiry', 'daily')
             direction = strategy.get('direction', 'long')
             lot_size = strategy.get('lot_size', 1)
             atm_offset = strategy.get('atm_offset', 0)
+            sl_trigger = strategy.get('stop_loss_trigger')
+            sl_limit = strategy.get('stop_loss_limit')
+            target_trigger = strategy.get('target_trigger')
+            target_limit = strategy.get('target_limit')
         else:
-            # It's a Pydantic model
             strategy_name = strategy.strategy_name
             asset = strategy.asset
+            expiry = strategy.expiry
             direction = strategy.direction
             lot_size = strategy.lot_size
             atm_offset = strategy.atm_offset
+            sl_trigger = strategy.stop_loss_trigger
+            sl_limit = strategy.stop_loss_limit
+            target_trigger = strategy.target_trigger
+            target_limit = strategy.target_limit
         
         # Create Delta client
         api_key, api_secret = credentials
         client = DeltaClient(api_key, api_secret)
         
         try:
-            # Get current spot price - ✅ FIXED: Use variable instead of strategy.asset
-            ticker_symbol = f"{asset}USD"
-            ticker_response = await client.get_ticker(ticker_symbol)
-    
-            if ticker_response is None or not ticker_response.get('success') or not ticker_response.get('result'):
+            # Import executor
+            from bot.executors.move_executor import MoveTradeExecutor
+            executor = MoveTradeExecutor(client)
+            
+            # Check strike availability
+            result = await executor.find_atm_strike(asset, expiry)
+            
+            if not result:
                 await query.edit_message_text(
-                    "❌ Failed to fetch market data from Delta Exchange API.",
+                    f"❌ <b>No {expiry.title()} MOVE Contracts Available</b>\n\n"
+                    f"Asset: {asset}\n"
+                    f"Expiry: {expiry.title()}\n\n"
+                    f"Please try:\n"
+                    f"• Different expiry (Daily/Weekly/Monthly)\n"
+                    f"• Check Delta Exchange for available MOVE contracts",
                     reply_markup=get_move_manual_trade_keyboard(),
                     parse_mode='HTML'
                 )
                 return
             
-            spot_price = float(ticker_response['result']['spot_price'])
-    
-            # Build confirmation message - ✅ FIXED: Use variables
-            text = f"<b>🎯 Confirm Move Trade Execution</b>\n\n"
-            text += f"<b>Preset:</b> {preset['preset_name']}\n"
-            text += f"<b>API:</b> {api.api_name}\n"
-            text += f"<b>Strategy:</b> {strategy_name}\n\n"
-            text += f"<b>📊 Market Data:</b>\n"
-            text += f"Spot Price: ${spot_price:,.2f}\n"
-            text += f"ATM Offset: {atm_offset:+d}\n\n"
-            text += f"<b>💰 Trade Summary:</b>\n"
-            text += f"Direction: {direction.title()}\n"
-            text += f"Lot Size: {lot_size}\n\n"
-            text += "⚠️ Execute this trade?"
+            atm_strike, contracts = result
+            spot_price = await client.get_spot_price(asset)
             
-            # Store trade details in context for execution - ✅ FIXED: Use variables
-            context.user_data['pending_move_trade'] = {
-                'preset_id': preset_id,
-                'direction': direction,
-                'lot_size': lot_size,
-                'asset': asset,
-                'atm_offset': atm_offset,
-                'api_key': api_key,
-                'api_secret': api_secret
-            }
+            # Get available strikes
+            strikes = sorted(set(float(c.get('strike_price', 0)) for c in contracts if c.get('strike_price')))
             
-            # Show confirmation
-            keyboard = [
-                [InlineKeyboardButton("✅ Execute Trade", callback_data="move_manual_execute")],
-                [InlineKeyboardButton("❌ Cancel", callback_data="menu_move_manual_trade")]
-            ]
+            # Calculate target strike with offset
+            atm_index = strikes.index(atm_strike)
+            target_index = atm_index + atm_offset
             
-            await query.edit_message_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='HTML'
-            )
+            # Check if target strike is available
+            exact_strike_available = 0 <= target_index < len(strikes)
+            
+            if exact_strike_available:
+                target_strike = strikes[target_index]
+                
+                # Build confirmation message
+                text = f"<b>🎯 Confirm Move Trade Execution</b>\n\n"
+                text += f"<b>Preset:</b> {preset['preset_name']}\n"
+                text += f"<b>API:</b> {api.api_name}\n"
+                text += f"<b>Strategy:</b> {strategy_name}\n\n"
+                text += f"<b>📊 Market Data:</b>\n"
+                text += f"Spot Price: ${spot_price:,.2f}\n"
+                text += f"ATM Strike: ${atm_strike:,.2f}\n"
+                text += f"Target Strike: ${target_strike:,.2f} ({atm_offset:+d})\n"
+                text += f"Expiry: {expiry.title()}\n\n"
+                text += f"<b>💰 Trade Setup:</b>\n"
+                text += f"Direction: {direction.title()}\n"
+                text += f"Lot Size: {lot_size}\n"
+                
+                if sl_trigger:
+                    text += f"Stop Loss: {sl_trigger:.0f}% trigger, {sl_limit:.0f}% limit\n"
+                if target_trigger:
+                    text += f"Target: {target_trigger:.0f}% trigger, {target_limit:.0f}% limit\n"
+                
+                text += "\n⚠️ Execute this trade?"
+                
+                # Store trade details
+                context.user_data['pending_move_trade'] = {
+                    'preset_id': preset_id,
+                    'asset': asset,
+                    'expiry': expiry,
+                    'direction': direction,
+                    'lot_size': lot_size,
+                    'atm_offset': atm_offset,
+                    'sl_trigger': sl_trigger,
+                    'sl_limit': sl_limit,
+                    'target_trigger': target_trigger,
+                    'target_limit': target_limit,
+                    'api_key': api_key,
+                    'api_secret': api_secret,
+                    'fallback_direction': None  # No fallback needed
+                }
+                
+                # Show confirmation
+                keyboard = [
+                    [InlineKeyboardButton("✅ Execute Trade", callback_data="move_manual_execute")],
+                    [InlineKeyboardButton("❌ Cancel", callback_data="menu_move_manual_trade")]
+                ]
+                
+                await query.edit_message_text(
+                    text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='HTML'
+                )
+            
+            else:
+                # Strike not available - offer alternatives
+                if target_index < 0:
+                    # Requested strike is below lowest available
+                    suggested_strike = strikes[0]
+                    fallback_direction = "down"
+                    message = f"Requested strike (ATM{atm_offset:+d}) is below lowest available."
+                else:
+                    # Requested strike is above highest available
+                    suggested_strike = strikes[-1]
+                    fallback_direction = "up"
+                    message = f"Requested strike (ATM{atm_offset:+d}) is above highest available."
+                
+                # Build fallback message
+                text = f"⚠️ <b>Requested Strike Unavailable</b>\n\n"
+                text += f"{message}\n\n"
+                text += f"<b>📊 Available Options:</b>\n"
+                text += f"Spot Price: ${spot_price:,.2f}\n"
+                text += f"ATM Strike: ${atm_strike:,.2f}\n"
+                text += f"Requested: ${atm_strike + (atm_offset * (100 if asset == 'BTC' else 10)):,.2f}\n"
+                text += f"Suggested: ${suggested_strike:,.2f}\n\n"
+                text += f"<b>Available Strikes ({expiry.title()}):</b>\n"
+                
+                # Show up to 5 strikes
+                for i, strike in enumerate(strikes[:5]):
+                    if strike == atm_strike:
+                        text += f"• ${strike:,.2f} ⭐ ATM\n"
+                    else:
+                        text += f"• ${strike:,.2f}\n"
+                
+                if len(strikes) > 5:
+                    text += f"...and {len(strikes) - 5} more\n"
+                
+                text += f"\nUse suggested strike (${suggested_strike:,.2f})?"
+                
+                # Store trade details with fallback
+                context.user_data['pending_move_trade'] = {
+                    'preset_id': preset_id,
+                    'asset': asset,
+                    'expiry': expiry,
+                    'direction': direction,
+                    'lot_size': lot_size,
+                    'atm_offset': atm_offset,
+                    'sl_trigger': sl_trigger,
+                    'sl_limit': sl_limit,
+                    'target_trigger': target_trigger,
+                    'target_limit': target_limit,
+                    'api_key': api_key,
+                    'api_secret': api_secret,
+                    'fallback_direction': fallback_direction,
+                    'suggested_strike': suggested_strike
+                }
+                
+                # Show fallback confirmation
+                keyboard = [
+                    [InlineKeyboardButton(f"✅ Use ${suggested_strike:,.0f} Strike", callback_data="move_manual_execute_fallback")],
+                    [InlineKeyboardButton("❌ Cancel", callback_data="menu_move_manual_trade")]
+                ]
+                
+                await query.edit_message_text(
+                    text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='HTML'
+                )
         
         finally:
             await client.close()
@@ -210,7 +320,7 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
 
 @error_handler
 async def move_manual_execute_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Execute the confirmed move trade."""
+    """Execute the confirmed move trade (exact strike)."""
     query = update.callback_query
     await query.answer()
     
@@ -229,72 +339,97 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
     
     # Show executing message
     await query.edit_message_text(
-        "⏳ <b>Executing trade...</b>\n\n"
-        "📊 Finding ATM option...\n"
+        "⏳ <b>Executing MOVE trade...</b>\n\n"
+        "📊 Finding contract...\n"
         "📈 Placing entry order...\n"
         "🛡️ Setting up SL/Target orders...",
         parse_mode='HTML'
     )
     
+    await _execute_move_trade(query, context, user, pending_trade, fallback=False)
+
+
+@error_handler
+async def move_manual_execute_fallback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Execute the move trade with fallback strike."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    
+    # Get pending trade from context
+    pending_trade = context.user_data.get('pending_move_trade')
+    
+    if not pending_trade:
+        await query.edit_message_text(
+            "❌ No pending trade found. Please start again.",
+            reply_markup=get_move_manual_trade_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Show executing message
+    await query.edit_message_text(
+        "⏳ <b>Executing MOVE trade (fallback strike)...</b>\n\n"
+        "📊 Finding contract...\n"
+        "📈 Placing entry order...\n"
+        "🛡️ Setting up SL/Target orders...",
+        parse_mode='HTML'
+    )
+    
+    await _execute_move_trade(query, context, user, pending_trade, fallback=True)
+
+
+async def _execute_move_trade(query, context, user, pending_trade: dict, fallback: bool):
+    """Internal helper to execute move trade."""
     try:
         # Create Delta client
         client = DeltaClient(pending_trade['api_key'], pending_trade['api_secret'])
         
         try:
-            # ✅ NEW: Import and use the executor
+            # Import executor
             from bot.executors.move_executor import MoveTradeExecutor
-            
             executor = MoveTradeExecutor(client)
             
-            # Get strategy details from pending trade
-            preset_id = pending_trade.get('preset_id')
-            preset = await get_move_trade_preset_by_id(preset_id)
-            strategy = await get_move_strategy(preset['strategy_id'])
-            
-            # Handle dict vs Pydantic model
-            if isinstance(strategy, dict):
-                sl_trigger = strategy.get('stop_loss_trigger')
-                sl_limit = strategy.get('stop_loss_limit')
-                target_trigger = strategy.get('target_trigger')
-                target_limit = strategy.get('target_limit')
-            else:
-                sl_trigger = strategy.stop_loss_trigger
-                sl_limit = strategy.stop_loss_limit
-                target_trigger = strategy.target_trigger
-                target_limit = strategy.target_limit
-            
-            # ✅ Execute trade with full automation
+            # Execute trade
             result = await executor.execute_move_trade(
                 asset=pending_trade['asset'],
+                expiry=pending_trade['expiry'],
                 direction=pending_trade['direction'],
                 lot_size=pending_trade['lot_size'],
                 atm_offset=pending_trade['atm_offset'],
-                stop_loss_trigger=sl_trigger,
-                stop_loss_limit=sl_limit,
-                target_trigger=target_trigger,
-                target_limit=target_limit
+                stop_loss_trigger=pending_trade['sl_trigger'],
+                stop_loss_limit=pending_trade['sl_limit'],
+                target_trigger=pending_trade['target_trigger'],
+                target_limit=pending_trade['target_limit'],
+                fallback_direction=pending_trade.get('fallback_direction') if fallback else None
             )
             
             if result['success']:
                 # Build success message
                 product = result['product']
+                strike_price = result['strike_price']
                 entry_price = result['entry_price']
-                sl_price = result.get('sl_price')
-                target_price = result.get('target_price')
+                sl_trigger = result.get('sl_trigger')
+                target_trigger = result.get('target_trigger')
                 
                 text = "<b>✅ Move Trade Executed Successfully!</b>\n\n"
                 text += f"<b>📊 Contract:</b> {product['symbol']}\n"
-                text += f"<b>Strike:</b> ${product['strike_price']}\n"
+                text += f"<b>Strike:</b> ${strike_price:,.2f}\n"
+                text += f"<b>Expiry:</b> {pending_trade['expiry'].title()}\n"
                 text += f"<b>Direction:</b> {pending_trade['direction'].title()}\n"
                 text += f"<b>Lot Size:</b> {pending_trade['lot_size']}\n\n"
                 text += f"<b>💰 Entry Price:</b> ${entry_price:.2f}\n"
                 
-                if sl_price:
-                    text += f"<b>🛑 Stop Loss:</b> ${sl_price:.2f}\n"
-                if target_price:
-                    text += f"<b>🎯 Target:</b> ${target_price:.2f}\n"
+                if sl_trigger:
+                    text += f"<b>🛑 Stop Loss:</b> ${sl_trigger:.2f}\n"
+                if target_trigger:
+                    text += f"<b>🎯 Target:</b> ${target_trigger:.2f}\n"
                 
                 text += "\n✅ All orders placed successfully!"
+                
+                if fallback:
+                    text += f"\n\n⚠️ Used fallback strike: ${strike_price:,.2f}"
                 
                 await query.edit_message_text(
                     text,
@@ -302,7 +437,11 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
                     parse_mode='HTML'
                 )
                 
-                log_user_action(user.id, "move_manual_execute", f"Executed {pending_trade['direction']} move trade with SL/Target")
+                log_user_action(
+                    user.id,
+                    "move_manual_execute",
+                    f"Executed {pending_trade['direction']} move trade: {product['symbol']}"
+                )
             else:
                 # Execution failed
                 await query.edit_message_text(
@@ -350,5 +489,10 @@ def register_move_manual_trade_handlers(application: Application):
         pattern="^move_manual_execute$"
     ))
     
+    application.add_handler(CallbackQueryHandler(
+        move_manual_execute_fallback_callback,
+        pattern="^move_manual_execute_fallback$"
+    ))
+    
     logger.info("Move manual trade handlers registered")
-        
+            
