@@ -1013,6 +1013,6 @@ def register_move_strategy_handlers(application: Application):
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
         handle_move_strategy_text_input
-    ))
+    )), group=0)  # ← FIX: Explicit priority
     
     logger.info("MOVE strategy handlers registered successfully")
