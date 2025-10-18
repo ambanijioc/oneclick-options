@@ -158,7 +158,7 @@ async def handle_move_sl_limit_input(update: Update, context: ContextTypes.DEFAU
         
         await update.message.reply_text(
             f"<b>➕ Add Move Strategy</b>\n\n"
-            f"SL Trigger: <b>{state_data['sl_trigger_pct']}%</b>\n"
+            f"SL Trigger: <b>{state_data['stop_loss_trigger']}%</b>\n"
             f"SL Limit: <b>{sl_limit}%</b>\n\n"
             f"Enter target trigger percentage (optional):\n\n"
             f"Example: <code>100</code> (for 100% profit)\n"
@@ -190,7 +190,7 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
         
         if target_trigger == 0:
             # Skip target - go to ATM offset
-            state_data['target_limit_pct'] = 0
+            state_data['target_limit'] = 0  # ✅ FIXED
             await state_manager.set_state_data(user.id, state_data)
             await state_manager.set_state(user.id, 'move_strategy_add_atm_offset')
             
@@ -329,5 +329,5 @@ async def handle_move_atm_offset_input(update: Update, context: ContextTypes.DEF
             "• <code>-2</code> = 2 strikes below ATM",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
-      )
-  
+        )  # ✅ FIXED - Added closing parenthesis
+        
