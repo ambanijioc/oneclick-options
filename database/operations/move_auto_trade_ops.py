@@ -11,11 +11,11 @@ from bot.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-# Get database collections
-db = get_database()
-auto_execution_collection = db['move_auto_executions']
-move_trade_preset_collection = db['move_trade_presets']
-
+# ✅ CORRECT - Get database connection when needed
+def get_collections():
+    """Get database collections (called when needed, not at import)."""
+    db = get_database()
+    return db['move_auto_executions'], db['move_trade_presets']
 
 async def create_move_auto_execution(
     user_id: int,
@@ -36,6 +36,8 @@ async def create_move_auto_execution(
         Schedule ID if successful, None otherwise
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         schedule = {
             'user_id': user_id,
             'preset_id': preset_id,
@@ -68,6 +70,8 @@ async def get_move_auto_executions(user_id: int) -> List[Dict[str, Any]]:
         List of schedule documents
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         schedules = await auto_execution_collection.find({
             'user_id': user_id
         }).sort('created_at', -1).to_list(length=None)
@@ -94,6 +98,8 @@ async def get_move_auto_execution_by_id(schedule_id: str) -> Optional[Dict[str, 
         Schedule document or None
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         schedule = await auto_execution_collection.find_one({
             '_id': ObjectId(schedule_id)
         })
@@ -117,6 +123,8 @@ async def get_all_active_move_schedules() -> List[Dict[str, Any]]:
         List of active schedule documents
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         schedules = await auto_execution_collection.find({
             'enabled': True
         }).to_list(length=None)
@@ -148,6 +156,8 @@ async def update_move_schedule_last_execution(
         True if successful, False otherwise
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         result = await auto_execution_collection.update_one(
             {'_id': ObjectId(schedule_id)},
             {
@@ -184,6 +194,8 @@ async def toggle_move_schedule_status(
         True if successful, False otherwise
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         result = await auto_execution_collection.update_one(
             {'_id': ObjectId(schedule_id)},
             {
@@ -217,6 +229,8 @@ async def delete_move_schedule(schedule_id: str) -> bool:
         True if successful, False otherwise
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         result = await auto_execution_collection.delete_one({
             '_id': ObjectId(schedule_id)
         })
@@ -247,6 +261,8 @@ async def update_move_schedule_time(
         True if successful, False otherwise
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         result = await auto_execution_collection.update_one(
             {'_id': ObjectId(schedule_id)},
             {
@@ -279,6 +295,8 @@ async def get_schedules_count(user_id: int) -> int:
         Number of schedules
     """
     try:
+        auto_execution_collection, _ = get_collections()  # ✅ Get collection here
+        
         count = await auto_execution_collection.count_documents({
             'user_id': user_id
         })
