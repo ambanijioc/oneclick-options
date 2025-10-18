@@ -419,10 +419,12 @@ async def auto_trade_confirm_callback(update: Update, context: ContextTypes.DEFA
         # Create algo setup
         setup = await create_algo_setup(
             user_id=user.id,
-            manual_preset_id=state_data['manual_preset_id'],
-            execution_time=state_data['execution_time']
+            setup_data={
+                'manual_preset_id': state_data['manual_preset_id'],
+                'execution_time': state_data['execution_time']
+            }
         )
-        
+   
         await query.edit_message_text(
             "<b>✅ Algo Setup Created!</b>\n\n"
             f"Trade will execute automatically at <b>{state_data['execution_time']} IST</b>.\n\n"
