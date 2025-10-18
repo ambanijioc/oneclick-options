@@ -51,6 +51,19 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
     orders = {}
     
     try:
+        # Get product_id from symbol
+        products_response = await client.get_products(contract_types='call_options,put_options')
+        
+        if not products_response.get('success'):
+            raise Exception("Failed to fetch products for SL/Target placement")
+        
+        product = next((p for p in products_response['result'] if p['symbol'] == symbol), None)
+        
+        if not product:
+            raise Exception(f"Product not found: {symbol}")
+        
+        product_id = product['id']
+        
         # Calculate stop-loss prices
         if direction == 'long':
             # For long positions, SL is below entry
@@ -78,14 +91,15 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
         # Place stop-loss order
         logger.info(f"Placing SL for {option_type}: trigger={sl_trigger_price:.2f}, limit={sl_limit_price:.2f}")
         
-        sl_order = await client.place_order(
-            product_symbol=symbol,
-            size=size,
-            side=sl_side,
-            order_type='stop_loss_limit',
-            stop_price=sl_trigger_price,
-            limit_price=sl_limit_price
-        )
+        sl_order = await client.place_order({
+            'product_id': product_id,  # ✅ FIXED
+            'size': size,
+            'side': sl_side,
+            'order_type': 'stop_limit_order',  # ✅ FIXED
+            'stop_price': round(sl_trigger_price, 2),
+            'limit_price': round(sl_limit_price, 2),
+            'time_in_force': 'gtc'
+        })
         
         if sl_order.get('success'):
             orders['sl_order_id'] = sl_order['result']['id']
@@ -100,14 +114,15 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
         if target_trigger_pct > 0:
             logger.info(f"Placing Target for {option_type}: trigger={target_trigger_price:.2f}, limit={target_limit_price:.2f}")
             
-            target_order = await client.place_order(
-                product_symbol=symbol,
-                size=size,
-                side=target_side,
-                order_type='stop_loss_limit',  # Using stop-loss type for target too
-                stop_price=target_trigger_price,
-                limit_price=target_limit_price
-            )
+            target_order = await client.place_order({
+                'product_id': product_id,  # ✅ FIXED
+                'size': size,
+                'side': target_side,
+                'order_type': 'stop_limit_order',  # ✅ FIXED (use stop_limit for targets too)
+                'stop_price': round(target_trigger_price, 2),
+                'limit_price': round(target_limit_price, 2),
+                'time_in_force': 'gtc'
+            })
             
             if target_order.get('success'):
                 orders['target_order_id'] = target_order['result']['id']
