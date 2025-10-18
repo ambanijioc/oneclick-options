@@ -239,15 +239,91 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
         client = DeltaClient(pending_trade['api_key'], pending_trade['api_secret'])
         
         try:
-            # TODO: Implement actual move trade execution logic
-            # This is a placeholder - you'll need to implement the move options logic
+            # Extract trade parameters
+            asset = pending_trade['asset']
+            direction = pending_trade['direction']
+            lot_size = pending_trade['lot_size']
+            atm_offset = pending_trade['atm_offset']
             
-            # Success
+            # Get current spot price
+            ticker_symbol = f"{asset}USD"
+            ticker_response = await client.get_ticker(ticker_symbol)
+            
+            if not ticker_response or not ticker_response.get('success'):
+                raise Exception("Failed to fetch market data")
+            
+            spot_price = float(ticker_response['result']['spot_price'])
+            
+            # Calculate strike price with ATM offset
+            # Round to nearest 100 for BTC (adjust for other assets)
+            strike_rounding = 200 if asset == "BTC" else 20
+            atm_strike = round(spot_price / strike_rounding) * strike_rounding
+            target_strike = atm_strike + (atm_offset * strike_rounding)
+            
+            # Get contract details
+            contracts_response = await client.get_contracts()
+            if not contracts_response or not contracts_response.get('success'):
+                raise Exception("Failed to fetch contracts")
+            
+            contracts = contracts_response['result']
+            
+            # Find the contract with matching strike
+            # For Move: We need the CALL option at target strike
+            target_contract = None
+            for contract in contracts:
+                if (contract.get('underlying_asset', {}).get('symbol') == asset and
+                    contract.get('contract_type') == 'call_options' and
+                    abs(contract.get('strike_price', 0) - target_strike) < strike_rounding / 2):
+                    target_contract = contract
+                    break
+            
+            if not target_contract:
+                raise Exception(f"No contract found for strike {target_strike}")
+            
+            product_id = target_contract['id']
+            contract_symbol = target_contract['symbol']
+            
+            # Determine order side based on direction
+            # Long Move = Buy Call
+            # Short Move = Sell Call
+            order_side = 'buy' if direction == 'long' else 'sell'
+            
+            # Place market order
+            order_payload = {
+                'product_id': product_id,
+                'size': lot_size,
+                'side': order_side,
+                'order_type': 'market_order',
+                'time_in_force': 'ioc'  # Immediate or cancel
+            }
+            
+            order_response = await client.place_order(order_payload)
+            
+            if not order_response or not order_response.get('success'):
+                error_msg = order_response.get('error', {}).get('message', 'Unknown error') if order_response else 'API request failed'
+                raise Exception(f"Order placement failed: {error_msg}")
+            
+            order_result = order_response['result']
+            order_id = order_result.get('id', 'N/A')
+            filled_qty = order_result.get('size', 0)
+            avg_fill_price = order_result.get('average_fill_price', 0)
+            
+            # Success message with details
             text = "<b>✅ Move Trade Executed Successfully!</b>\n\n"
-            text += f"<b>Asset:</b> {pending_trade['asset']}\n"
-            text += f"<b>Direction:</b> {pending_trade['direction'].title()}\n"
-            text += f"<b>Lot Size:</b> {pending_trade['lot_size']}\n\n"
-            text += "🚧 <i>Full execution logic to be implemented</i>\n\n"
+            text += f"<b>📊 Trade Details:</b>\n"
+            text += f"Asset: {asset}\n"
+            text += f"Direction: {direction.title()}\n"
+            text += f"Strike: ${target_strike:,.0f}\n"
+            text += f"Contract: {contract_symbol}\n\n"
+            text += f"<b>💰 Execution:</b>\n"
+            text += f"Side: {order_side.title()}\n"
+            text += f"Quantity: {filled_qty}\n"
+            text += f"Avg Price: ${avg_fill_price:.2f}\n"
+            text += f"Order ID: {order_id}\n\n"
+            text += f"<b>📍 Market Data:</b>\n"
+            text += f"Spot Price: ${spot_price:,.2f}\n"
+            text += f"ATM Strike: ${atm_strike:,.0f}\n"
+            text += f"ATM Offset: {atm_offset:+d}\n\n"
             text += "Check your positions for details."
             
             await query.edit_message_text(
@@ -256,7 +332,8 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
                 parse_mode='HTML'
             )
             
-            log_user_action(user.id, "move_manual_execute", f"Executed {pending_trade['direction']} move trade")
+            log_user_action(user.id, "move_manual_execute", 
+                          f"Executed {direction} {asset} move @ {target_strike}, filled {filled_qty} @ {avg_fill_price}")
         
         finally:
             await client.close()
@@ -267,8 +344,12 @@ async def move_manual_execute_callback(update: Update, context: ContextTypes.DEF
         logger.error(f"Failed to execute move trade: {e}", exc_info=True)
         await query.edit_message_text(
             f"<b>❌ Trade Execution Failed</b>\n\n"
-            f"Error: {str(e)[:200]}\n\n"
-            f"Please try again or check your account.",
+            f"Error: {str(e)[:300]}\n\n"
+            f"Please check:\n"
+            f"• API credentials are valid\n"
+            f"• Sufficient balance\n"
+            f"• Market is open\n"
+            f"• Contract is available",
             reply_markup=get_move_manual_trade_keyboard(),
             parse_mode='HTML'
         )
