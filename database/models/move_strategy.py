@@ -323,5 +323,5 @@ class MoveTradeExecutor:
             return {
                 'success': False,
                 'error': f"Execution failed: {str(e)}"
-        }
+            }
             
