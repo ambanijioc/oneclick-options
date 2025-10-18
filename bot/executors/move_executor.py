@@ -157,11 +157,11 @@ class MoveTradeExecutor:
     ) -> Dict[str, Optional[float]]:
         """
         Calculate SL and Target prices for MOVE options with trigger and limit.
-        
+    
         For MOVE options:
         - Long MOVE: Profit from high volatility (price rises)
         - Short MOVE: Profit from low volatility (price drops)
-        
+    
         Args:
             entry_price: Entry order premium
             direction: 'long' (volatility) or 'short' (stability)
@@ -169,7 +169,7 @@ class MoveTradeExecutor:
             stop_loss_limit: SL limit percentage (e.g., 55 for 55%)
             target_trigger: Target trigger percentage (e.g., 100 for 100%)
             target_limit: Target limit percentage (e.g., 95 for 95%)
-        
+    
         Returns:
             Dict with trigger and limit prices for SL and Target
         """
@@ -179,12 +179,12 @@ class MoveTradeExecutor:
             'target_trigger': None,
             'target_limit': None
         }
-        
+    
         # Calculate Stop Loss (if configured)
-        if stop_loss_trigger and stop_loss_limit:
+        if stop_loss_trigger is not None and stop_loss_limit is not None:
             sl_trigger_pct = stop_loss_trigger / 100.0
             sl_limit_pct = stop_loss_limit / 100.0
-            
+        
             if direction.lower() == "long":
                 # Long MOVE: Loss if premium drops (volatility doesn't materialize)
                 result['sl_trigger'] = entry_price * (1 - sl_trigger_pct)
@@ -195,10 +195,10 @@ class MoveTradeExecutor:
                 result['sl_limit'] = entry_price * (1 + sl_limit_pct)
         
         # Calculate Target (if configured)
-        if target_trigger and target_limit:
+        if target_trigger is not None and target_limit is not None:
             target_trigger_pct = target_trigger / 100.0
             target_limit_pct = target_limit / 100.0
-            
+        
             if direction.lower() == "long":
                 # Long MOVE: Profit if premium rises (high volatility)
                 result['target_trigger'] = entry_price * (1 + target_trigger_pct)
@@ -208,14 +208,20 @@ class MoveTradeExecutor:
                 result['target_trigger'] = entry_price * (1 - target_trigger_pct)
                 result['target_limit'] = entry_price * (1 - target_limit_pct)
         
+        # Safe logging with None handling
+        sl_trig_str = f"${result['sl_trigger']:.2f}" if result['sl_trigger'] is not None else 'None'
+        sl_lim_str = f"${result['sl_limit']:.2f}" if result['sl_limit'] is not None else 'None'
+        tgt_trig_str = f"${result['target_trigger']:.2f}" if result['target_trigger'] is not None else 'None'
+        tgt_lim_str = f"${result['target_limit']:.2f}" if result['target_limit'] is not None else 'None'
+    
         logger.info(
             f"Calculated prices - Entry: ${entry_price:.2f}, "
-            f"SL Trigger: ${result['sl_trigger']:.2f if result['sl_trigger'] else 'None'}, "
-            f"SL Limit: ${result['sl_limit']:.2f if result['sl_limit'] else 'None'}, "
-            f"Target Trigger: ${result['target_trigger']:.2f if result['target_trigger'] else 'None'}, "
-            f"Target Limit: ${result['target_limit']:.2f if result['target_limit'] else 'None'}"
+            f"SL Trigger: {sl_trig_str}, "
+            f"SL Limit: {sl_lim_str}, "
+            f"Target Trigger: {tgt_trig_str}, "
+            f"Target Limit: {tgt_lim_str}"
         )
-        
+    
         return result
     
     async def execute_move_trade(
