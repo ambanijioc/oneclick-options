@@ -40,6 +40,9 @@ async def lifespan(app: FastAPI):
     """
     global bot_app, algo_scheduler_task
     
+    # NEW - Add move scheduler task
+    move_scheduler_task = None
+    
     # Startup
     logger.info("=" * 50)
     logger.info("Starting Telegram Trading Bot...")
@@ -96,6 +99,12 @@ async def lifespan(app: FastAPI):
         algo_scheduler_task = asyncio.create_task(start_algo_scheduler(bot_app))
         logger.info("✓ Algo scheduler started in background")
 
+        # ✅ NEW - Start MOVE auto-trade scheduler
+        logger.info("Starting MOVE auto-trade scheduler...")
+        move_scheduler = get_move_scheduler(bot_app)
+        await move_scheduler.start()
+        logger.info("✓ MOVE scheduler started")
+        
         # ✅ NEW - Start keep-alive service
         BASE_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://oneclick-options.onrender.com')
         logger.info(f"Starting keep-alive service for {BASE_URL}...")
@@ -109,7 +118,8 @@ async def lifespan(app: FastAPI):
             f"🟢 Bot started successfully!\n"
             f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}\n"
             f"Webhook: {webhook_url}\n"
-            f"Algo Scheduler: Active"
+            f"Algo Scheduler: Active\n"
+            f"MOVE Scheduler: Active ✅"
         ))
         
     except Exception as e:
@@ -135,6 +145,12 @@ async def lifespan(app: FastAPI):
                 pass
             logger.info("✓ Algo scheduler stopped")
 
+        # ✅ NEW - Stop MOVE scheduler
+        logger.info("Stopping MOVE scheduler...")
+        move_scheduler = get_move_scheduler()
+        await move_scheduler.stop()
+        logger.info("✓ MOVE scheduler stopped")
+        
         # ✅ NEW - Stop keep-alive service
         logger.info("Stopping keep-alive service...")
         await stop_keepalive()
@@ -281,6 +297,37 @@ async def algo_status():
         }
     except Exception as e:
         logger.error(f"Error getting algo status: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
+# NEW - MOVE scheduler status endpoint
+@app.get("/move/scheduler/status")
+async def move_scheduler_status():
+    """Get MOVE auto-trade scheduler status."""
+    try:
+        from database.operations.move_auto_trade_ops import get_all_active_move_schedules
+        
+        schedules = await get_all_active_move_schedules()
+        
+        move_scheduler = get_move_scheduler()
+        
+        return {
+            "status": "running" if move_scheduler.running else "stopped",
+            "active_schedules": len(schedules),
+            "schedules": [
+                {
+                    "user_id": s['user_id'],
+                    "preset_name": s.get('preset_name'),
+                    "execution_time": s['execution_time'],
+                    "enabled": s.get('enabled', True),
+                    "last_executed": s.get('last_executed')
+                }
+                for s in schedules
+            ],
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting MOVE scheduler status: {e}", exc_info=True)
         return {"error": str(e)}
 
 
