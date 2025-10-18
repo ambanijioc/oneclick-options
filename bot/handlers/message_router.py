@@ -163,39 +163,35 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_strangle_edit_otm_value_input(update, context, text)
 
         # ==================== MOVE STRATEGY STATES ====================
-        elif state_str == 'move_strategy_add_name':
-            from .move_input_handlers import handle_move_name_input
-            await handle_move_name_input(update, context, text)
-        
-        elif state_str == 'move_strategy_add_description':
-            from .move_input_handlers import handle_move_description_input
-            await handle_move_description_input(update, context, text)
-        
-        elif state_str == 'move_strategy_add_lot_size':
-            from .move_input_handlers import handle_move_lot_size_input
-            await handle_move_lot_size_input(update, context, text)
-        
-        elif state_str == 'move_strategy_add_sl_trigger':
-            from .move_input_handlers import handle_move_sl_trigger_input
-            await handle_move_sl_trigger_input(update, context, text)
-        
-        elif state_str == 'move_strategy_add_sl_limit':
-            from .move_input_handlers import handle_move_sl_limit_input
-            await handle_move_sl_limit_input(update, context, text)
-        
-        elif state_str == 'move_strategy_add_target_trigger':
-            from .move_input_handlers import handle_move_target_trigger_input
-            await handle_move_target_trigger_input(update, context, text)
-        
-        elif state_str == 'move_strategy_add_target_limit':
-            from .move_input_handlers import handle_move_target_limit_input
-            await handle_move_target_limit_input(update, context, text)
-        
-        elif state_str == 'move_strategy_add_atm_offset':
-            from .move_input_handlers import handle_move_atm_offset_input
-            await handle_move_atm_offset_input(update, context, text)
+        # MOVE STRATEGY STATES (NEW NAMES)
+        elif state_str == 'awaiting_move_strategy_name':
+            from .move_strategy_handler import handle_move_strategy_text_input
+            await handle_move_strategy_text_input(update, context)
+        elif state_str == 'awaiting_move_strategy_description':
+            from .move_strategy_handler import handle_move_strategy_text_input
+            await handle_move_strategy_text_input(update, context)
+        elif state_str == 'awaiting_move_strategy_atm_offset':
+            from .move_strategy_handler import handle_move_strategy_text_input
+            await handle_move_strategy_text_input(update, context)
+        elif state_str == 'awaiting_move_strategy_sl_trigger':
+            from .move_strategy_handler import handle_move_strategy_text_input
+            await handle_move_strategy_text_input(update, context)
+        elif state_str == 'awaiting_move_strategy_sl_limit':
+            from .move_strategy_handler import handle_move_strategy_text_input
+            await handle_move_strategy_text_input(update, context)
+        elif state_str == 'awaiting_move_strategy_target_trigger':
+            from .move_strategy_handler import handle_move_strategy_text_input
+            await handle_move_strategy_text_input(update, context)
+        elif state_str == 'awaiting_move_strategy_target_limit':
+            from .move_strategy_handler import handle_move_strategy_text_input
+            await handle_move_strategy_text_input(update, context)
 
         # ==================== MOVE TRADE PRESET STATES ====================
+        # MOVE TRADE PRESET STATES (NEW NAMES)
+        elif state_str == 'awaiting_move_preset_name':
+            from .move_trade_preset_handler import handle_move_preset_text_input
+            await handle_move_preset_text_input(update, context)
+
         elif state_str == 'move_preset_add_name':
             from .move_preset_input_handlers import handle_move_preset_name_input
             await handle_move_preset_name_input(update, context, text)
