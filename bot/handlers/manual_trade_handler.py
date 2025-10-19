@@ -464,7 +464,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             
             logger.info(f"✅ Orders placed - CE: {ce_order_id}, PE: {pe_order_id}")
 
-            # ✅ RETRY LOGIC: Check order status up to 3 times
+            # ✅ RETRY LOGIC with correct Delta Exchange state handling
             max_retries = 3
             retry_count = 0
             ce_state = 'unknown'
@@ -479,42 +479,41 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             while retry_count < max_retries:
                 await asyncio.sleep(3)
                 retry_count += 1
-                
+    
                 logger.info(f"🔍 Attempt {retry_count}/{max_retries} - Checking order status...")
-                
+    
                 # Fetch CE order
                 ce_order_details = await client.get_order(ce_order_id)
                 if ce_order_details.get('success'):
                     ce_state = ce_order_details['result'].get('state', 'unknown')
                     ce_avg_fill_price = float(ce_order_details['result'].get('avg_fill_price', 0))
                     ce_filled_qty = float(ce_order_details['result'].get('filled_qty', 0))
-                
+    
                 # Fetch PE order
                 pe_order_details = await client.get_order(pe_order_id)
                 if pe_order_details.get('success'):
                     pe_state = pe_order_details['result'].get('state', 'unknown')
                     pe_avg_fill_price = float(pe_order_details['result'].get('avg_fill_price', 0))
                     pe_filled_qty = float(pe_order_details['result'].get('filled_qty', 0))
-                
+    
                 logger.info(f"📊 Status: CE={ce_state}, PE={pe_state}")
-                
-                # Check if both filled
-                if ce_state == 'filled' and pe_state == 'filled':
-                    logger.info("✅ Both orders filled!")
+    
+                # ✅ FIXED: Delta API uses 'closed' for filled orders
+                if ce_state in ['filled', 'closed'] and pe_state in ['filled', 'closed']:
+                    logger.info("✅ Both orders completed!")
                     break
-                
+    
                 if retry_count < max_retries:
-                    logger.info(f"⏳ Not filled yet, retrying in 3s...")
+                    logger.info(f"⏳ Not completed yet, retrying in 3s...")
 
-            # ✅ FINAL FALLBACK: Check positions if orders show as 'closed'
-            if ce_state != 'filled' or pe_state != 'filled':
-                logger.warning(f"⚠️ Orders show as '{ce_state}/{pe_state}', checking positions as fallback...")
-                
+            # ✅ Position fallback if prices are still 0
+            if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
+                logger.warning("⚠️ Fill prices are 0, fetching from positions...")
                 try:
                     positions_response = await client.get_positions()
                     if positions_response.get('success'):
                         positions = positions_response['result']
-                        
+            
                         ce_position = next((p for p in positions 
                                            if p.get('product', {}).get('symbol') == pending_trade['ce_symbol']), None)
                         pe_position = next((p for p in positions 
@@ -523,21 +522,23 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                         if ce_position:
                             ce_avg_fill_price = float(ce_position.get('entry_price', 0))
                             ce_filled_qty = abs(float(ce_position.get('size', 0)))
-                            logger.info(f"✅ Found CE position: ${ce_avg_fill_price:.4f} x {ce_filled_qty}")
-                            ce_state = 'filled'  # Mark as filled since position exists
-                        
+                            logger.info(f"✅ CE from position: ${ce_avg_fill_price:.4f} x {ce_filled_qty}")
+            
                         if pe_position:
                             pe_avg_fill_price = float(pe_position.get('entry_price', 0))
                             pe_filled_qty = abs(float(pe_position.get('size', 0)))
-                            logger.info(f"✅ Found PE position: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
-                            pe_state = 'filled'  # Mark as filled since position exists
-                        
+                            logger.info(f"✅ PE from position: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
+            
                 except Exception as e:
-                    logger.error(f"❌ Position check failed: {e}")
+                    logger.error(f"Position fallback error: {e}")
 
-            # Final validation AFTER position check
-            if ce_state != 'filled' or pe_state != 'filled' or ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
-                logger.error(f"❌ Orders not filled after retries - CE: {ce_state}, PE: {pe_state}")
+            # ✅ FIXED: Final validation accepts both 'filled' and 'closed'
+            if (ce_state not in ['filled', 'closed'] or 
+                pe_state not in ['filled', 'closed'] or 
+                ce_avg_fill_price == 0 or 
+                pe_avg_fill_price == 0):
+    
+                logger.error(f"❌ Orders not completed - CE: {ce_state}, PE: {pe_state}")
                 await query.edit_message_text(
                     "<b>❌ Entry Orders Failed</b>\n\n"
                     f"<b>CE:</b> {pending_trade['ce_symbol']}\n"
@@ -549,7 +550,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                     "<b>Possible reasons:</b>\n"
                     "• Insufficient margin\n"
                     "• Low liquidity\n"
-                    "• Minimum size not met\n\n"
+                    "• Order rejected\n\n"
                     "<i>Check Delta Exchange for details</i>",
                     reply_markup=get_manual_trade_keyboard(),
                     parse_mode='HTML'
@@ -558,6 +559,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
 
             logger.info(f"✅ CE: ${ce_avg_fill_price:.4f} x {ce_filled_qty}")
             logger.info(f"✅ PE: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
+
 
             # Fallback: fetch from positions if prices are 0
             if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
