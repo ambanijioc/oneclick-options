@@ -202,11 +202,21 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             ]
 
             # ✅ Group options by settlement date (expiry)
+            from dateutil import parser as date_parser
             expiry_groups = defaultdict(list)
             for opt in filtered_options:
                 settlement_time = opt.get('settlement_time')
                 if settlement_time:
-                    expiry_groups[settlement_time].append(opt)
+                    # Parse ISO string to timestamp
+                    try:
+                        if isinstance(settlement_time, str):
+                            timestamp = int(date_parser.parse(settlement_time).timestamp())
+                        else:
+                            timestamp = int(settlement_time)
+                        expiry_groups[timestamp].append(opt)
+                    except Exception as e:
+                        logger.error(f"Failed to parse settlement_time {settlement_time}: {e}")
+                        continue
 
             if not expiry_groups:
                 await query.edit_message_text(
