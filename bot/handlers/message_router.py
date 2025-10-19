@@ -33,8 +33,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         # Get current state
-        state = await state_manager.get_state(user.id)
-        state_str = state.value if hasattr(state, 'value') else str(state) if state else None
+        state_str = await state_manager.get_state(user.id)  # ✅ Already returns string!
         
         logger.info(f"Current conversation state: {state_str}")
         
