@@ -161,27 +161,62 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_strangle_edit_otm_value_input(update, context, text)
 
         # ==================== MOVE STRATEGY STATES ====================
-        elif state_str == 'awaiting_move_strategy_name':
-            from .move_strategy_handler import handle_move_strategy_text_input
-            await handle_move_strategy_text_input(update, context)
-        elif state_str == 'awaiting_move_strategy_description':
-            from .move_strategy_handler import handle_move_strategy_text_input
-            await handle_move_strategy_text_input(update, context)
-        elif state_str == 'awaiting_move_strategy_atm_offset':
-            from .move_strategy_handler import handle_move_strategy_text_input
-            await handle_move_strategy_text_input(update, context)
-        elif state_str == 'awaiting_move_strategy_sl_trigger':
-            from .move_strategy_handler import handle_move_strategy_text_input
-            await handle_move_strategy_text_input(update, context)
-        elif state_str == 'awaiting_move_strategy_sl_limit':
-            from .move_strategy_handler import handle_move_strategy_text_input
-            await handle_move_strategy_text_input(update, context)
-        elif state_str == 'awaiting_move_strategy_target_trigger':
-            from .move_strategy_handler import handle_move_strategy_text_input
-            await handle_move_strategy_text_input(update, context)
-        elif state_str == 'awaiting_move_strategy_target_limit':
-            from .move_strategy_handler import handle_move_strategy_text_input
-            await handle_move_strategy_text_input(update, context)
+        elif state_str == 'move_add_name':
+            from .move_input_handlers import handle_move_name_input
+            await handle_move_name_input(update, context, text)
+
+        elif state_str == 'move_add_description':
+            from .move_input_handlers import handle_move_description_input
+            await handle_move_description_input(update, context, text)
+
+        elif state_str == 'move_add_atm_offset':
+            from .move_input_handlers import handle_move_atm_offset_input
+            await handle_move_atm_offset_input(update, context, text)
+
+        elif state_str == 'move_add_sl_trigger':
+            from .move_input_handlers import handle_move_sl_trigger_input
+            await handle_move_sl_trigger_input(update, context, text)
+
+        elif state_str == 'move_add_sl_limit':
+            from .move_input_handlers import handle_move_sl_limit_input
+            await handle_move_sl_limit_input(update, context, text)
+
+        elif state_str == 'move_add_target_trigger':
+            from .move_input_handlers import handle_move_target_trigger_input
+            await handle_move_target_trigger_input(update, context, text)
+
+        elif state_str == 'move_add_target_limit':
+            from .move_input_handlers import handle_move_target_limit_input
+            await handle_move_target_limit_input(update, context, text)
+
+        # MOVE edit states
+        elif state_str == 'move_edit_name_input':
+            from .move_input_handlers import handle_move_edit_name_input
+            await handle_move_edit_name_input(update, context, text)
+
+        elif state_str == 'move_edit_desc_input':
+            from .move_input_handlers import handle_move_edit_desc_input
+            await handle_move_edit_desc_input(update, context, text)
+
+        elif state_str == 'move_edit_atm_offset_input':
+            from .move_input_handlers import handle_move_edit_atm_offset_input
+            await handle_move_edit_atm_offset_input(update, context, text)
+
+        elif state_str == 'move_edit_sl_trigger_input':
+            from .move_input_handlers import handle_move_edit_sl_trigger_input
+            await handle_move_edit_sl_trigger_input(update, context, text)
+        
+        elif state_str == 'move_edit_sl_limit_input':
+            from .move_input_handlers import handle_move_edit_sl_limit_input
+            await handle_move_edit_sl_limit_input(update, context, text)
+
+        elif state_str == 'move_edit_target_trigger_input':
+            from .move_input_handlers import handle_move_edit_target_trigger_input
+            await handle_move_edit_target_trigger_input(update, context, text)
+
+        elif state_str == 'move_edit_target_limit_input':
+            from .move_input_handlers import handle_move_edit_target_limit_input
+            await handle_move_edit_target_limit_input(update, context, text)
 
         # ==================== MOVE TRADE PRESET STATES ====================
         elif state_str == 'awaiting_move_preset_name':
