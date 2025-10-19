@@ -16,6 +16,7 @@ def register_all_handlers(application: Application):
     Args:
         application: Bot application instance
     """
+    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.0")  # ← ADD THIS
     try:
         logger.info("Registering all handlers...")
         
