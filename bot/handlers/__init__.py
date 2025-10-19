@@ -87,14 +87,16 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Strangle strategy handler not found: {e}")
         
-        # ✅ MOVE STRATEGY HANDLERS (UPDATED)
+        # ✅ MOVE STRATEGY HANDLERS (FIXED)
         try:
             from .move_strategy_handler import register_move_strategy_handlers
             register_move_strategy_handlers(application)
-            logger.info("✓ MOVE strategy handlers registered")
+            logger.info("✓ MOVE strategy handlers registered")  # ← ADD THIS LINE!
         except ImportError as e:
             logger.warning(f"Move strategy handler not found: {e}")
-        
+        except Exception as e:  # ← ADD THIS TO CATCH OTHER ERRORS!
+            logger.error(f"Error registering MOVE handlers: {e}", exc_info=True)
+
         try:
             from .move_list_handler import register_move_list_handlers
             register_move_list_handlers(application)
