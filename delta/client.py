@@ -351,6 +351,18 @@ class DeltaClient:
             Order response data
         """
         return await self._request('POST', '/v2/orders', data=order_data)
+
+    async def get_order(self, order_id: str):
+    """
+    Get order details by ID.
+    
+    Args:
+        order_id: The order ID to fetch
+        
+    Returns:
+        dict: Order details from Delta Exchange API
+    """
+    return await self._request('GET', f'/v2/orders/{order_id}')
     
     async def place_batch_orders(self, orders: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
