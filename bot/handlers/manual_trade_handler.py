@@ -559,38 +559,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
 
             logger.info(f"✅ Final - CE: ${ce_avg_fill_price:.4f} x {ce_filled_qty}, PE: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
 
-
-            # Fallback: fetch from positions if prices are 0
-            if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
-                logger.warning("⚠️ Fill prices are 0, fetching from positions...")
-                try:
-                    positions_response = await client.get_positions()
-                    if positions_response.get('success'):
-                        positions = positions_response['result']
-                        ce_position = next((p for p in positions if p['product']['symbol'] == pending_trade['ce_symbol']), None)
-                        pe_position = next((p for p in positions if p['product']['symbol'] == pending_trade['pe_symbol']), None)
-                        if ce_position:
-                            ce_avg_fill_price = float(ce_position.get('entry_price', 0))
-                            logger.info(f"✅ CE price from position: ${ce_avg_fill_price:.4f}")
-                        if pe_position:
-                            pe_avg_fill_price = float(pe_position.get('entry_price', 0))
-                            logger.info(f"✅ PE price from position: ${pe_avg_fill_price:.4f}")
-                except Exception as e:
-                    logger.error(f"Position fallback error: {e}")
-
-            if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
-                await query.edit_message_text(
-                    "<b>⚠️ Entry Orders Placed (Prices Unknown)</b>\n\n"
-                    f"CE: {ce_order_id}\nPE: {pe_order_id}\n\n"
-                    "<i>Unable to fetch fill prices.\nPlace SL manually.</i>",
-                    reply_markup=get_manual_trade_keyboard(),
-                    parse_mode='HTML'
-                )
-                return
-
-            logger.info(f"✅ CE: ${ce_avg_fill_price:.4f} x {ce_filled_qty}")
-            logger.info(f"✅ PE: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
-
             # Place SL and Target
             sl_orders_placed = []
             target_orders_placed = []
