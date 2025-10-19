@@ -211,63 +211,99 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 if asset in p.get('symbol', '')
                 and p.get('state') == 'live'
             ]
-            
+
+            # ✅ ADD: Group by settlement date to find nearest weekly expiry
+            from datetime import datetime
+            from collections import defaultdict
+
+            # Group options by settlement date
+            expiry_groups = defaultdict(list)
+            for opt in filtered_options:
+                settlement_time = opt.get('settlement_time')
+                if settlement_time:
+                    expiry_groups[settlement_time].append(opt)
+
+            # ✅ Find nearest expiry (weekly options)
+            if not expiry_groups:
+                await query.edit_message_text(
+                    "❌ No active options found for this asset.",
+                    reply_markup=get_manual_trade_keyboard(),
+                    parse_mode='HTML'
+                )
+                return
+
+            # Sort by settlement time and pick nearest
+            nearest_expiry = min(expiry_groups.keys())
+            filtered_options = expiry_groups[nearest_expiry]
+
+            logger.info(f"✅ Selected expiry: {nearest_expiry} with {len(filtered_options)} options")
+
             # Calculate strikes based on strategy type
             if strategy_type == 'straddle':
                 # Straddle: ATM with offset
                 atm_offset = safe_get_attr(strategy, 'atm_offset', 0)
                 target_strike = spot_price + atm_offset
-    
+
                 # Find nearest strike
                 strikes = sorted(set(p['strike_price'] for p in filtered_options if p.get('strike_price')))
                 atm_strike = min(strikes, key=lambda x: abs(float(x) - target_strike))
-    
-                # Find CE and PE at ATM
+
+                # ✅ IMPROVED: Find CE and PE at ATM with SAME expiry
                 ce_option = next((p for p in filtered_options 
                                  if p['strike_price'] == atm_strike 
-                                 and 'C' in p['symbol']), None)
+                                 and 'C' in p['symbol']
+                                 and p.get('settlement_time') == nearest_expiry), None)
                 pe_option = next((p for p in filtered_options 
                                  if p['strike_price'] == atm_strike 
-                                 and 'P' in p['symbol']), None)
-    
+                                 and 'P' in p['symbol']
+                                 and p.get('settlement_time') == nearest_expiry), None)
+
                 if not ce_option or not pe_option:
                     await query.edit_message_text(
-                        "❌ Could not find matching Call and Put options at the calculated strike.",
+                        f"❌ Could not find matching Call and Put options.\n\n"
+                        f"Strike: ${float(atm_strike):,.0f}\n"
+                        f"Expiry: {datetime.fromtimestamp(nearest_expiry).strftime('%Y-%m-%d')}\n\n"
+                        f"CE found: {'Yes' if ce_option else 'No'}\n"
+                        f"PE found: {'Yes' if pe_option else 'No'}",
                         reply_markup=get_manual_trade_keyboard(),
                         parse_mode='HTML'
-                    )
+                    )            
                     return
-    
+
                 # Calculate trade details
                 ce_mark_price = float(ce_option.get('mark_price', 0) or 0)
                 pe_mark_price = float(pe_option.get('mark_price', 0) or 0)
                 total_premium = (ce_mark_price + pe_mark_price) * lot_size
-    
+
                 # Build confirmation message
+                expiry_date = datetime.fromtimestamp(nearest_expiry).strftime('%d %b %Y')
+                
                 text = f"<b>🎯 Confirm Trade Execution</b>\n\n"
                 text += f"<b>Preset:</b> {preset_name}\n"
                 text += f"<b>API:</b> {api_name}\n"
                 text += f"<b>Strategy:</b> {strategy_name}\n\n"
                 text += f"<b>📊 Market Data:</b>\n"
                 text += f"Spot Price: ${spot_price:,.2f}\n"
-                text += f"ATM Strike: ${float(atm_strike):,.0f}\n\n"
+                text += f"ATM Strike: ${float(atm_strike):,.0f}\n"
+                text += f"Expiry: {expiry_date}\n\n"
                 text += f"<b>🎲 Straddle Details:</b>\n"
                 text += f"CE: {ce_option['symbol']}\n"
-                text += f"  Mark: ${ce_mark_price:,.2f}\n"
+                text += f"  Mark: ${ce_mark_price:,.4f}\n"
                 text += f"PE: {pe_option['symbol']}\n"
-                text += f"  Mark: ${pe_mark_price:,.2f}\n\n"
+                text += f"  Mark: ${pe_mark_price:,.4f}\n\n"
                 text += f"<b>💰 Trade Summary:</b>\n"
                 text += f"Direction: {direction.title()}\n"
                 text += f"Lot Size: {lot_size}\n"
                 text += f"Total Premium: ${total_premium:,.2f}\n\n"
                 text += "⚠️ Execute this trade?"
-    
+
                 # Store trade details in context for execution
                 context.user_data['pending_trade'] = {
                     'preset_id': preset_id,
                     'ce_symbol': ce_option['symbol'],
                     'pe_symbol': pe_option['symbol'],
                     'strike': float(atm_strike),
+                    'expiry': expiry_date,
                     'direction': direction,
                     'lot_size': lot_size,
                     'api_key': api_key,
