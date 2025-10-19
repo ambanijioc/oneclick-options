@@ -462,52 +462,113 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             pe_order_id = pe_order['result']['id']
             
             logger.info(f"✅ Entry orders placed - CE: {ce_order_id}, PE: {pe_order_id}")
-            
+
             # ✅ WAIT FOR ORDERS TO FILL AND FETCH ACTUAL PRICES
             logger.info("⏳ Waiting 3 seconds for orders to fill...")
             await asyncio.sleep(3)
-            
+
             logger.info("🔍 Fetching actual fill prices...")
-            
+
             # Fetch CE order details
             ce_order_details = await client.get_order(ce_order_id)
             if not ce_order_details.get('success'):
                 raise Exception(f"Failed to fetch CE order details: {ce_order_details.get('error')}")
-            
+
+            ce_state = ce_order_details['result'].get('state', 'unknown')
             ce_avg_fill_price = float(ce_order_details['result'].get('avg_fill_price', 0))
             ce_filled_qty = float(ce_order_details['result'].get('filled_qty', 0))
-            ce_state = ce_order_details['result'].get('state', 'unknown')
-            
+
             logger.info(f"📈 CE Order: {ce_state} | Fill: ${ce_avg_fill_price:.4f} x {ce_filled_qty} contracts")
-            
+
             # Fetch PE order details
             pe_order_details = await client.get_order(pe_order_id)
             if not pe_order_details.get('success'):
                 raise Exception(f"Failed to fetch PE order details: {pe_order_details.get('error')}")
-            
+
+            pe_state = pe_order_details['result'].get('state', 'unknown')
             pe_avg_fill_price = float(pe_order_details['result'].get('avg_fill_price', 0))
             pe_filled_qty = float(pe_order_details['result'].get('filled_qty', 0))
-            pe_state = pe_order_details['result'].get('state', 'unknown')
-            
+
             logger.info(f"📈 PE Order: {pe_state} | Fill: ${pe_avg_fill_price:.4f} x {pe_filled_qty} contracts")
-            
-            # ✅ VALIDATE FILL PRICES
-            if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
-                logger.error(f"❌ Invalid fill prices - CE: ${ce_avg_fill_price}, PE: ${pe_avg_fill_price}")
+
+            # ✅ CHECK IF ORDERS WERE ACTUALLY FILLED
+            if ce_state != 'filled' or pe_state != 'filled':
+                logger.error(f"❌ Orders not filled - CE: {ce_state}, PE: {pe_state}")
+    
+                error_reasons = []
+                if ce_state == 'closed':
+                    error_reasons.append("CE order was rejected/closed")
+                if pe_state == 'closed':
+                    error_reasons.append("PE order was rejected/closed")
+    
                 await query.edit_message_text(
-                    "<b>⚠️ Entry Orders Placed</b>\n\n"
+                    "<b>❌ Entry Orders Failed</b>\n\n"
+                    f"<b>CE:</b> {pending_trade['ce_symbol']}\n"
+                    f"  Order ID: {ce_order_id}\n"
+                    f"  Status: <code>{ce_state}</code>\n\n"
+                    f"<b>PE:</b> {pending_trade['pe_symbol']}\n"
+                    f"  Order ID: {pe_order_id}\n"
+                    f"  Status: <code>{pe_state}</code>\n\n"
+                    "<b>Possible reasons:</b>\n"
+                    "• Insufficient margin (add more funds)\n"
+                    "• Low market liquidity\n"
+                    "• Minimum contract size not met\n\n"
+                    "<i>Check your Delta Exchange account for details</i>",
+                    reply_markup=get_manual_trade_keyboard(),
+                    parse_mode='HTML'
+                )
+                return
+
+            # ✅ IF FILLED, TRY TO GET POSITION DATA AS BACKUP
+            if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
+                logger.warning("⚠️ Fill prices are 0, attempting to fetch from positions...")
+    
+                try:
+                    # Get positions to find actual entry prices
+                    positions_response = await client.get_positions()
+        
+                    if positions_response.get('success'):
+                        positions = positions_response['result']
+            
+                        # Find CE position
+                        ce_position = next((p for p in positions 
+                                           if p['product']['symbol'] == pending_trade['ce_symbol']), None)
+            
+                        # Find PE position  
+                        pe_position = next((p for p in positions 
+                                           if p['product']['symbol'] == pending_trade['pe_symbol']), None)
+            
+                        if ce_position:
+                            ce_avg_fill_price = float(ce_position.get('entry_price', 0))
+                            logger.info(f"✅ CE entry price from position: ${ce_avg_fill_price:.4f}")
+                        
+                        if pe_position:
+                            pe_avg_fill_price = float(pe_position.get('entry_price', 0))
+                            logger.info(f"✅ PE entry price from position: ${pe_avg_fill_price:.4f}")
+        
+                except Exception as e:
+                    logger.error(f"Failed to fetch position data: {e}")
+
+            # ✅ FINAL VALIDATION
+            if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
+                logger.error(f"❌ Cannot determine entry prices - CE: ${ce_avg_fill_price}, PE: ${pe_avg_fill_price}")
+                await query.edit_message_text(
+                    "<b>⚠️ Entry Orders Placed (Prices Unknown)</b>\n\n"
                     f"<b>CE:</b> {pending_trade['ce_symbol']}\n"
                     f"  Order ID: {ce_order_id}\n"
                     f"  Status: {ce_state}\n\n"
                     f"<b>PE:</b> {pending_trade['pe_symbol']}\n"
                     f"  Order ID: {pe_order_id}\n"
                     f"  Status: {pe_state}\n\n"
-                    "<i>⚠️ SL/Target orders skipped - fill prices not available yet.\n"
-                    "Please place them manually or wait and retry.</i>",
+                    "<i>⚠️ Unable to fetch fill prices.\n"
+                    "Please place SL/Target orders manually.</i>",
                     reply_markup=get_manual_trade_keyboard(),
                     parse_mode='HTML'
                 )
                 return
+
+            # Now continue with SL/Target placement using ce_avg_fill_price and pe_avg_fill_price...
+
             
             # ========== PLACE STOP-LOSS & TARGET ORDERS ==========
             sl_orders_placed = []
