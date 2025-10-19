@@ -41,7 +41,7 @@ async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFA
     
     user = query.from_user
     
-    if not await check_user_authorization(user.id):
+    if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
@@ -70,7 +70,7 @@ async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user = query.from_user
     
-    if not await check_user_authorization(user.id):
+    if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
@@ -391,7 +391,7 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     user = query.from_user
     
-    if not await check_user_authorization(user.id):
+    if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
@@ -458,7 +458,7 @@ async def move_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_
     
     user = query.from_user
     
-    if not await check_user_authorization(user.id):
+    if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
@@ -803,7 +803,7 @@ async def move_delete_list_callback(update: Update, context: ContextTypes.DEFAUL
     
     user = query.from_user
     
-    if not await check_user_authorization(user.id):
+    if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
