@@ -506,9 +506,38 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 if retry_count < max_retries:
                     logger.info(f"⏳ Not filled yet, retrying in 3s...")
 
-            # Final validation
+            # ✅ FINAL FALLBACK: Check positions if orders show as 'closed'
             if ce_state != 'filled' or pe_state != 'filled':
-                logger.error(f"❌ Orders not filled after {max_retries} attempts - CE: {ce_state}, PE: {pe_state}")
+                logger.warning(f"⚠️ Orders show as '{ce_state}/{pe_state}', checking positions as fallback...")
+                
+                try:
+                    positions_response = await client.get_positions()
+                    if positions_response.get('success'):
+                        positions = positions_response['result']
+                        
+                        ce_position = next((p for p in positions 
+                                           if p.get('product', {}).get('symbol') == pending_trade['ce_symbol']), None)
+                        pe_position = next((p for p in positions 
+                                           if p.get('product', {}).get('symbol') == pending_trade['pe_symbol']), None)
+                        
+                        if ce_position:
+                            ce_avg_fill_price = float(ce_position.get('entry_price', 0))
+                            ce_filled_qty = abs(float(ce_position.get('size', 0)))
+                            logger.info(f"✅ Found CE position: ${ce_avg_fill_price:.4f} x {ce_filled_qty}")
+                            ce_state = 'filled'  # Mark as filled since position exists
+                        
+                        if pe_position:
+                            pe_avg_fill_price = float(pe_position.get('entry_price', 0))
+                            pe_filled_qty = abs(float(pe_position.get('size', 0)))
+                            logger.info(f"✅ Found PE position: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
+                            pe_state = 'filled'  # Mark as filled since position exists
+                        
+                except Exception as e:
+                    logger.error(f"❌ Position check failed: {e}")
+
+            # Final validation AFTER position check
+            if ce_state != 'filled' or pe_state != 'filled' or ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
+                logger.error(f"❌ Orders not filled after retries - CE: {ce_state}, PE: {pe_state}")
                 await query.edit_message_text(
                     "<b>❌ Entry Orders Failed</b>\n\n"
                     f"<b>CE:</b> {pending_trade['ce_symbol']}\n"
@@ -526,6 +555,9 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                     parse_mode='HTML'
                 )
                 return
+
+            logger.info(f"✅ CE: ${ce_avg_fill_price:.4f} x {ce_filled_qty}")
+            logger.info(f"✅ PE: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
 
             # Fallback: fetch from positions if prices are 0
             if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
