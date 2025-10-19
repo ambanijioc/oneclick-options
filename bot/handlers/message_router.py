@@ -10,7 +10,6 @@ from bot.utils.state_manager import state_manager, ConversationState
 
 logger = setup_logger(__name__)
 
-
 async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Route text messages to appropriate handler based on user's conversation state."""
     try:
@@ -33,12 +32,12 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         # Get current state
-        state_str = await state_manager.get_state(user.id)  # ✅ Already returns string!
+        state_str = await state_manager.get_state(user.id)
         
         logger.info(f"Current conversation state: {state_str}")
         
         # If no state, send helpful message
-        if state_str is None:
+        if state_str is None:  # ✅ FIXED!
             logger.warning(f"No active conversation for user {user.id}")
             await update.message.reply_text("Please use /start to begin.", parse_mode='HTML')
             return
@@ -46,7 +45,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Routing to handler for state: {state_str}")
         
         # ==================== API STATES ====================
-        if state_str == 'api_add_name':
+        if state_str == 'api_add_name':  # ✅ REMOVED enum check
             from .api_handler import handle_api_name_input
             await handle_api_name_input(update, context)
         
@@ -162,7 +161,6 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_strangle_edit_otm_value_input(update, context, text)
 
         # ==================== MOVE STRATEGY STATES ====================
-        # MOVE STRATEGY STATES (NEW NAMES)
         elif state_str == 'awaiting_move_strategy_name':
             from .move_strategy_handler import handle_move_strategy_text_input
             await handle_move_strategy_text_input(update, context)
@@ -186,7 +184,6 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_move_strategy_text_input(update, context)
 
         # ==================== MOVE TRADE PRESET STATES ====================
-        # MOVE TRADE PRESET STATES (NEW NAMES)
         elif state_str == 'awaiting_move_preset_name':
             from .move_trade_preset_handler import handle_move_preset_text_input
             await handle_move_preset_text_input(update, context)
@@ -217,7 +214,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .auto_trade_handler import handle_auto_trade_edit_time_input
             await handle_auto_trade_edit_time_input(update, context, text)
 
-        # ==================== MOVE AUTO TRADE STATES ====================  ✅ ADD THIS SECTION!
+        # ==================== MOVE AUTO TRADE STATES ====================
         elif state_str == 'move_auto_add_time':
             from .move_auto_trade_handler import handle_move_auto_time_input
             await handle_move_auto_time_input(update, context, text)
