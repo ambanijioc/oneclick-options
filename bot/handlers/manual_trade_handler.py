@@ -479,8 +479,8 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             
             logger.info(f"✅ Entry orders placed - CE: {ce_order_id}, PE: {pe_order_id}")
 
-            logger.info("⏳ Waiting 3 seconds for orders to fill...")
-            await asyncio.sleep(3)
+            logger.info("⏳ Waiting 6 seconds for orders to fill...")
+            await asyncio.sleep(6)
 
             logger.info("🔍 Fetching actual fill prices...")
 
