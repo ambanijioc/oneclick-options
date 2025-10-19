@@ -1,5 +1,6 @@
 """
 Bot command and callback handlers.
+UPDATED: 2025-10-19 11:14 PM IST
 """
 
 from telegram.ext import Application, MessageHandler, filters
