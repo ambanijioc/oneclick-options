@@ -415,8 +415,11 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         for idx, strategy in enumerate(strategies, 1):
             text += f"<b>{idx}. {strategy.get('name')}</b>\n"
             text += f"   • Asset: {strategy.get('asset')}\n"
-            text += f"   • Direction: {strategy.get('direction').capitalize()}\n"
-            text += f"   • Expiry: {strategy.get('expiry_type').capitalize()}\n"
+            # ✅ NEW (safer):
+            direction = strategy.get('direction', 'unknown')
+            expiry = strategy.get('expiry_type', 'unknown')
+            text += f"   • Direction: {direction.capitalize() if direction else 'N/A'}\n"
+            text += f"   • Expiry: {expiry.capitalize() if expiry else 'N/A'}\n"
             
             if strategy.get('description'):
                 desc = strategy.get('description')[:50]
