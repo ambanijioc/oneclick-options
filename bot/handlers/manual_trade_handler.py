@@ -3,6 +3,8 @@ Manual trade execution handler - uses saved presets.
 """
 
 import asyncio
+from datetime import datetime
+from collections import defaultdict
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
@@ -49,7 +51,6 @@ async def manual_trade_menu_callback(update: Update, context: ContextTypes.DEFAU
         await query.edit_message_text("❌ Unauthorized access")
         return
     
-    # Get user's manual trade presets
     presets = await get_manual_trade_presets(user.id)
     
     if not presets:
@@ -62,7 +63,6 @@ async def manual_trade_menu_callback(update: Update, context: ContextTypes.DEFAU
         )
         return
     
-    # Create keyboard with presets
     keyboard = []
     for preset in presets:
         preset_name = safe_get_attr(preset, 'preset_name', 'Unnamed')
@@ -93,7 +93,6 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
     user = query.from_user
     preset_id = query.data.split('_')[-1]
     
-    # Show loading message
     await query.edit_message_text(
         "⏳ <b>Loading trade details...</b>\n\n"
         "Fetching market data and calculating strikes...",
@@ -101,7 +100,6 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
     )
     
     try:
-        # Get preset
         preset = await get_manual_trade_preset(preset_id)
         
         if not preset:
@@ -112,13 +110,11 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
-        # ✅ FIXED: Safe attribute access
         api_credential_id = safe_get_attr(preset, 'api_credential_id')
         strategy_preset_id = safe_get_attr(preset, 'strategy_preset_id')
         strategy_type = safe_get_attr(preset, 'strategy_type', 'straddle')
         preset_name = safe_get_attr(preset, 'preset_name', 'Unnamed')
         
-        # Get API credentials
         api = await get_api_credential_by_id(api_credential_id)
         if not api:
             await query.edit_message_text(
@@ -137,7 +133,6 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
-        # Get strategy
         strategy = await get_strategy_preset_by_id(strategy_preset_id)
         if not strategy:
             await query.edit_message_text(
@@ -147,26 +142,22 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
-        # ✅ FIXED: Safe attribute access for strategy
         asset = safe_get_attr(strategy, 'asset', 'BTC')
         direction = safe_get_attr(strategy, 'direction', 'short')
         lot_size = safe_get_attr(strategy, 'lot_size', 1)
         strategy_name = safe_get_attr(strategy, 'name', 'Unnamed Strategy')
         api_name = safe_get_attr(api, 'api_name', 'Unknown API')
         
-        # Create Delta client
         api_key, api_secret = credentials
         client = DeltaClient(api_key, api_secret)
         
         try:
-            # Get current spot price
             ticker_symbol = f"{asset}USD"
             ticker_response = await client.get_ticker(ticker_symbol)
     
-            # ✅ Check if response is None
             if ticker_response is None:
                 await query.edit_message_text(
-                    "❌ Failed to connect to Delta Exchange API. Please try again later.",
+                    "❌ Failed to connect to Delta Exchange API.",
                     reply_markup=get_manual_trade_keyboard(),
                     parse_mode='HTML'
                 )
@@ -181,7 +172,6 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 )
                 return
     
-            # ✅ Check if result exists
             if not ticker_response.get('result'):
                 await query.edit_message_text(
                     "❌ Invalid response from Delta Exchange API.",
@@ -192,7 +182,6 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
     
             spot_price = float(ticker_response['result']['spot_price'])
             
-            # Get available options
             products_response = await client.get_products(contract_types='call_options,put_options')
             
             if not products_response.get('success'):
@@ -205,25 +194,20 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
             
             products = products_response['result']
             
-            # Filter by asset and expiry
+            # ✅ Filter by asset and live status
             filtered_options = [
                 p for p in products
                 if asset in p.get('symbol', '')
                 and p.get('state') == 'live'
             ]
 
-            # ✅ ADD: Group by settlement date to find nearest weekly expiry
-            from datetime import datetime
-            from collections import defaultdict
-
-            # Group options by settlement date
+            # ✅ Group options by settlement date (expiry)
             expiry_groups = defaultdict(list)
             for opt in filtered_options:
                 settlement_time = opt.get('settlement_time')
                 if settlement_time:
                     expiry_groups[settlement_time].append(opt)
 
-            # ✅ Find nearest expiry (weekly options)
             if not expiry_groups:
                 await query.edit_message_text(
                     "❌ No active options found for this asset.",
@@ -232,31 +216,25 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 )
                 return
 
-            # Sort by settlement time and pick nearest
+            # ✅ Pick nearest expiry
             nearest_expiry = min(expiry_groups.keys())
             filtered_options = expiry_groups[nearest_expiry]
 
             logger.info(f"✅ Selected expiry: {nearest_expiry} with {len(filtered_options)} options")
 
-            # Calculate strikes based on strategy type
             if strategy_type == 'straddle':
-                # Straddle: ATM with offset
                 atm_offset = safe_get_attr(strategy, 'atm_offset', 0)
                 target_strike = spot_price + atm_offset
 
-                # Find nearest strike
                 strikes = sorted(set(p['strike_price'] for p in filtered_options if p.get('strike_price')))
                 atm_strike = min(strikes, key=lambda x: abs(float(x) - target_strike))
 
-                # ✅ IMPROVED: Find CE and PE at ATM with SAME expiry
                 ce_option = next((p for p in filtered_options 
                                  if p['strike_price'] == atm_strike 
-                                 and 'C' in p['symbol']
-                                 and p.get('settlement_time') == nearest_expiry), None)
+                                 and 'C' in p['symbol']), None)
                 pe_option = next((p for p in filtered_options 
                                  if p['strike_price'] == atm_strike 
-                                 and 'P' in p['symbol']
-                                 and p.get('settlement_time') == nearest_expiry), None)
+                                 and 'P' in p['symbol']), None)
 
                 if not ce_option or not pe_option:
                     await query.edit_message_text(
@@ -270,12 +248,10 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                     )            
                     return
 
-                # Calculate trade details
                 ce_mark_price = float(ce_option.get('mark_price', 0) or 0)
                 pe_mark_price = float(pe_option.get('mark_price', 0) or 0)
                 total_premium = (ce_mark_price + pe_mark_price) * lot_size
 
-                # Build confirmation message
                 expiry_date = datetime.fromtimestamp(nearest_expiry).strftime('%d %b %Y')
                 
                 text = f"<b>🎯 Confirm Trade Execution</b>\n\n"
@@ -297,7 +273,6 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 text += f"Total Premium: ${total_premium:,.2f}\n\n"
                 text += "⚠️ Execute this trade?"
 
-                # Store trade details in context for execution
                 context.user_data['pending_trade'] = {
                     'preset_id': preset_id,
                     'ce_symbol': ce_option['symbol'],
@@ -311,39 +286,31 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 }
             
             else:  # strangle
-                # Strangle: OTM strikes
-                # ✅ FIXED: Safe nested attribute access
                 otm_selection = safe_get_attr(strategy, 'otm_selection')
                 if otm_selection:
                     otm_type = safe_get_attr(otm_selection, 'type', 'percentage')
                     otm_value = safe_get_attr(otm_selection, 'value', 0)
                 else:
-                    # Fallback defaults
                     otm_type = 'percentage'
                     otm_value = 0
                 
                 if otm_type == 'percentage':
-                    # Percentage-based: from spot price
                     offset = spot_price * (otm_value / 100)
                     ce_target = spot_price + offset
                     pe_target = spot_price - offset
                 else:
-                    # Numeral-based: from ATM
                     strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
                     atm_strike = min(strikes, key=lambda x: abs(x - spot_price))
                     atm_index = strikes.index(atm_strike)
         
-                    # Get strikes N positions away
                     num_strikes = int(otm_value)
                     ce_target = strikes[min(atm_index + num_strikes, len(strikes) - 1)]
                     pe_target = strikes[max(atm_index - num_strikes, 0)]
     
-                # Find nearest strikes
                 strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
                 ce_strike = min(strikes, key=lambda x: abs(x - ce_target))
                 pe_strike = min(strikes, key=lambda x: abs(x - pe_target))
     
-                # Find CE and PE
                 ce_option = next((p for p in filtered_options 
                                  if float(p['strike_price']) == ce_strike 
                                  and 'C' in p['symbol']), None)
@@ -359,12 +326,11 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                     )
                     return
     
-                # Calculate trade details
                 ce_mark_price = float(ce_option.get('mark_price', 0) or 0)
                 pe_mark_price = float(pe_option.get('mark_price', 0) or 0)
                 total_premium = (ce_mark_price + pe_mark_price) * lot_size
     
-                # Build confirmation message
+                expiry_date = datetime.fromtimestamp(nearest_expiry).strftime('%d %b %Y')
                 otm_desc = f"{otm_value}% (Spot-based)" if otm_type == 'percentage' else f"{int(otm_value)} strikes (ATM-based)"
     
                 text = f"<b>🎯 Confirm Trade Execution</b>\n\n"
@@ -373,6 +339,7 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 text += f"<b>Strategy:</b> {strategy_name}\n\n"
                 text += f"<b>📊 Market Data:</b>\n"
                 text += f"Spot Price: ${spot_price:,.2f}\n"
+                text += f"Expiry: {expiry_date}\n"
                 text += f"OTM Selection: {otm_desc}\n\n"
                 text += f"<b>🎰 Strangle Details:</b>\n"
                 text += f"CE: {ce_option['symbol']}\n"
@@ -387,20 +354,19 @@ async def manual_trade_select_callback(update: Update, context: ContextTypes.DEF
                 text += f"Total Premium: ${total_premium:,.2f}\n\n"
                 text += "⚠️ Execute this trade?"
     
-                # Store trade details in context for execution
                 context.user_data['pending_trade'] = {
                     'preset_id': preset_id,
                     'ce_symbol': ce_option['symbol'],
                     'pe_symbol': pe_option['symbol'],
                     'ce_strike': ce_strike,
                     'pe_strike': pe_strike,
+                    'expiry': expiry_date,
                     'direction': direction,
                     'lot_size': lot_size,
                     'api_key': api_key,
                     'api_secret': api_secret
                 }
             
-            # Show confirmation
             keyboard = [
                 [InlineKeyboardButton("✅ Execute Trade", callback_data="manual_trade_execute")],
                 [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_trade")]
@@ -432,7 +398,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
     
     user = query.from_user
     
-    # Get pending trade from context
     pending_trade = context.user_data.get('pending_trade')
     
     if not pending_trade:
@@ -443,7 +408,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
         )
         return
     
-    # Show executing message
     await query.edit_message_text(
         "⏳ <b>Executing trade...</b>\n\n"
         "Placing entry orders...",
@@ -451,12 +415,10 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
     )
     
     try:
-        # ✅ GET STRATEGY WITH SL/TARGET SETTINGS
         preset = await get_manual_trade_preset(pending_trade['preset_id'])
         strategy_preset_id = safe_get_attr(preset, 'strategy_preset_id')
         strategy = await get_strategy_preset_by_id(strategy_preset_id)
         
-        # ✅ EXTRACT SL/TARGET SETTINGS
         sl_trigger = safe_get_attr(strategy, 'sl_trigger_pct')
         sl_limit = safe_get_attr(strategy, 'sl_limit_pct')
         target_trigger = safe_get_attr(strategy, 'target_trigger_pct')
@@ -464,14 +426,11 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
         
         logger.info(f"📊 Strategy Settings - SL Trigger: {sl_trigger}, SL Limit: {sl_limit}, Target Trigger: {target_trigger}, Target Limit: {target_limit}")
         
-        # Create Delta client
         client = DeltaClient(pending_trade['api_key'], pending_trade['api_secret'])
         
         try:
-            # Determine order side based on direction
             side = 'buy' if pending_trade['direction'] == 'long' else 'sell'
             
-            # ========== PLACE CE ENTRY ORDER ==========
             ce_order = await client.place_order({
                 'product_symbol': pending_trade['ce_symbol'],
                 'size': pending_trade['lot_size'],
@@ -484,7 +443,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             
             ce_order_id = ce_order['result']['id']
             
-            # ========== PLACE PE ENTRY ORDER ==========
             pe_order = await client.place_order({
                 'product_symbol': pending_trade['pe_symbol'],
                 'size': pending_trade['lot_size'],
@@ -499,13 +457,11 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             
             logger.info(f"✅ Entry orders placed - CE: {ce_order_id}, PE: {pe_order_id}")
 
-            # ✅ WAIT FOR ORDERS TO FILL AND FETCH ACTUAL PRICES
             logger.info("⏳ Waiting 3 seconds for orders to fill...")
             await asyncio.sleep(3)
 
             logger.info("🔍 Fetching actual fill prices...")
 
-            # Fetch CE order details
             ce_order_details = await client.get_order(ce_order_id)
             if not ce_order_details.get('success'):
                 raise Exception(f"Failed to fetch CE order details: {ce_order_details.get('error')}")
@@ -516,7 +472,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
 
             logger.info(f"📈 CE Order: {ce_state} | Fill: ${ce_avg_fill_price:.4f} x {ce_filled_qty} contracts")
 
-            # Fetch PE order details
             pe_order_details = await client.get_order(pe_order_id)
             if not pe_order_details.get('success'):
                 raise Exception(f"Failed to fetch PE order details: {pe_order_details.get('error')}")
@@ -527,15 +482,9 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
 
             logger.info(f"📈 PE Order: {pe_state} | Fill: ${pe_avg_fill_price:.4f} x {pe_filled_qty} contracts")
 
-            # ✅ CHECK IF ORDERS WERE ACTUALLY FILLED
+            # ✅ Check if orders were filled
             if ce_state != 'filled' or pe_state != 'filled':
                 logger.error(f"❌ Orders not filled - CE: {ce_state}, PE: {pe_state}")
-    
-                error_reasons = []
-                if ce_state == 'closed':
-                    error_reasons.append("CE order was rejected/closed")
-                if pe_state == 'closed':
-                    error_reasons.append("PE order was rejected/closed")
     
                 await query.edit_message_text(
                     "<b>❌ Entry Orders Failed</b>\n\n"
@@ -555,22 +504,19 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 )
                 return
 
-            # ✅ IF FILLED, TRY TO GET POSITION DATA AS BACKUP
+            # ✅ Fallback to positions if fill prices are 0
             if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
                 logger.warning("⚠️ Fill prices are 0, attempting to fetch from positions...")
     
                 try:
-                    # Get positions to find actual entry prices
                     positions_response = await client.get_positions()
         
                     if positions_response.get('success'):
                         positions = positions_response['result']
             
-                        # Find CE position
                         ce_position = next((p for p in positions 
                                            if p['product']['symbol'] == pending_trade['ce_symbol']), None)
             
-                        # Find PE position  
                         pe_position = next((p for p in positions 
                                            if p['product']['symbol'] == pending_trade['pe_symbol']), None)
             
@@ -585,7 +531,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 except Exception as e:
                     logger.error(f"Failed to fetch position data: {e}")
 
-            # ✅ FINAL VALIDATION
             if ce_avg_fill_price == 0 or pe_avg_fill_price == 0:
                 logger.error(f"❌ Cannot determine entry prices - CE: ${ce_avg_fill_price}, PE: ${pe_avg_fill_price}")
                 await query.edit_message_text(
@@ -603,29 +548,23 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 )
                 return
 
-            # Now continue with SL/Target placement using ce_avg_fill_price and pe_avg_fill_price...
-
-            
-            # ========== PLACE STOP-LOSS & TARGET ORDERS ==========
             sl_orders_placed = []
             target_orders_placed = []
             
             logger.info("🔄 Starting SL/Target order placement...")
             
-            # ========== STOP LOSS ORDERS ==========
+            # Stop Loss Orders
             if sl_trigger is not None and sl_limit is not None and sl_trigger > 0:
                 try:
                     logger.info(f"📍 Placing SL orders - Trigger: {sl_trigger}%, Limit: {sl_limit}%")
                     
                     if side == 'sell':
-                        # Short: SL when price goes UP
                         ce_sl_trigger = ce_avg_fill_price * (1 + abs(float(sl_trigger)) / 100)
                         ce_sl_limit = ce_avg_fill_price * (1 + abs(float(sl_limit)) / 100)
                         pe_sl_trigger = pe_avg_fill_price * (1 + abs(float(sl_trigger)) / 100)
                         pe_sl_limit = pe_avg_fill_price * (1 + abs(float(sl_limit)) / 100)
                         sl_side = 'buy'
                     else:
-                        # Long: SL when price goes DOWN
                         ce_sl_trigger = ce_avg_fill_price * (1 - abs(float(sl_trigger)) / 100)
                         ce_sl_limit = ce_avg_fill_price * (1 - abs(float(sl_limit)) / 100)
                         pe_sl_trigger = pe_avg_fill_price * (1 - abs(float(sl_trigger)) / 100)
@@ -635,7 +574,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                     logger.info(f"CE SL - Trigger: ${ce_sl_trigger:.4f}, Limit: ${ce_sl_limit:.4f}, Side: {sl_side}")
                     logger.info(f"PE SL - Trigger: ${pe_sl_trigger:.4f}, Limit: ${pe_sl_limit:.4f}, Side: {sl_side}")
                     
-                    # Place SL for CE
                     ce_sl_order = await client.place_order({
                         'product_symbol': pending_trade['ce_symbol'],
                         'size': pending_trade['lot_size'],
@@ -654,7 +592,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                         error_msg = ce_sl_order.get('error', {})
                         logger.error(f"❌ CE SL failed: {error_msg}")
                     
-                    # Place SL for PE
                     pe_sl_order = await client.place_order({
                         'product_symbol': pending_trade['pe_symbol'],
                         'size': pending_trade['lot_size'],
@@ -678,18 +615,16 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             else:
                 logger.warning("⚠️ SL settings not found or disabled - skipping SL orders")
             
-            # ========== TARGET ORDERS ==========
+            # Target Orders
             if target_trigger is not None and target_limit is not None and target_trigger > 0:
                 try:
                     logger.info(f"📍 Placing Target orders - Trigger: {target_trigger}%, Limit: {target_limit}%")
                     
                     if side == 'sell':
-                        # Short: Target when price goes DOWN
                         ce_target_limit = ce_avg_fill_price * (1 - abs(float(target_limit)) / 100)
                         pe_target_limit = pe_avg_fill_price * (1 - abs(float(target_limit)) / 100)
                         target_side = 'buy'
                     else:
-                        # Long: Target when price goes UP
                         ce_target_limit = ce_avg_fill_price * (1 + abs(float(target_limit)) / 100)
                         pe_target_limit = pe_avg_fill_price * (1 + abs(float(target_limit)) / 100)
                         target_side = 'sell'
@@ -697,7 +632,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                     logger.info(f"CE Target Limit: ${ce_target_limit:.4f}, Side: {target_side}")
                     logger.info(f"PE Target Limit: ${pe_target_limit:.4f}, Side: {target_side}")
                     
-                    # Place Target for CE
                     ce_target_order = await client.place_order({
                         'product_symbol': pending_trade['ce_symbol'],
                         'size': pending_trade['lot_size'],
@@ -714,7 +648,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                         error_msg = ce_target_order.get('error', {})
                         logger.error(f"❌ CE Target failed: {error_msg}")
                     
-                    # Place Target for PE
                     pe_target_order = await client.place_order({
                         'product_symbol': pending_trade['pe_symbol'],
                         'size': pending_trade['lot_size'],
@@ -738,7 +671,6 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
             
             logger.info(f"✅ Order placement complete - SL: {len(sl_orders_placed)}, Target: {len(target_orders_placed)}")
             
-            # Build success message
             text = "<b>✅ Trade Executed Successfully!</b>\n\n"
             text += f"<b>Entry Orders:</b>\n"
             text += f"<b>CE:</b> {pending_trade['ce_symbol']}\n"
