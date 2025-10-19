@@ -41,11 +41,15 @@ def setup_logger(name: str) -> logging.Logger:
         Configured logger instance
     """
     logger = logging.getLogger(name)
+    
+    # ✅ PREVENT DUPLICATE HANDLERS - Check if THIS logger already has handlers
+    if logger.hasHandlers():
+        return logger
+    
     logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper()))
     
-    # Avoid adding handlers multiple times
-    if logger.handlers:
-        return logger
+    # ✅ PREVENT PROPAGATION TO ROOT LOGGER
+    logger.propagate = False
     
     # Create formatters
     detailed_formatter = logging.Formatter(
