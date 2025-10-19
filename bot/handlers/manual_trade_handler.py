@@ -557,8 +557,7 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 )
                 return
 
-            logger.info(f"✅ CE: ${ce_avg_fill_price:.4f} x {ce_filled_qty}")
-            logger.info(f"✅ PE: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
+            logger.info(f"✅ Final - CE: ${ce_avg_fill_price:.4f} x {ce_filled_qty}, PE: ${pe_avg_fill_price:.4f} x {pe_filled_qty}")
 
 
             # Fallback: fetch from positions if prices are 0
