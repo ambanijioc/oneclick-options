@@ -38,7 +38,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Current conversation state: {state_str}")
         
         # If no state, send helpful message
-        if state is None:
+        if state_str is None:
             logger.warning(f"No active conversation for user {user.id}")
             await update.message.reply_text("Please use /start to begin.", parse_mode='HTML')
             return
@@ -46,19 +46,19 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Routing to handler for state: {state_str}")
         
         # ==================== API STATES ====================
-        if state_str == 'api_add_name' or state == ConversationState.API_ADD_NAME:
+        if state_str == 'api_add_name':
             from .api_handler import handle_api_name_input
             await handle_api_name_input(update, context)
         
-        elif state_str == 'api_add_description' or state == ConversationState.API_ADD_DESCRIPTION:
+        elif state_str == 'api_add_description':
             from .api_handler import handle_api_description_input
             await handle_api_description_input(update, context)
         
-        elif state_str == 'api_add_key' or state == ConversationState.API_ADD_KEY:
+        elif state_str == 'api_add_key':
             from .api_handler import handle_api_key_input
             await handle_api_key_input(update, context)
         
-        elif state_str == 'api_add_secret' or state == ConversationState.API_ADD_SECRET:
+        elif state_str == 'api_add_secret':
             from .api_handler import handle_api_secret_input
             await handle_api_secret_input(update, context)
         
