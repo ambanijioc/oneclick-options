@@ -162,7 +162,7 @@ async def menu_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("📝 List Move Options", callback_data="menu_list_move_options")],
         [InlineKeyboardButton("🎯 Straddle Strategy", callback_data="menu_straddle_strategy")],
         [InlineKeyboardButton("🎯 Strangle Strategy", callback_data="menu_strangle_strategy")],
-        [InlineKeyboardButton("🎯 Move Strategy", callback_data="menu_move_strategy")],
+        [InlineKeyboardButton("🎯 Move Strategy", callback_data="move_menu")],
         [InlineKeyboardButton("📋 Manual Trade Presets", callback_data="menu_manual_trade_presets")],
         [InlineKeyboardButton("🎯 Move Trade Presets", callback_data="menu_move_preset")],
         [InlineKeyboardButton("📝 Manual Trade", callback_data="menu_manual_trade")],
