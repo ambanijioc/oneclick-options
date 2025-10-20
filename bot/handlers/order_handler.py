@@ -1,8 +1,9 @@
 """
-Order management handlers.
+Order management handlers - FIXED VERSION
 """
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup  # ✅ ADD THIS
+import telegram  # ✅ ADD THIS for telegram.error.BadRequest
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -19,8 +20,13 @@ from bot.keyboards.order_keyboards import (
     get_order_detail_keyboard,
     get_order_cancel_confirmation_keyboard
 )
-from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
-from delta.client import DeltaClient
+from bot.keyboards.confirmation_keyboards import get_back_keyboard  # ✅ ADD THIS
+from database.operations.api_ops import (
+    get_api_credentials,
+    get_decrypted_api_credential,
+    get_api_credential_by_id  # ✅ ADD THIS
+)
+from services.delta.client import DeltaClient  # ✅ FIXED PATH
 
 logger = setup_logger(__name__)
 
@@ -30,10 +36,6 @@ async def orders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle orders menu callback.
     Display API selection for viewing orders.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
@@ -48,10 +50,21 @@ async def orders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Get user's APIs
     apis = await get_api_credentials(user.id)
     
+    if not apis:
+        keyboard = [[InlineKeyboardButton("🏠 Main Menu", callback_data="menu_main")]]
+        await query.edit_message_text(
+            "<b>📋 Orders</b>\n\n"
+            "❌ No API credentials found.\n"
+            "Please add an API first.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        return
+    
     # Order selection text
     text = (
         "<b>📋 Orders</b>\n\n"
-        f"Select an API to view orders:"
+        "Select an API to view orders:"
     )
     
     # Show API selection
@@ -67,19 +80,15 @@ async def orders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @error_handler
 async def order_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handle order view callback.
-    Display orders for selected API.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
+    Handle order view callback - show orders for selected API.
+    This callback handles the pattern "^order_view_"
     """
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     
-    # Extract API ID from callback data
+    # Extract API ID from callback data (format: order_view_{api_id})
     api_id = query.data.split('_')[-1]
     
     # Show loading message
@@ -110,54 +119,69 @@ async def order_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             
             if not response.get('success'):
                 error_msg = response.get('error', {}).get('message', 'Unknown error')
+                keyboard = [
+                    [InlineKeyboardButton("🔄 Retry", callback_data=f"order_view_{api_id}")],
+                    [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_main")]
+                ]
                 await query.edit_message_text(
-                    format_error_message(f"Failed to fetch orders: {error_msg}"),
+                    f"<b>📋 Orders</b>\n\n"
+                    f"❌ Failed to fetch orders:\n"
+                    f"<code>{error_msg}</code>",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
                     parse_mode='HTML'
                 )
                 return
             
             orders = response.get('result', [])
             
-            if not orders:
-                await query.edit_message_text(
-                    "<b>📋 Orders</b>\n\n"
-                    "❌ No open orders found.\n\n"
-                    "All orders have been filled or cancelled.",
-                    reply_markup=get_order_action_keyboard(api_id, []),
-                    parse_mode='HTML'
-                )
-                log_user_action(user.id, "order_view", f"No orders for API {api_id}")
-                return
+            # Get API name for display
+            api_credential = await get_api_credential_by_id(api_id)
+            api_name = api_credential.get('name', 'Unknown API') if api_credential else 'Unknown API'
             
             # Format orders
-            order_text = "<b>📋 Open Orders</b>\n\n"
+            if not orders:
+                message_text = (
+                    f"<b>📋 Orders - {api_name}</b>\n\n"
+                    "❌ No open orders found.\n\n"
+                    "All orders have been filled or cancelled."
+                )
+                keyboard = get_back_keyboard("menu_orders")
+            else:
+                message_text = f"<b>📋 Orders - {api_name}</b>\n\n"
+                message_text += f"Open orders: {len(orders)}\n\n"
+                
+                for order in orders[:10]:  # Show max 10 orders
+                    message_text += format_order(order) + "\n\n"
+                
+                if len(orders) > 10:
+                    message_text += f"<i>...and {len(orders) - 10} more orders</i>\n\n"
+                
+                keyboard = get_order_action_keyboard(api_id, orders)
             
-            for i, order in enumerate(orders[:10]):  # Limit to 10 orders
-                order_text += format_order(order) + "\n\n"
+            # ✅ Try-except for duplicate edit protection
+            try:
+                await query.edit_message_text(
+                    message_text,
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+            except telegram.error.BadRequest as e:
+                if "Message is not modified" in str(e):
+                    logger.debug(f"Orders unchanged for user {user.id}")
+                else:
+                    raise
             
-            if len(orders) > 10:
-                order_text += f"<i>...and {len(orders) - 10} more orders</i>\n\n"
-            
-            # Show orders with action keyboard
-            await query.edit_message_text(
-                order_text,
-                reply_markup=get_order_action_keyboard(api_id, orders),
-                parse_mode='HTML'
-            )
-            
-            log_user_action(
-                user.id,
-                "order_view",
-                f"Viewed {len(orders)} order(s) for API {api_id}"
-            )
+            log_user_action(user.id, "order_view", f"Viewed {len(orders)} orders for API {api_id}")
         
         finally:
             await client.close()
     
     except Exception as e:
         logger.error(f"Failed to fetch orders: {e}", exc_info=True)
+        keyboard = [[InlineKeyboardButton("🏠 Main Menu", callback_data="menu_main")]]
         await query.edit_message_text(
             format_error_message("Failed to fetch orders.", str(e)),
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
 
@@ -167,10 +191,6 @@ async def order_detail_callback(update: Update, context: ContextTypes.DEFAULT_TY
     """
     Handle order detail callback.
     Display detailed information about an order.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
@@ -254,10 +274,6 @@ async def order_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TY
     """
     Handle order cancel callback.
     Show confirmation before cancelling.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
@@ -290,10 +306,6 @@ async def order_cancel_confirm_callback(update: Update, context: ContextTypes.DE
     """
     Handle order cancel confirmation callback.
     Actually cancel the order.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
@@ -364,10 +376,6 @@ async def order_cancel_all_callback(update: Update, context: ContextTypes.DEFAUL
     """
     Handle cancel all orders callback.
     Show confirmation before cancelling all.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
@@ -398,10 +406,6 @@ async def order_cancel_all_confirm_callback(update: Update, context: ContextType
     """
     Handle cancel all orders confirmation callback.
     Actually cancel all orders.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     query = update.callback_query
     await query.answer()
@@ -471,12 +475,7 @@ async def order_cancel_all_confirm_callback(update: Update, context: ContextType
 
 
 def register_order_handlers(application: Application):
-    """
-    Register order handlers.
-    
-    Args:
-        application: Bot application instance
-    """
+    """Register order handlers."""
     # Orders menu callback
     application.add_handler(CallbackQueryHandler(
         orders_callback,
@@ -524,4 +523,4 @@ def register_order_handlers(application: Application):
 
 if __name__ == "__main__":
     print("Order handler module loaded")
-      
+        
