@@ -18,17 +18,17 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📋 Orders", callback_data="menu_orders")],
         [InlineKeyboardButton("📜 Trade History", callback_data="menu_trade_history")],
         [InlineKeyboardButton("📋 List Options", callback_data="menu_list_options")],
-        [InlineKeyboardButton("📋 List Move Options", callback_data="menu_list_move_options")],  # ✅ FIXED
+        [InlineKeyboardButton("📋 List Move Options", callback_data="menu_list_move_options")],
         [InlineKeyboardButton("🎯 Straddle Strategy", callback_data="menu_straddle_strategy")],
         [InlineKeyboardButton("🎯 Strangle Strategy", callback_data="menu_strangle_strategy")],
-        [InlineKeyboardButton("🎯 Move Strategy", callback_data="move_menu")],  # ✅ FIXED
-        [InlineKeyboardButton("📋 Manual Trade Presets", callback_data="menu_manual_trade_presets")],  # ✅ FIXED
+        [InlineKeyboardButton("🎯 Move Strategy", callback_data="move_menu")],
+        [InlineKeyboardButton("📋 Manual Trade Presets", callback_data="menu_manual_trade_presets")],
         [InlineKeyboardButton("🎯 Move Trade Presets", callback_data="menu_move_preset")],
         [InlineKeyboardButton("🎯 Manual Trade", callback_data="menu_manual_trade")],
-        [InlineKeyboardButton("🎯 Manual Move Trade", callback_data="menu_manual_move_trade")],  # ✅ FIXED
+        [InlineKeyboardButton("🎯 Manual Move Trade", callback_data="menu_manual_move_trade")],
         [InlineKeyboardButton("⏰ Auto Trade", callback_data="menu_auto_trade")],
-        [InlineKeyboardButton("⏰ Auto Move Trade", callback_data="menu_auto_move_trade")],  # ✅ FIXED
-        [InlineKeyboardButton("🔑 API Keys", callback_data="menu_api")],  # ✅ FIXED
+        [InlineKeyboardButton("⏰ Auto Move Trade", callback_data="menu_auto_move_trade")],
+        [InlineKeyboardButton("🔑 API Keys", callback_data="menu_api")],
         [InlineKeyboardButton("❓ Help", callback_data="menu_help")]
     ]
     
@@ -42,7 +42,7 @@ def get_back_to_main_menu_button() -> list:
     Returns:
         List containing back button
     """
-    return [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_main")]  # ✅ FIXED: was "back_to_main"
+    return [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_main")]
 
 
 if __name__ == "__main__":
