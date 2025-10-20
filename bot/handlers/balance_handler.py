@@ -126,9 +126,9 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         
                         if unrealized_pnl != 0:
                             if unrealized_pnl > 0:
-                                balance_text += f"Unrealized PnL: 🟢 +${unrealized_pnl_disp:,.2f}\n"
+                                balance_text += f"Total Blocked Margin: 🟢 +${unrealized_pnl:,.2f}\n"
                             else:
-                                balance_text += f"Unrealized PnL: 🔴 ${abs(unrealized_pnl_disp):,.2f}\n"
+                                balance_text += f"Total Blocked Margin: 🔴 ${unrealized_pnl:,.2f}\n"
                         
                         balance_messages.append(balance_text)
                         
