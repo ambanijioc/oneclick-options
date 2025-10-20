@@ -248,30 +248,46 @@ async def show_move_confirmation(update: Update, context: ContextTypes.DEFAULT_T
     user = update.effective_user
     data = await state_manager.get_state_data(user.id)
     
+    # ✅ Safe extraction with None guards
+    name = data.get('name') or "Unnamed"
+    description = data.get('description')
+    asset = data.get('asset') or "N/A"
+    expiry = data.get('expiry')
+    direction = data.get('direction')
+    atm_offset = data.get('atm_offset')
+    sl_trigger = data.get('sl_trigger_percent')
+    sl_limit = data.get('sl_limit_percent')
+    target_trigger = data.get('target_trigger_percent')
+    target_limit = data.get('target_limit_percent')
+    
+    # ✅ Safe capitalize (prevents None.capitalize() error)
+    expiry_display = expiry.capitalize() if expiry else "N/A"
+    direction_display = direction.capitalize() if direction else "N/A"
+    
     # Build confirmation message
     text = (
         f"<b>✅ MOVE Strategy - Final Confirmation</b>\n\n"
         f"<b>📋 Details:</b>\n"
-        f"• <b>Name:</b> {data.get('name')}\n"
+        f"• <b>Name:</b> {name}\n"
     )
     
-    if data.get('description'):
-        text += f"• <b>Description:</b> {data.get('description')}\n"
+    if description:
+        text += f"• <b>Description:</b> {description}\n"
     
     text += (
-        f"• <b>Asset:</b> {data.get('asset')}\n"
-        f"• <b>Expiry:</b> {data.get('expiry').capitalize()}\n"
-        f"• <b>Direction:</b> {data.get('direction').capitalize()}\n"
-        f"• <b>ATM Offset:</b> {data.get('atm_offset')}\n\n"
+        f"• <b>Asset:</b> {asset}\n"
+        f"• <b>Expiry:</b> {expiry_display}\n"
+        f"• <b>Direction:</b> {direction_display}\n"
+        f"• <b>ATM Offset:</b> {atm_offset}\n\n"
         f"<b>📊 Risk Management:</b>\n"
-        f"• <b>SL Trigger:</b> {data.get('sl_trigger_percent')}%\n"
-        f"• <b>SL Limit:</b> {data.get('sl_limit_percent')}%\n"
+        f"• <b>SL Trigger:</b> {sl_trigger}%\n"
+        f"• <b>SL Limit:</b> {sl_limit}%\n"
     )
     
-    if data.get('target_trigger_percent') is not None:
+    if target_trigger is not None:
         text += (
-            f"• <b>Target Trigger:</b> {data.get('target_trigger_percent')}%\n"
-            f"• <b>Target Limit:</b> {data.get('target_limit_percent')}%\n"
+            f"• <b>Target Trigger:</b> {target_trigger}%\n"
+            f"• <b>Target Limit:</b> {target_limit}%\n"
         )
     
     text += "\n<b>Save this strategy?</b>"
@@ -281,11 +297,21 @@ async def show_move_confirmation(update: Update, context: ContextTypes.DEFAULT_T
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
     
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
-    )
+    # ✅ KEY FIX: Handle both button clicks (callback_query) and text messages
+    if update.callback_query:
+        # User clicked "Skip Target" button
+        await update.callback_query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+    else:
+        # User entered text input (last step in flow)
+        await update.message.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
 
 
 @error_handler
