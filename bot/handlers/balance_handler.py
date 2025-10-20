@@ -85,6 +85,7 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 # Fetch balance
                 response = await client.get_wallet_balance()
+                positions = await client.get_positions()
                 
                 if response.get('success'):
                     result = response.get('result', [])
@@ -97,19 +98,25 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             balance_data = bal
                             break
                     
+                    # Calculate total unrealized PnL from positions
+                    unrealized_pnl = 0.0
+                    if positions.get('success'):
+                        for pos in positions.get('result', []):
+                            unrealized_pnl += float(pos.get('unrealized_pnl', 0))
+                    
                     if balance_data:
                         asset_symbol = balance_data.get('asset_symbol', 'INR')
                         balance = float(balance_data.get('balance', 0))
-                        unrealized_pnl = float(balance_data.get('unrealized_pnl', 0))
-                        available_balance = float(balance_data.get('available_balance', balance))
                         
                         # Convert to both INR and USD
                         if asset_symbol == 'INR':
                             balance_inr = balance
                             balance_usd = balance / USD_TO_INR
+                            unrealized_pnl_disp = unrealized_pnl / USD_TO_INR  # For display
                         else:  # USD or USDT
                             balance_usd = balance
                             balance_inr = balance * USD_TO_INR
+                            unrealized_pnl_disp = unrealized_pnl
                         
                         # Format balance message
                         balance_text = (
@@ -119,16 +126,16 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         
                         if unrealized_pnl != 0:
                             if unrealized_pnl > 0:
-                                balance_text += f"Unrealized PnL: 🟢 +${unrealized_pnl:,.2f}\n"
+                                balance_text += f"Unrealized PnL: 🟢 +${unrealized_pnl_disp:,.2f}\n"
                             else:
-                                balance_text += f"Unrealized PnL: 🔴 ${unrealized_pnl:,.2f}\n"
+                                balance_text += f"Unrealized PnL: 🔴 ${abs(unrealized_pnl_disp):,.2f}\n"
                         
                         balance_messages.append(balance_text)
                         
-                        # Add to totals (use INR as base)
+                        # Add to totals
                         total_balance_inr += balance_inr
                         total_balance_usd += balance_usd
-                        total_unrealized_pnl += unrealized_pnl
+                        total_unrealized_pnl += unrealized_pnl_disp
                     else:
                         balance_messages.append(
                             f"<b>⚠️ {api.api_name}</b>\n"
