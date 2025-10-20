@@ -1,5 +1,5 @@
 """
-Balance display handlers - FIXED VERSION
+Balance display handlers - SIMPLIFIED VERSION
 """
 
 from telegram import Update
@@ -11,7 +11,6 @@ from telegram.ext import (
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
-from bot.utils.message_formatter import format_balance, format_error_message
 from bot.validators.user_validator import check_user_authorization
 from bot.keyboards.balance_keyboards import get_balance_keyboard
 from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
@@ -24,7 +23,7 @@ logger = setup_logger(__name__)
 async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle balance menu callback.
-    Display wallet balance for all configured APIs.
+    Display wallet balance + unrealized PnL from positions.
     """
     query = update.callback_query
     await query.answer()
@@ -60,7 +59,6 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Fetch balances for all APIs
     balance_messages = []
     total_balance_inr = 0
-    total_balance_usd = 0
     total_unrealized_pnl = 0
     
     # Fixed conversion rate: 1 USD = 85 INR
@@ -86,8 +84,9 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # ✅ Fetch wallet balance
                 wallet_response = await client.get_wallet_balance()
                 
-                # ✅ Fetch positions to get unrealized PnL
-                positions_response = await client.get_margined_positions()
+                # ✅ Fetch positions for unrealized PnL
+                # Endpoint: GET /v2/positions
+                positions_response = await client.get_positions()
                 
                 if wallet_response.get('success'):
                     result = wallet_response.get('result', [])
@@ -103,46 +102,41 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if balance_data:
                         asset_symbol = balance_data.get('asset_symbol', 'INR')
                         balance = float(balance_data.get('balance', 0))
-                        available_balance = float(balance_data.get('available_balance', balance))
                         
-                        # ✅ Calculate unrealized PnL from positions
+                        # ✅ Calculate unrealized PnL from ALL positions
                         unrealized_pnl = 0.0
                         if positions_response.get('success'):
                             positions = positions_response.get('result', [])
                             for pos in positions:
-                                # Sum unrealized PnL from all positions
+                                # Sum unrealized PnL from each position
                                 pos_unrealized_pnl = float(pos.get('unrealized_pnl', 0))
                                 unrealized_pnl += pos_unrealized_pnl
                         
-                        # Convert to both INR and USD
+                        # Convert to INR
                         if asset_symbol == 'INR':
                             balance_inr = balance
-                            balance_usd = balance / USD_TO_INR
-                            # Unrealized PnL from positions is usually in asset currency
-                            unrealized_pnl_display = unrealized_pnl
+                            unrealized_pnl_inr = unrealized_pnl
                         else:  # USD or USDT
-                            balance_usd = balance
                             balance_inr = balance * USD_TO_INR
-                            unrealized_pnl_display = unrealized_pnl
+                            unrealized_pnl_inr = unrealized_pnl * USD_TO_INR
                         
                         # Format balance message
                         balance_text = (
                             f"<b>💼 {api.api_name}</b>\n"
-                            f"Balance: ₹{balance_inr:,.2f} (${balance_usd:,.2f})\n"
+                            f"Balance: ₹{balance_inr:,.2f}\n"
                         )
                         
-                        if unrealized_pnl_display != 0:
-                            if unrealized_pnl_display > 0:
-                                balance_text += f"Unrealized PnL: 🟢 +₹{unrealized_pnl_display:,.2f}\n"
+                        if unrealized_pnl_inr != 0:
+                            if unrealized_pnl_inr > 0:
+                                balance_text += f"Unrealized PnL: 🟢 +₹{unrealized_pnl_inr:,.2f}\n"
                             else:
-                                balance_text += f"Unrealized PnL: 🔴 ₹{unrealized_pnl_display:,.2f}\n"
+                                balance_text += f"Unrealized PnL: 🔴 ₹{unrealized_pnl_inr:,.2f}\n"
                         
                         balance_messages.append(balance_text)
                         
                         # Add to totals
                         total_balance_inr += balance_inr
-                        total_balance_usd += balance_usd
-                        total_unrealized_pnl += unrealized_pnl_display
+                        total_unrealized_pnl += unrealized_pnl_inr
                     else:
                         balance_messages.append(
                             f"<b>⚠️ {api.api_name}</b>\n"
@@ -178,7 +172,7 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if total_unrealized_pnl > 0:
                 final_text += f"🟢 +₹{total_unrealized_pnl:,.2f}\n"
             elif total_unrealized_pnl < 0:
-                final_text += f"🔴 ₹{abs(total_unrealized_pnl):,.2f}\n"
+                final_text += f"🔴 ₹{total_unrealized_pnl:,.2f}\n"
             else:
                 final_text += f"⚪ ₹{total_unrealized_pnl:,.2f}\n"
     else:
@@ -200,33 +194,22 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @error_handler
 async def balance_refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle balance refresh callback.
-    """
-    # Refresh is the same as viewing balance
+    """Handle balance refresh callback."""
     await balance_callback(update, context)
-    
     log_user_action(update.callback_query.from_user.id, "balance_refresh", "Refreshed balances")
 
 
 def register_balance_handlers(application: Application):
-    """
-    Register balance handlers.
-    """
-    # Balance menu callback
+    """Register balance handlers."""
     application.add_handler(CallbackQueryHandler(
         balance_callback,
         pattern="^menu_balance$"
     ))
     
-    # Balance refresh callback
     application.add_handler(CallbackQueryHandler(
         balance_refresh_callback,
         pattern="^balance_refresh$"
     ))
     
     logger.info("Balance handlers registered")
-
-
-if __name__ == "__main__":
-    print("Balance handler module loaded")
+    
