@@ -449,7 +449,7 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             text += f"   • Asset: {strategy.get('asset')}\n"
             # ✅ NEW (safer):
             direction = strategy.get('direction', 'unknown')
-            expiry = strategy.get('expiry_type', 'unknown')
+            expiry = strategy.get('expiry', 'unknown')  # ✅ CORRECT - matches database field
             text += f"   • Direction: {direction.capitalize() if direction else 'N/A'}\n"
             text += f"   • Expiry: {expiry.capitalize() if expiry else 'N/A'}\n"
             
