@@ -445,11 +445,12 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         text = "<b>📋 Your MOVE Strategies</b>\n\n"
         
         for idx, strategy in enumerate(strategies, 1):
-            text += f"<b>{idx}. {strategy.get('name')}</b>\n"
+            text += f"<b>{idx}. {strategy.get('strategy_name')}</b>\n"
             text += f"   • Asset: {strategy.get('asset')}\n"
             # ✅ NEW (safer):
             direction = strategy.get('direction', 'unknown')
             expiry = strategy.get('expiry', 'unknown')  # ✅ CORRECT - matches database field
+           
             text += f"   • Direction: {direction.capitalize() if direction else 'N/A'}\n"
             text += f"   • Expiry: {expiry.capitalize() if expiry else 'N/A'}\n"
             
