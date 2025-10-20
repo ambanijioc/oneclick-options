@@ -702,12 +702,6 @@ def register_manual_preset_handlers(application: Application):
         pattern="^manual_preset_strategy_"
     ))
     
-    # Preset actions (execute, edit, delete)
-    application.add_handler(CallbackQueryHandler(
-        manual_preset_execute_callback,
-        pattern="^manual_preset_execute_"
-    ))
-    
     application.add_handler(CallbackQueryHandler(
         manual_preset_edit_callback,
         pattern="^manual_preset_edit_"
