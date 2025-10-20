@@ -2,7 +2,7 @@
 Start command handler - main menu.
 """
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup  # ✅ Add InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -10,57 +10,20 @@ from telegram.ext import (
     ContextTypes
 )
 
-from config import settings
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.utils.message_formatter import escape_html
-from bot.utils.state_manager import state_manager  # ✅ ADD THIS
+from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization, get_user_info
 from bot.keyboards.main_menu import get_main_menu_keyboard
 from database.operations.user_ops import get_or_create_user_settings
-# In your init.py or main bot file, ADD these imports:
-
-from bot.handlers.trade_history_handler import register_trade_history_handler
-from bot.handlers.list_options_handler import register_list_options_handler
-from bot.handlers.straddle_handler import register_straddle_handler
-from bot.handlers.strangle_handler import register_strangle_handler
-from bot.handlers.manual_trade_handler import register_manual_trade_handler
-from bot.handlers.auto_trade_handler import register_auto_trade_handler
-from bot.handlers.api_handler import register_api_handler
-from bot.handlers.help_handler import register_help_handler
-
-# Then in your application setup, register them ALL:
-def create_application():
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Register ALL handlers
-    register_start_handler(application)
-    register_move_handler(application)
-    register_trade_history_handler(application)  # ✅ ADD
-    register_list_options_handler(application)   # ✅ ADD
-    register_straddle_handler(application)       # ✅ ADD
-    register_strangle_handler(application)       # ✅ ADD
-    register_manual_trade_handler(application)   # ✅ ADD
-    register_auto_trade_handler(application)     # ✅ ADD
-    register_api_handler(application)            # ✅ ADD
-    register_help_handler(application)           # ✅ ADD
-    
-    return application
-    
 
 logger = setup_logger(__name__)
 
 
 @error_handler
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle /start command.
-    Display main menu and create user settings if needed.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle /start command. Display main menu and create user settings if needed."""
     user = update.effective_user
     
     # Check authorization
@@ -104,13 +67,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @error_handler
-async def back_to_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def menu_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handle back to main menu callback.
-    
-    Args:
-        update: Telegram update object
-        context: Callback context
+    Handle 'Back to Main Menu' button.
+    Handles BOTH 'menu_main' and 'back_to_main' callback patterns.
     """
     query = update.callback_query
     await query.answer()
@@ -120,16 +80,20 @@ async def back_to_main_callback(update: Update, context: ContextTypes.DEFAULT_TY
     # Check authorization
     if not await check_user_authorization(user):
         await query.edit_message_text(
-            "❌ <b>Unauthorized Access</b>\n\n"
-            "You are not authorized to use this bot.",
+            "❌ <b>Unauthorized Access</b>",
             parse_mode='HTML'
         )
         return
     
+    # Clear any active state when returning to main menu
+    await state_manager.clear_state(user.id)
+    
     # Main menu text
     menu_text = (
-        f"🤖 <b>Main Menu</b>\n\n"
-        f"📊 Select an option:"
+        f"👋 <b>Welcome {escape_html(user.first_name)}!</b>\n\n"
+        f"🤖 <b>Telegram Trading Bot</b>\n"
+        f"Automated options trading with Delta Exchange India\n\n"
+        f"📊 Select an option from the menu below:"
     )
     
     # Edit message with main menu
@@ -139,80 +103,23 @@ async def back_to_main_callback(update: Update, context: ContextTypes.DEFAULT_TY
         parse_mode='HTML'
     )
     
-    log_user_action(user.id, "back_to_main", "Returned to main menu")
+    log_user_action(user.id, "menu_main", "Returned to main menu")
 
 
 def register_start_handler(application: Application):
-    """
-    Register start command and main menu handlers.
-    
-    Args:
-        application: Bot application instance
-    """
+    """Register start command and main menu handlers."""
     # /start command
     application.add_handler(CommandHandler("start", start_command))
     
-    # Back to main menu callback
-    application.add_handler(CallbackQueryHandler(
-        back_to_main_callback,
-        pattern="^back_to_main$"
-    ))
-
-    # ✅ ADD THIS - Main menu callback (for "Back to Main Menu" buttons)
+    # Main menu callbacks - handles BOTH patterns
     application.add_handler(CallbackQueryHandler(
         menu_main_callback,
-        pattern="^menu_main$"
+        pattern="^(menu_main|back_to_main)$"
     ))
     
     logger.info("Start handler registered")
 
-@error_handler
-async def menu_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle 'Back to Main Menu' button - returns to main menu."""
-    query = update.callback_query
-    await query.answer()
-    
-    user = query.from_user
-    
-    if not await check_user_authorization(user):
-        await query.edit_message_text("❌ Unauthorized access")
-        return
-    
-    # Clear any state
-    await state_manager.clear_state(user.id)
-    
-    # Show main menu
-    keyboard = [
-        [InlineKeyboardButton("💰 Balance", callback_data="menu_balance")],
-        [InlineKeyboardButton("📊 Positions", callback_data="menu_positions")],
-        [InlineKeyboardButton("📋 Orders", callback_data="menu_orders")],
-        [InlineKeyboardButton("📜 Trade History", callback_data="menu_trade_history")],
-        [InlineKeyboardButton("📝 List Options", callback_data="menu_list_options")],
-        [InlineKeyboardButton("📝 List Move Options", callback_data="menu_list_move_options")],
-        [InlineKeyboardButton("🎯 Straddle Strategy", callback_data="menu_straddle_strategy")],
-        [InlineKeyboardButton("🎯 Strangle Strategy", callback_data="menu_strangle_strategy")],
-        [InlineKeyboardButton("🎯 Move Strategy", callback_data="move_menu")],
-        [InlineKeyboardButton("📋 Manual Trade Presets", callback_data="menu_manual_trade_presets")],
-        [InlineKeyboardButton("🎯 Move Trade Presets", callback_data="menu_move_preset")],
-        [InlineKeyboardButton("📝 Manual Trade", callback_data="menu_manual_trade")],
-        [InlineKeyboardButton("🔀 Manual Move Trade", callback_data="menu_manual_move_trade")],
-        [InlineKeyboardButton("🤖 Auto Trade", callback_data="menu_auto_trade")],
-        [InlineKeyboardButton("🤖 Auto Move Trade", callback_data="menu_auto_move_trade")],
-        [InlineKeyboardButton("🔑 API Keys", callback_data="menu_api")],
-        [InlineKeyboardButton("❓ Help", callback_data="menu_help")]
-    ]
-    
-    await query.edit_message_text(
-        f"<b>👋 Welcome G!</b>\n\n"
-        f"<b>🤖 Telegram Trading Bot</b>\n"
-        f"Automated options trading with Delta Exchange India\n\n"
-        f"Select an option from the menu below:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
-    )
-    
-    log_user_action(user.id, "menu_main", "Returned to main menu")
-    
+
 if __name__ == "__main__":
     print("Start handler module loaded")
-  
+    
