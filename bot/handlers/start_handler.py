@@ -18,6 +18,35 @@ from bot.utils.state_manager import state_manager  # ✅ ADD THIS
 from bot.validators.user_validator import check_user_authorization, get_user_info
 from bot.keyboards.main_menu import get_main_menu_keyboard
 from database.operations.user_ops import get_or_create_user_settings
+# In your init.py or main bot file, ADD these imports:
+
+from bot.handlers.trade_history_handler import register_trade_history_handler
+from bot.handlers.list_options_handler import register_list_options_handler
+from bot.handlers.straddle_handler import register_straddle_handler
+from bot.handlers.strangle_handler import register_strangle_handler
+from bot.handlers.manual_trade_handler import register_manual_trade_handler
+from bot.handlers.auto_trade_handler import register_auto_trade_handler
+from bot.handlers.api_handler import register_api_handler
+from bot.handlers.help_handler import register_help_handler
+
+# Then in your application setup, register them ALL:
+def create_application():
+    application = Application.builder().token(BOT_TOKEN).build()
+    
+    # Register ALL handlers
+    register_start_handler(application)
+    register_move_handler(application)
+    register_trade_history_handler(application)  # ✅ ADD
+    register_list_options_handler(application)   # ✅ ADD
+    register_straddle_handler(application)       # ✅ ADD
+    register_strangle_handler(application)       # ✅ ADD
+    register_manual_trade_handler(application)   # ✅ ADD
+    register_auto_trade_handler(application)     # ✅ ADD
+    register_api_handler(application)            # ✅ ADD
+    register_help_handler(application)           # ✅ ADD
+    
+    return application
+    
 
 logger = setup_logger(__name__)
 
