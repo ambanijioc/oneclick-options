@@ -1,5 +1,5 @@
 """
-Balance display handlers.
+Balance display handlers - FIXED VERSION
 """
 
 from telegram import Update
@@ -15,7 +15,7 @@ from bot.utils.message_formatter import format_balance, format_error_message
 from bot.validators.user_validator import check_user_authorization
 from bot.keyboards.balance_keyboards import get_balance_keyboard
 from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
-from delta.client import DeltaClient
+from services.delta.client import DeltaClient
 
 logger = setup_logger(__name__)
 
@@ -83,11 +83,14 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             client = DeltaClient(api_key, api_secret)
             
             try:
-                # Fetch balance
-                response = await client.get_wallet_balance()
+                # ✅ Fetch wallet balance
+                wallet_response = await client.get_wallet_balance()
                 
-                if response.get('success'):
-                    result = response.get('result', [])
+                # ✅ Fetch positions to get unrealized PnL
+                positions_response = await client.get_margined_positions()
+                
+                if wallet_response.get('success'):
+                    result = wallet_response.get('result', [])
                     
                     # Try to find INR balance first (India API)
                     balance_data = None
@@ -100,16 +103,27 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if balance_data:
                         asset_symbol = balance_data.get('asset_symbol', 'INR')
                         balance = float(balance_data.get('balance', 0))
-                        unrealized_pnl = float(balance_data.get('unrealized_pnl', 0))
                         available_balance = float(balance_data.get('available_balance', balance))
+                        
+                        # ✅ Calculate unrealized PnL from positions
+                        unrealized_pnl = 0.0
+                        if positions_response.get('success'):
+                            positions = positions_response.get('result', [])
+                            for pos in positions:
+                                # Sum unrealized PnL from all positions
+                                pos_unrealized_pnl = float(pos.get('unrealized_pnl', 0))
+                                unrealized_pnl += pos_unrealized_pnl
                         
                         # Convert to both INR and USD
                         if asset_symbol == 'INR':
                             balance_inr = balance
                             balance_usd = balance / USD_TO_INR
+                            # Unrealized PnL from positions is usually in asset currency
+                            unrealized_pnl_display = unrealized_pnl
                         else:  # USD or USDT
                             balance_usd = balance
                             balance_inr = balance * USD_TO_INR
+                            unrealized_pnl_display = unrealized_pnl
                         
                         # Format balance message
                         balance_text = (
@@ -117,25 +131,25 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             f"Balance: ₹{balance_inr:,.2f} (${balance_usd:,.2f})\n"
                         )
                         
-                        if unrealized_pnl != 0:
-                            if unrealized_pnl > 0:
-                                balance_text += f"Unrealized PnL: 🟢 +${unrealized_pnl:,.2f}\n"
+                        if unrealized_pnl_display != 0:
+                            if unrealized_pnl_display > 0:
+                                balance_text += f"Unrealized PnL: 🟢 +₹{unrealized_pnl_display:,.2f}\n"
                             else:
-                                balance_text += f"Unrealized PnL: 🔴 ${unrealized_pnl:,.2f}\n"
+                                balance_text += f"Unrealized PnL: 🔴 ₹{unrealized_pnl_display:,.2f}\n"
                         
                         balance_messages.append(balance_text)
                         
-                        # Add to totals (use INR as base)
+                        # Add to totals
                         total_balance_inr += balance_inr
                         total_balance_usd += balance_usd
-                        total_unrealized_pnl += unrealized_pnl
+                        total_unrealized_pnl += unrealized_pnl_display
                     else:
                         balance_messages.append(
                             f"<b>⚠️ {api.api_name}</b>\n"
                             f"No balance found\n"
                         )
                 else:
-                    error_msg = response.get('error', {}).get('message', 'Unknown error')
+                    error_msg = wallet_response.get('error', {}).get('message', 'Unknown error')
                     balance_messages.append(
                         f"<b>❌ {api.api_name}</b>\n"
                         f"Error: {error_msg}\n"
@@ -162,11 +176,11 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             final_text += f"<b>Combined Total:</b> ₹{total_balance_inr:,.2f}\n"
             final_text += f"<b>Total Unrealized PnL:</b> "
             if total_unrealized_pnl > 0:
-                final_text += f"🟢 ${total_unrealized_pnl:,.2f}\n"
+                final_text += f"🟢 +₹{total_unrealized_pnl:,.2f}\n"
             elif total_unrealized_pnl < 0:
-                final_text += f"🔴 ${abs(total_unrealized_pnl):,.2f}\n"
+                final_text += f"🔴 ₹{abs(total_unrealized_pnl):,.2f}\n"
             else:
-                final_text += f"⚪ ${total_unrealized_pnl:,.2f}\n"
+                final_text += f"⚪ ₹{total_unrealized_pnl:,.2f}\n"
     else:
         final_text = (
             "<b>💰 Balance</b>\n\n"
@@ -216,4 +230,3 @@ def register_balance_handlers(application: Application):
 
 if __name__ == "__main__":
     print("Balance handler module loaded")
-    
