@@ -595,68 +595,66 @@ async def move_auto_delete_confirm_callback(update: Update, context: ContextType
 
 
 def register_move_auto_trade_handlers(application: Application):
-    """Register move auto trade handlers."""
-    
-    # ✅ FIXED: Accept BOTH patterns!
+    """Register MOVE auto trade handlers."""
+    # Main menu callback - FIXED PATTERN
     application.add_handler(CallbackQueryHandler(
         move_auto_trade_menu_callback,
-        pattern="^menu_(move_auto|auto_move)_trade$"
+        pattern="^menu_auto_move_trade$"  # ✅ FIXED: was "^menu_move_auto_trade$"
     ))
     
+    # Add auto trade setup
     application.add_handler(CallbackQueryHandler(
-        move_auto_list_callback,
-        pattern="^move_auto_list$"
+        move_auto_trade_add_callback,
+        pattern="^move_auto_trade_add$"
     ))
     
+    # API selection
     application.add_handler(CallbackQueryHandler(
-        move_auto_add_callback,
-        pattern="^move_auto_add$"
+        move_auto_trade_api_callback,
+        pattern="^move_auto_api_"
     ))
     
+    # Preset selection
     application.add_handler(CallbackQueryHandler(
-        move_auto_preset_callback,
+        move_auto_trade_preset_callback,
         pattern="^move_auto_preset_"
     ))
     
+    # Time input handled by message_router
+    
+    # Confirmation
     application.add_handler(CallbackQueryHandler(
-        move_auto_confirm_callback,
+        move_auto_trade_confirm_callback,
         pattern="^move_auto_confirm$"
     ))
-
+    
+    # List/manage auto trades
     application.add_handler(CallbackQueryHandler(
-    move_auto_edit_list_callback,
-    pattern="^move_auto_edit_list$"
+        move_auto_trade_list_callback,
+        pattern="^move_auto_list$"
     ))
-
+    
+    # Enable/disable
     application.add_handler(CallbackQueryHandler(
-        move_auto_edit_callback,
-        pattern="^move_auto_edit_[a-f0-9]{24}$"
+        move_auto_trade_toggle_callback,
+        pattern="^move_auto_toggle_"
     ))
-
+    
+    # Edit
     application.add_handler(CallbackQueryHandler(
-        move_auto_edit_preset_callback,
-        pattern="^move_auto_edit_preset_"
+        move_auto_trade_edit_callback,
+        pattern="^move_auto_edit_"
     ))
-
+    
+    # Delete
     application.add_handler(CallbackQueryHandler(
-        move_auto_edit_confirm_callback,
-        pattern="^move_auto_edit_confirm$"
-    ))    
-
-    application.add_handler(CallbackQueryHandler(
-        move_auto_delete_list_callback,
-        pattern="^move_auto_delete_list$"
+        move_auto_trade_delete_callback,
+        pattern="^move_auto_delete_"
     ))
     
     application.add_handler(CallbackQueryHandler(
-        move_auto_delete_callback,
-        pattern="^move_auto_delete_[a-f0-9]{24}$"
+        move_auto_trade_delete_confirm_callback,
+        pattern="^move_auto_delete_confirm_"
     ))
     
-    application.add_handler(CallbackQueryHandler(
-        move_auto_delete_confirm_callback,
-        pattern="^move_auto_delete_confirm$"
-    ))
-    
-    logger.info("Move auto trade handlers registered")
-    
+    logger.info("MOVE auto trade handlers registered")
