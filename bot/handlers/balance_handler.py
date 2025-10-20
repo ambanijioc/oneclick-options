@@ -100,11 +100,9 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     
                     # Calculate total unrealized PnL from positions
                     unrealized_pnl = 0.0
-                    positions = await client.get_positions()
                     if positions.get('success'):
                         for pos in positions.get('result', []):
                             unrealized_pnl += float(pos.get('unrealized_pnl', 0))
-
                     
                     if balance_data:
                         asset_symbol = balance_data.get('asset_symbol', 'INR')
