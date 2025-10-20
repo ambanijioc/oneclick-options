@@ -167,7 +167,7 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(apis) > 1:
             final_text += "\n" + "="*30 + "\n"
             final_text += f"<b>Combined Total:</b> ₹{total_balance_inr:,.2f}\n"
-            final_text += f"<b>Total Unrealized PnL:</b> "
+            final_text += f"<b>>Total Blocked Margin:</b> "
             if total_unrealized_pnl > 0:
                 final_text += f"🟢 ${total_unrealized_pnl:,.2f}\n"
             elif total_unrealized_pnl < 0:
