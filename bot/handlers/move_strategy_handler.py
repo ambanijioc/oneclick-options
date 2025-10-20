@@ -324,41 +324,47 @@ async def move_confirm_save_callback(update: Update, context: ContextTypes.DEFAU
     data = await state_manager.get_state_data(user.id)
     
     try:
-        # Create strategy in database
+        # ✅ FIX: Build strategy_data with CORRECT field names matching database
         strategy_data = {
-            'user_id': user.id,
-            'name': data.get('name'),
+            'strategy_name': data.get('name'),  # ✅ 'strategy_name' NOT 'name'
             'description': data.get('description', ''),
-            'strategy_type': 'move',
             'asset': data.get('asset'),
-            'expiry_type': data.get('expiry'),
+            'expiry': data.get('expiry', 'daily'),  # ✅ Add expiry field
             'direction': data.get('direction'),
-            'atm_offset': data.get('atm_offset'),
-            'sl_trigger_percent': data.get('sl_trigger_percent'),
-            'sl_limit_percent': data.get('sl_limit_percent'),
-            'target_trigger_percent': data.get('target_trigger_percent'),
-            'target_limit_percent': data.get('target_limit_percent')
+            'atm_offset': data.get('atm_offset', 0),
+            'stop_loss_trigger': data.get('sl_trigger_percent'),  # ✅ Match DB field names
+            'stop_loss_limit': data.get('sl_limit_percent'),
+            'target_trigger': data.get('target_trigger_percent'),
+            'target_limit': data.get('target_limit_percent')
         }
         
-        result = await create_move_strategy(strategy_data)
+        # ✅ FIX: Pass BOTH user.id AND strategy_data
+        result = await create_move_strategy(user.id, strategy_data)
+        
+        if not result:
+            raise Exception("Failed to save strategy to database")
         
         # Clear state
         await state_manager.clear_state(user.id)
         
         log_user_action(user.id, f"Created MOVE strategy: {data.get('name')}")
         
+        # ✅ FIX: Safe direction display
+        direction = data.get('direction')
+        direction_display = direction.capitalize() if isinstance(direction, str) and direction else "N/A"
+        
         await query.edit_message_text(
             f"<b>✅ MOVE Strategy Created!</b>\n\n"
             f"<b>Name:</b> {data.get('name')}\n"
             f"<b>Asset:</b> {data.get('asset')}\n"
-            f"<b>Direction:</b> {data.get('direction').capitalize()}\n\n"
+            f"<b>Direction:</b> {direction_display}\n\n"
             f"Strategy has been saved successfully!",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
         )
     
     except Exception as e:
-        logger.error(f"Error creating MOVE strategy: {e}")
+        logger.error(f"Error creating MOVE strategy: {e}", exc_info=True)
         await query.edit_message_text(
             f"❌ Error creating strategy: {str(e)}\n\n"
             f"Please try again.",
