@@ -1,5 +1,5 @@
 """
-Balance display handlers - FIXED VERSION
+Balance display handlers.
 """
 
 from telegram import Update
@@ -11,10 +11,11 @@ from telegram.ext import (
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
+from bot.utils.message_formatter import format_balance, format_error_message
 from bot.validators.user_validator import check_user_authorization
 from bot.keyboards.balance_keyboards import get_balance_keyboard
 from database.operations.api_ops import get_api_credentials, get_decrypted_api_credential
-from services.delta.client import DeltaClient
+from delta.client import DeltaClient
 
 logger = setup_logger(__name__)
 
@@ -23,7 +24,7 @@ logger = setup_logger(__name__)
 async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle balance menu callback.
-    Display wallet balance + unrealized PnL from positions for all configured APIs.
+    Display wallet balance for all configured APIs.
     """
     query = update.callback_query
     await query.answer()
@@ -40,12 +41,8 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not apis:
         await query.edit_message_text(
-            "<b>💰 Balance</b>
-
-"
-            "❌ No API credentials configured.
-
-"
+            "<b>💰 Balance</b>\n\n"
+            "❌ No API credentials configured.\n\n"
             "Please add an API credential first.",
             reply_markup=get_balance_keyboard(),
             parse_mode='HTML'
@@ -55,9 +52,7 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Show loading message
     await query.edit_message_text(
-        "⏳ <b>Loading balances...</b>
-
-"
+        "⏳ <b>Loading balances...</b>\n\n"
         "Fetching balance data from Delta Exchange...",
         parse_mode='HTML'
     )
@@ -65,7 +60,8 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Fetch balances for all APIs
     balance_messages = []
     total_balance_inr = 0
-    total_unrealized_pnl_inr = 0
+    total_balance_usd = 0
+    total_unrealized_pnl = 0
     
     # Fixed conversion rate: 1 USD = 85 INR
     USD_TO_INR = 85.0
@@ -76,10 +72,8 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             credentials = await get_decrypted_api_credential(str(api.id))
             if not credentials:
                 balance_messages.append(
-                    f"<b>❌ {api.api_name}</b>
-"
-                    f"Failed to decrypt credentials
-"
+                    f"<b>❌ {api.api_name}</b>\n"
+                    f"Failed to decrypt credentials\n"
                 )
                 continue
             
@@ -89,14 +83,11 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             client = DeltaClient(api_key, api_secret)
             
             try:
-                # ✅ Fetch wallet balance
-                wallet_response = await client.get_wallet_balance()
+                # Fetch balance
+                response = await client.get_wallet_balance()
                 
-                # ✅ Fetch positions to calculate unrealized PnL
-                positions_response = await client.get_positions()
-                
-                if wallet_response.get('success'):
-                    result = wallet_response.get('result', [])
+                if response.get('success'):
+                    result = response.get('result', [])
                     
                     # Try to find INR balance first (India API)
                     balance_data = None
@@ -109,57 +100,45 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if balance_data:
                         asset_symbol = balance_data.get('asset_symbol', 'INR')
                         balance = float(balance_data.get('balance', 0))
+                        unrealized_pnl = float(balance_data.get('unrealized_pnl', 0))
+                        available_balance = float(balance_data.get('available_balance', balance))
                         
-                        # ✅ Calculate total unrealized PnL from ALL positions
-                        unrealized_pnl = 0.0
-                        if positions_response.get('success'):
-                            positions = positions_response.get('result', [])
-                            for pos in positions:
-                                # Sum unrealized_pnl from each position
-                                pos_unrealized_pnl = float(pos.get('unrealized_pnl', 0))
-                                unrealized_pnl += pos_unrealized_pnl
-                        
-                        # Convert to INR
+                        # Convert to both INR and USD
                         if asset_symbol == 'INR':
                             balance_inr = balance
-                            unrealized_pnl_inr = unrealized_pnl
+                            balance_usd = balance / USD_TO_INR
                         else:  # USD or USDT
+                            balance_usd = balance
                             balance_inr = balance * USD_TO_INR
-                            unrealized_pnl_inr = unrealized_pnl * USD_TO_INR
                         
                         # Format balance message
-                        balance_text = f"<b>💼 {api.api_name}</b>
-"
-                        balance_text += f"Balance: ₹{balance_inr:,.2f}
-"
+                        balance_text = (
+                            f"<b>💼 {api.api_name}</b>\n"
+                            f"Balance: ₹{balance_inr:,.2f} (${balance_usd:,.2f})\n"
+                        )
                         
-                        if unrealized_pnl_inr != 0:
-                            if unrealized_pnl_inr > 0:
-                                balance_text += f"Unrealized PnL: 🟢 +₹{unrealized_pnl_inr:,.2f}
-"
+                        if unrealized_pnl != 0:
+                            if unrealized_pnl > 0:
+                                balance_text += f"Unrealized PnL: 🟢 +${unrealized_pnl:,.2f}\n"
                             else:
-                                balance_text += f"Unrealized PnL: 🔴 ₹{unrealized_pnl_inr:,.2f}
-"
+                                balance_text += f"Unrealized PnL: 🔴 ${unrealized_pnl:,.2f}\n"
                         
                         balance_messages.append(balance_text)
                         
-                        # Add to totals
+                        # Add to totals (use INR as base)
                         total_balance_inr += balance_inr
-                        total_unrealized_pnl_inr += unrealized_pnl_inr
+                        total_balance_usd += balance_usd
+                        total_unrealized_pnl += unrealized_pnl
                     else:
                         balance_messages.append(
-                            f"<b>⚠️ {api.api_name}</b>
-"
-                            f"No balance found
-"
+                            f"<b>⚠️ {api.api_name}</b>\n"
+                            f"No balance found\n"
                         )
                 else:
-                    error_msg = wallet_response.get('error', {}).get('message', 'Unknown error')
+                    error_msg = response.get('error', {}).get('message', 'Unknown error')
                     balance_messages.append(
-                        f"<b>❌ {api.api_name}</b>
-"
-                        f"Error: {error_msg}
-"
+                        f"<b>❌ {api.api_name}</b>\n"
+                        f"Error: {error_msg}\n"
                     )
             
             finally:
@@ -168,45 +147,30 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"Failed to fetch balance for API {api.id}: {e}", exc_info=True)
             balance_messages.append(
-                f"<b>❌ {api.api_name}</b>
-"
-                f"Error: {str(e)[:50]}
-"
+                f"<b>❌ {api.api_name}</b>\n"
+                f"Error: {str(e)[:50]}\n"
             )
     
     # Construct final message
     if balance_messages:
-        final_text = "<b>💰 Wallet Balance</b>
-
-"
-        final_text += "
-".join(balance_messages)
+        final_text = "<b>💰 Wallet Balance</b>\n\n"
+        final_text += "\n".join(balance_messages)
         
         # Add totals if multiple APIs
         if len(apis) > 1:
-            final_text += "
-" + "="*30 + "
-"
-            final_text += f"<b>Combined Total:</b> ₹{total_balance_inr:,.2f}
-"
+            final_text += "\n" + "="*30 + "\n"
+            final_text += f"<b>Combined Total:</b> ₹{total_balance_inr:,.2f}\n"
             final_text += f"<b>Total Unrealized PnL:</b> "
-            if total_unrealized_pnl_inr > 0:
-                final_text += f"🟢 +₹{total_unrealized_pnl_inr:,.2f}
-"
-            elif total_unrealized_pnl_inr < 0:
-                final_text += f"🔴 ₹{total_unrealized_pnl_inr:,.2f}
-"
+            if total_unrealized_pnl > 0:
+                final_text += f"🟢 ${total_unrealized_pnl:,.2f}\n"
+            elif total_unrealized_pnl < 0:
+                final_text += f"🔴 ${abs(total_unrealized_pnl):,.2f}\n"
             else:
-                final_text += f"⚪ ₹{total_unrealized_pnl_inr:,.2f}
-"
+                final_text += f"⚪ ${total_unrealized_pnl:,.2f}\n"
     else:
         final_text = (
-            "<b>💰 Balance</b>
-
-"
-            "❌ Failed to fetch balance data.
-
-"
+            "<b>💰 Balance</b>\n\n"
+            "❌ Failed to fetch balance data.\n\n"
             "Please try again later."
         )
     
@@ -222,13 +186,19 @@ async def balance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @error_handler
 async def balance_refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle balance refresh callback."""
+    """
+    Handle balance refresh callback.
+    """
+    # Refresh is the same as viewing balance
     await balance_callback(update, context)
+    
     log_user_action(update.callback_query.from_user.id, "balance_refresh", "Refreshed balances")
 
 
 def register_balance_handlers(application: Application):
-    """Register balance handlers."""
+    """
+    Register balance handlers.
+    """
     # Balance menu callback
     application.add_handler(CallbackQueryHandler(
         balance_callback,
@@ -246,3 +216,4 @@ def register_balance_handlers(application: Application):
 
 if __name__ == "__main__":
     print("Balance handler module loaded")
+    
