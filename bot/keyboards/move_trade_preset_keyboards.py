@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 def main_menu_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("View Trade Presets", callback_data="move_preset_view")],
+        [InlineKeyboardButton("View Trade Presets", callback_data="move_preset_view$")],
         [InlineKeyboardButton("Add Trade Preset", callback_data="move_preset_add")],
         [InlineKeyboardButton("Back to Main Menu", callback_data="menu_main")],
     ])
@@ -21,19 +21,19 @@ def view_presets_keyboard(presets):
 
 def preset_detail_keyboard(preset_id):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Edit", callback_data=f"movepresetedit-{preset_id}")],
-        [InlineKeyboardButton("Delete", callback_data=f"movepresetdeleteconfirm-{preset_id}")],
-        [InlineKeyboardButton("Back to List", callback_data="move_preset_view")],
+        [InlineKeyboardButton("Edit", callback_data=f"move_preset_edit_-{preset_id}")],
+        [InlineKeyboardButton("Delete", callback_data=f"move_preset_delete_confirm_-{preset_id}")],
+        [InlineKeyboardButton("Back to List", callback_data="move_preset_view$")],
     ])
 
 def delete_confirm_keyboard(preset_id):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Yes, Delete", callback_data=f"movepresetdelete-{preset_id}")],
-        [InlineKeyboardButton("Cancel", callback_data=f"movepresetdetail-{preset_id}")],
+        [InlineKeyboardButton("Yes, Delete", callback_data=f"move_preset_delete_-{preset_id}")],
+        [InlineKeyboardButton("Cancel", callback_data=f"move_preset_detail_-{preset_id}")],
     ])
 
 def add_cancel_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Cancel", callback_data="movepresetcancel")],
+        [InlineKeyboardButton("Cancel", callback_data="move_preset_cancel$")],
     ])
   
