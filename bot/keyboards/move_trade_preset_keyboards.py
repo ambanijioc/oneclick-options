@@ -23,7 +23,7 @@ def preset_detail_keyboard(preset_id):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Edit", callback_data=f"movepresetedit-{preset_id}")],
         [InlineKeyboardButton("Delete", callback_data=f"movepresetdeleteconfirm-{preset_id}")],
-        [InlineKeyboardButton("Back to List", callback_data="movepresetview")],
+        [InlineKeyboardButton("Back to List", callback_data="move_preset_view")],
     ])
 
 def delete_confirm_keyboard(preset_id):
