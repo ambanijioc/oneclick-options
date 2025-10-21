@@ -14,9 +14,9 @@ def view_presets_keyboard(presets):
     for preset in presets:
         name = preset.get("presetname", "Unnamed")
         preset_id = str(preset.get("_id") or preset.get("id"))
-        keyboard.append([InlineKeyboardButton(name, callback_data=f"movepresetdetail-{preset_id}")])
+        keyboard.append([InlineKeyboardButton(name, callback_data=f"move_preset_detail_-{preset_id}")])
     keyboard.append([InlineKeyboardButton("Add Preset", callback_data="move_preset_add")])
-    keyboard.append([InlineKeyboardButton("Back", callback_data="menumovetradepreset")])
+    keyboard.append([InlineKeyboardButton("Back", callback_data="menu_move_trade_preset$")])
     return InlineKeyboardMarkup(keyboard)
 
 def preset_detail_keyboard(preset_id):
