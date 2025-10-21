@@ -6,7 +6,7 @@ def main_menu_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("View Trade Presets", callback_data="move_preset_view")],
         [InlineKeyboardButton("Add Trade Preset", callback_data="move_preset_add")],
-        [InlineKeyboardButton("Back to Main Menu", callback_data="menumain")],
+        [InlineKeyboardButton("Back to Main Menu", callback_data="menu_main")],
     ])
 
 def view_presets_keyboard(presets):
