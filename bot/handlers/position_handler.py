@@ -25,6 +25,7 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
     """
     Handle position view callback.
     Display all open positions for all configured APIs and sum Unrealized PnL.
+    Enhanced with logging for debugging issues with unrealised PnL values.
     """
     query = update.callback_query
     await query.answer()
@@ -63,7 +64,6 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     for api in apis:
         try:
-            # Get decrypted credentials
             credentials = await get_decrypted_api_credential(str(api.id))
             if not credentials:
                 position_messages.append(
@@ -77,10 +77,13 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
 
             try:
                 response = await client.get_positions()
+                logger.info(f"[API: {api.api_name}] Raw /positions response: {response}")
 
                 if response.get('success'):
                     result = response.get('result', [])
-                    # Only active positions (nonzero size)
+                    for idx, pos in enumerate(result):
+                        logger.info(f"[API: {api.api_name}] Position #{idx} data: {pos}")
+
                     active_positions = [
                         pos for pos in result
                         if float(pos.get('size', 0)) != 0
@@ -94,6 +97,12 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                             entry_price = float(position.get('entry_price', 0))
                             mark_price = float(position.get('mark_price', 0))
                             symbol = position.get('product', {}).get('symbol', 'Unknown')
+
+                            # Log each field
+                            logger.info(
+                                f"[API: {api.api_name}] {symbol} position: size={size}, entry={entry_price}, mark={mark_price}, "
+                                f"unrealised_pnl={position.get('unrealised_pnl')}, pnl={position.get('pnl')}"
+                            )
 
                             # Always use Delta's v2 `unrealised_pnl` field for correct logic
                             unrealized_pnl = position.get('unrealised_pnl', 0)
@@ -120,7 +129,6 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                                 api_position_text += f"⚪ ${pnl_float:,.2f}\n"
 
                             api_position_text += "\n"
-
                             total_unrealized_pnl += pnl_float
                             total_positions += 1
 
@@ -132,6 +140,7 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                         )
                 else:
                     error_msg = response.get('error', {}).get('message', 'Unknown error')
+                    logger.error(f"[API: {api.api_name}] Error in positions response: {error_msg}")
                     position_messages.append(
                         f"<b>❌ {api.api_name}</b>\n"
                         f"Error: {error_msg}\n"
