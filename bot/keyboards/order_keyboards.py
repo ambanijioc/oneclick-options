@@ -35,7 +35,7 @@ def get_order_list_keyboard(apis: List[APICredential]) -> InlineKeyboardMarkup:
     
     # Add refresh button
     if apis:
-        keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data="menu_orders")])
+        keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data="menu_orders$")])
     
     # Add back button
     keyboard.append(get_back_to_main_menu_button())
@@ -86,7 +86,7 @@ def get_order_action_keyboard(
     
     # Add refresh and back buttons
     keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"order_view_{api_id}")])
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_orders")])
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_orders$")])
     
     return InlineKeyboardMarkup(keyboard)
 
