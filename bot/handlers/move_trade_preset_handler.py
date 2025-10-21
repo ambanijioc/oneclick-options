@@ -102,7 +102,12 @@ async def move_preset_detail_callback(update: Update, context: ContextTypes.DEFA
             parse_mode='HTML'
         )
         return
-    # ... build `text` for details as before ...
+    # Construct your details text as before, e.g.:
+    text = (
+        f"<b>Preset Name:</b> {preset.get('preset_name','Unnamed')}\n"
+        f"<b>API:</b> {api.api_name if api else 'Missing'}\n"
+        f"<b>Strategy:</b> {strategy.get('strategy_name','Unnamed') if strategy else 'Missing'}"
+    )
     await query.edit_message_text(
         text,
         reply_markup=preset_detail_keyboard(preset_id),
@@ -127,8 +132,8 @@ async def move_preset_delete_confirm_callback(update: Update, context: ContextTy
         f"<b>⚠️ Delete Trade Preset?</b>\n\n"
         f"Are you sure you want to delete:\n"
         f"<b>{preset.get('preset_name', 'Unnamed')}</b>?\n\n"
-        f"This will NOT delete the linked strategy or API key.\n"
-        f"This action cannot be undone!",
+        "This will NOT delete the linked strategy or API key.\n"
+        "This action cannot be undone!",
         reply_markup=delete_confirm_keyboard(preset_id),
         parse_mode='HTML'
     )
@@ -163,13 +168,12 @@ async def move_preset_delete_callback(update: Update, context: ContextTypes.DEFA
             parse_mode='HTML'
         )
 
-# ADD/CANCEL
+# ADD/CANCEL (same, but uses add_cancel_keyboard for reply_markup)
 @error_handler
 async def move_preset_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user = query.from_user
-    # API/strategy checks and logic here
     await state_manager.set_state(user.id, 'awaiting_move_preset_name')
     await state_manager.set_state_data(user.id, {})
     await query.edit_message_text(
@@ -185,7 +189,13 @@ async def move_preset_add_callback(update: Update, context: ContextTypes.DEFAULT
     )
     log_user_action(user.id, "move_preset_add", "Started preset creation")
 
-# CANCEL FLOW (No change needed if keyboard is simple)
+@error_handler
+async def move_preset_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    await state_manager.clear_state(user.id)
+    await move_trade_preset_menu_callback(update, context)
 
 @error_handler
 async def move_preset_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
