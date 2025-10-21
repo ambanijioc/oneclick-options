@@ -101,11 +101,11 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                             # Log each field
                             logger.info(
                                 f"[API: {api.api_name}] {symbol} position: size={size}, entry={entry_price}, mark={mark_price}, "
-                                f"unrealised_pnl={position.get('unrealised_pnl')}, pnl={position.get('pnl')}"
+                                f"unrealized_pnl={position.get('unrealized_pnl')}, pnl={position.get('pnl')}"
                             )
 
-                            # Always use Delta's v2 `unrealised_pnl` field for correct logic
-                            unrealized_pnl = position.get('unrealised_pnl', 0)
+                            # Always use Delta's v2 `unrealized_pnl` field for correct logic
+                            unrealized_pnl = position.get('unrealized_pnl', 0)
                             try:
                                 pnl_float = float(unrealized_pnl)
                             except Exception:
