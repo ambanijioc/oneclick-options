@@ -474,7 +474,7 @@ async def move_preset_edit_callback(update: Update, context: ContextTypes.DEFAUL
         "2. Create a new one with desired settings\n\n"
         "Full edit functionality coming soon!",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔙 Back", callback_data=f"move_preset_detail_{preset_id}")]
+            [InlineKeyboardButton("🔙 Back", callback_data=f"move_preset_detail{preset_id}")]
         ]),
         parse_mode='HTML'
     )
