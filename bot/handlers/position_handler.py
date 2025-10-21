@@ -24,21 +24,21 @@ logger = setup_logger(__name__)
 async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle position view callback.
-    Display all open positions for configured APIs.
+    Display all open positions for all configured APIs and sum Unrealized PnL.
     """
     query = update.callback_query
     await query.answer()
-    
+
     user = query.from_user
-    
+
     # Check authorization
     if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access")
         return
-    
+
     # Get user's APIs
     apis = await get_api_credentials(user.id)
-    
+
     if not apis:
         await query.edit_message_text(
             "<b>📊 Positions</b>\n\n"
@@ -49,18 +49,18 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
         )
         log_user_action(user.id, "position_view", "No APIs configured")
         return
-    
+
     # Show loading message
     await query.edit_message_text(
         "⏳ <b>Loading positions...</b>\n\n"
         "Fetching position data from Delta Exchange...",
         parse_mode='HTML'
     )
-    
+
     position_messages = []
     total_unrealized_pnl = 0.0
     total_positions = 0
-    
+
     for api in apis:
         try:
             # Get decrypted credentials
@@ -71,43 +71,39 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                     f"Failed to decrypt credentials\n"
                 )
                 continue
-            
+
             api_key, api_secret = credentials
-            
             client = DeltaClient(api_key, api_secret)
-            
+
             try:
                 response = await client.get_positions()
-                
+
                 if response.get('success'):
                     result = response.get('result', [])
-
-                    # Only positions with nonzero size
+                    # Only active positions (nonzero size)
                     active_positions = [
-                        pos for pos in result 
+                        pos for pos in result
                         if float(pos.get('size', 0)) != 0
                     ]
-        
+
                     if active_positions:
                         api_position_text = f"<b>📊 {api.api_name}</b>\n\n"
-                        
+
                         for position in active_positions:
                             size = float(position.get('size', 0))
                             entry_price = float(position.get('entry_price', 0))
                             mark_price = float(position.get('mark_price', 0))
                             symbol = position.get('product', {}).get('symbol', 'Unknown')
 
-                            # Use 'unrealised_pnl' if available, otherwise try 'pnl'
-                            unrealized_pnl = position.get('unrealised_pnl')
-                            if unrealized_pnl is None:
-                                unrealized_pnl = position.get('pnl', 0)
+                            # Always use Delta's v2 `unrealised_pnl` field for correct logic
+                            unrealized_pnl = position.get('unrealised_pnl', 0)
                             try:
-                                unrealized_pnl = float(unrealized_pnl)
+                                pnl_float = float(unrealized_pnl)
                             except Exception:
-                                unrealized_pnl = 0
+                                pnl_float = 0.0
 
                             direction = "🟢 Long" if size > 0 else "🔴 Short"
-                            
+
                             api_position_text += (
                                 f"{direction} {symbol}\n"
                                 f"Size: {abs(size)}\n"
@@ -115,19 +111,19 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                                 f"Mark: ${mark_price:,.2f}\n"
                                 f"PnL: "
                             )
-                            
-                            if unrealized_pnl > 0:
-                                api_position_text += f"🟢 +${unrealized_pnl:,.2f}\n"
-                            elif unrealized_pnl < 0:
-                                api_position_text += f"🔴 ${unrealized_pnl:,.2f}\n"
+
+                            if pnl_float > 0:
+                                api_position_text += f"🟢 +${pnl_float:,.2f}\n"
+                            elif pnl_float < 0:
+                                api_position_text += f"🔴 ${pnl_float:,.2f}\n"
                             else:
-                                api_position_text += f"⚪ ${unrealized_pnl:,.2f}\n"
-                            
+                                api_position_text += f"⚪ ${pnl_float:,.2f}\n"
+
                             api_position_text += "\n"
-                            
-                            total_unrealized_pnl += unrealized_pnl
+
+                            total_unrealized_pnl += pnl_float
                             total_positions += 1
-                        
+
                         position_messages.append(api_position_text)
                     else:
                         position_messages.append(
@@ -140,22 +136,22 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                         f"<b>❌ {api.api_name}</b>\n"
                         f"Error: {error_msg}\n"
                     )
-            
+
             finally:
                 await client.close()
-        
+
         except Exception as e:
             logger.error(f"Failed to fetch positions for API {api.id}: {e}", exc_info=True)
             position_messages.append(
                 f"<b>❌ {api.api_name}</b>\n"
                 f"Error: {str(e)[:80]}\n"
             )
-    
+
     # Construct final message
     if position_messages:
         final_text = "<b>📊 Open Positions</b>\n\n"
         final_text += "\n".join(position_messages)
-        final_text += "="*30 + "\n"
+        final_text += "=" * 30 + "\n"
         final_text += f"<b>Total Positions:</b> {total_positions}\n"
         final_text += f"<b>Total Unrealized PnL:</b> "
         if total_unrealized_pnl > 0:
@@ -170,13 +166,13 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
             "❌ Failed to fetch position data.\n\n"
             "Please try again later."
         )
-    
+
     await query.edit_message_text(
         final_text,
         reply_markup=get_position_keyboard(),
         parse_mode='HTML'
     )
-    
+
     log_user_action(user.id, "position_view", f"Viewed positions from {len(apis)} API(s)")
 
 
