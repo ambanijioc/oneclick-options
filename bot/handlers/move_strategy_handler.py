@@ -849,8 +849,8 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
     """Confirm deletion of MOVE strategy."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
+    
     strategy_id = query.data.split('_')[2]  # move_delete_{id}
     
     try:
@@ -864,22 +864,26 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
-        # Show confirmation
+        # ✅ FIXED: get_delete_confirmation_keyboard already returns InlineKeyboardMarkup
         keyboard = get_delete_confirmation_keyboard(strategy_id)
         
+        # Safe direction display
+        direction = strategy.get('direction')
+        direction_display = direction.capitalize() if direction else 'N/A'
+        
         await query.edit_message_text(
-            f"<b>⚠️ Confirm Deletion</b>\n\n"
+            f"⚠️ Confirm Deletion\n\n"
             f"Are you sure you want to delete this strategy?\n\n"
-            f"<b>Name:</b> {strategy.get('name')}\n"
-            f"<b>Asset:</b> {strategy.get('asset')}\n"
-            f"<b>Direction:</b> {strategy.get('direction').capitalize()}\n\n"
-            f"<i>This action cannot be undone!</i>",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            f"Name: {strategy.get('strategy_name')}\n"
+            f"Asset: {strategy.get('asset')}\n"
+            f"Direction: {direction_display}\n\n"
+            f"This action cannot be undone!",
+            reply_markup=keyboard,  # ✅ Use directly, don't wrap again!
             parse_mode='HTML'
         )
-    
+        
     except Exception as e:
-        logger.error(f"Error confirming MOVE strategy deletion: {e}")
+        logger.error(f"Error confirming MOVE strategy deletion: {e}", exc_info=True)
         await query.edit_message_text(
             f"❌ Error: {str(e)}",
             reply_markup=get_move_menu_keyboard(),
