@@ -898,7 +898,11 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
     await query.answer()
     
     user = query.from_user
-    strategy_id = query.data.split('_')[3]  # move_delete_confirmed_{id}
+    
+    # ✅ FIX: Correct parsing based on callback pattern
+    # Callback is: move_delete_confirmed_{id}
+    parts = query.data.split('_')
+    strategy_id = parts[3] if len(parts) > 3 else parts[2]  # Handle both patterns safely
     
     try:
         strategy = await get_move_strategy(strategy_id)
@@ -911,27 +915,28 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
             )
             return
         
+        # ✅ FIX: Use correct field name
+        strategy_name = strategy.get('strategy_name', 'Unnamed')  # NOT 'name'
+        
         # Delete strategy
-        strategy_name = strategy.get('name')
         await delete_move_strategy(strategy_id)
         
         log_user_action(user.id, f"Deleted MOVE strategy: {strategy_name}")
         
         await query.edit_message_text(
-            f"<b>✅ Strategy Deleted</b>\n\n"
+            f"✅ <b>Strategy Deleted</b>\n\n"
             f"<b>{strategy_name}</b> has been successfully deleted.",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
         )
     
     except Exception as e:
-        logger.error(f"Error deleting MOVE strategy: {e}")
+        logger.error(f"Error deleting MOVE strategy: {e}", exc_info=True)
         await query.edit_message_text(
             f"❌ Error deleting strategy: {str(e)}",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
         )
-
 
 # ==================== HANDLER REGISTRATION ====================
 
