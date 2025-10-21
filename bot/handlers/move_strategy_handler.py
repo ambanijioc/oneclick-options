@@ -18,6 +18,24 @@ from database.operations.move_strategy_ops import (
     delete_move_strategy
 )
 
+# ✅ Import all keyboard functions
+from bot.keyboards.move_strategy_keyboards import (
+    get_move_menu_keyboard,
+    get_cancel_keyboard,
+    get_asset_keyboard,
+    get_expiry_keyboard,
+    get_direction_keyboard,
+    get_confirmation_keyboard,
+    get_skip_target_keyboard,
+    get_continue_edit_keyboard,
+    get_delete_confirmation_keyboard,
+    get_strategy_list_keyboard,
+    get_edit_fields_keyboard,
+    get_edit_asset_keyboard,
+    get_edit_expiry_keyboard,
+    get_edit_direction_keyboard
+)
+
 logger = setup_logger(__name__)
 
 
@@ -38,7 +56,6 @@ async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFA
     """Main MOVE strategy menu."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
     
     if not await check_user_authorization(user):
@@ -48,13 +65,13 @@ async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFA
     log_user_action(user.id, "Opened MOVE strategy menu")
     
     await query.edit_message_text(
-        "<b>🎯 MOVE Strategy Management</b>\n\n"
+        "🎯 MOVE Strategy Management\n\n"
         "Manage your MOVE option strategies:\n\n"
-        "➕ <b>Add Strategy</b> - Create new MOVE strategy\n"
-        "✏️ <b>Edit Strategy</b> - Modify existing strategy\n"
-        "🗑️ <b>Delete Strategy</b> - Remove strategy\n"
-        "👁️ <b>View Strategies</b> - See all your strategies\n\n"
-        "<i>Select an option below:</i>",
+        "➕ Add Strategy - Create new MOVE strategy\n"
+        "✏️ Edit Strategy - Modify existing strategy\n"
+        "🗑️ Delete Strategy - Remove strategy\n"
+        "👁️ View Strategies - See all your strategies\n\n"
+        "Select an option below:",
         reply_markup=get_move_menu_keyboard(),
         parse_mode='HTML'
     )
@@ -67,7 +84,6 @@ async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start MOVE strategy addition flow."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
     
     if not await check_user_authorization(user):
@@ -83,16 +99,12 @@ async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await state_manager.set_state(user.id, 'move_add_name')
     await state_manager.set_state_data(user.id, {'strategy_type': 'move'})
     
-    keyboard = [
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
-    
     await query.edit_message_text(
-        "<b>📝 Add MOVE Strategy</b>\n\n"
-        "<b>Step 1/7: Strategy Name</b>\n\n"
+        "📝 Add MOVE Strategy\n\n"
+        "Step 1/7: Strategy Name\n\n"
         "Enter a unique name for your MOVE strategy:\n\n"
-        "<i>Example: BTC 8AM MOVE, ETH Daily MOVE</i>",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        "Example: BTC 8AM MOVE, ETH Daily MOVE",
+        reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
 
@@ -108,11 +120,7 @@ async def move_skip_description_callback(update: Update, context: ContextTypes.D
     # Move to asset selection
     await state_manager.set_state(user.id, 'move_add_asset')
     
-    keyboard = [
-        [InlineKeyboardButton("₿ BTC", callback_data="move_asset_BTC")],
-        [InlineKeyboardButton("Ξ ETH", callback_data="move_asset_ETH")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
+    keyboard = get_asset_keyboard()
     
     data = await state_manager.get_state_data(user.id)
     
@@ -143,12 +151,7 @@ async def move_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Move to expiry selection
     await state_manager.set_state(user.id, 'move_add_expiry')
     
-    keyboard = [
-        [InlineKeyboardButton("📅 Daily", callback_data="move_expiry_daily")],
-        [InlineKeyboardButton("📆 Weekly", callback_data="move_expiry_weekly")],
-        [InlineKeyboardButton("📊 Monthly", callback_data="move_expiry_monthly")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
+    keyboard = get_expiry_keyboard()
     
     data = await state_manager.get_state_data(user.id)
     
@@ -180,11 +183,7 @@ async def move_expiry_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     # Move to direction selection
     await state_manager.set_state(user.id, 'move_add_direction')
     
-    keyboard = [
-        [InlineKeyboardButton("🟢 Long (Buy)", callback_data="move_direction_long")],
-        [InlineKeyboardButton("🔴 Short (Sell)", callback_data="move_direction_short")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
+    keyboard = get_direction_keyboard()
     
     data = await state_manager.get_state_data(user.id)
     
@@ -219,9 +218,7 @@ async def move_direction_callback(update: Update, context: ContextTypes.DEFAULT_
     # Move to ATM offset input
     await state_manager.set_state(user.id, 'move_add_atm_offset')
     
-    keyboard = [
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
+    keyboard = get_cancel_keyboard()
     
     data = await state_manager.get_state_data(user.id)
     
@@ -292,10 +289,7 @@ async def show_move_confirmation(update: Update, context: ContextTypes.DEFAULT_T
     
     text += "\n<b>Save this strategy?</b>"
     
-    keyboard = [
-        [InlineKeyboardButton("✅ Confirm & Save", callback_data="move_confirm_save")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
+    keyboard = get_confirmation_keyboard()
     
     # ✅ KEY FIX: Handle both button clicks (callback_query) and text messages
     if update.callback_query:
@@ -562,19 +556,7 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
         
         # Show edit options
-        keyboard = [
-            [InlineKeyboardButton("📝 Edit Name", callback_data="move_edit_field_name")],
-            [InlineKeyboardButton("📄 Edit Description", callback_data="move_edit_field_description")],
-            [InlineKeyboardButton("💰 Edit Asset", callback_data="move_edit_field_asset")],
-            [InlineKeyboardButton("📅 Edit Expiry", callback_data="move_edit_field_expiry")],
-            [InlineKeyboardButton("🎯 Edit Direction", callback_data="move_edit_field_direction")],
-            [InlineKeyboardButton("📊 Edit ATM Offset", callback_data="move_edit_field_atm_offset")],
-            [InlineKeyboardButton("🔴 Edit SL Trigger", callback_data="move_edit_field_sl_trigger")],
-            [InlineKeyboardButton("🔴 Edit SL Limit", callback_data="move_edit_field_sl_limit")],
-            [InlineKeyboardButton("🟢 Edit Target Trigger", callback_data="move_edit_field_target_trigger")],
-            [InlineKeyboardButton("🟢 Edit Target Limit", callback_data="move_edit_field_target_limit")],
-            [InlineKeyboardButton("🔙 Back", callback_data="move_edit_list")]
-        ]
+        keyboard = get_edit_fields_keyboard()
         
         text = (
             f"<b>✏️ Edit: {strategy.get('name')}</b>\n\n"
@@ -633,28 +615,15 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
         if field in ['asset', 'expiry', 'direction']:
             # Button-based selection
             if field == 'asset':
-                keyboard = [
-                    [InlineKeyboardButton("₿ BTC", callback_data=f"move_edit_save_asset_BTC")],
-                    [InlineKeyboardButton("Ξ ETH", callback_data=f"move_edit_save_asset_ETH")],
-                    [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
-                ]
+                keyboard = get_edit_asset_keyboard(strategy_id)
                 prompt = "Select new asset:"
             
             elif field == 'expiry':
-                keyboard = [
-                    [InlineKeyboardButton("📅 Daily", callback_data=f"move_edit_save_expiry_daily")],
-                    [InlineKeyboardButton("📆 Weekly", callback_data=f"move_edit_save_expiry_weekly")],
-                    [InlineKeyboardButton("📊 Monthly", callback_data=f"move_edit_save_expiry_monthly")],
-                    [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
-                ]
+                keyboard = get_edit_expiry_keyboard(strategy_id)
                 prompt = "Select new expiry:"
             
             elif field == 'direction':
-                keyboard = [
-                    [InlineKeyboardButton("🟢 Long", callback_data=f"move_edit_save_direction_long")],
-                    [InlineKeyboardButton("🔴 Short", callback_data=f"move_edit_save_direction_short")],
-                    [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
-                ]
+                keyboard = get_edit_direction_keyboard(strategy_id)
                 prompt = "Select new direction:"
             
             await query.edit_message_text(
@@ -908,10 +877,7 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
             return
         
         # Show confirmation
-        keyboard = [
-            [InlineKeyboardButton("✅ Yes, Delete", callback_data=f"move_delete_confirmed_{strategy_id}")],
-            [InlineKeyboardButton("❌ No, Cancel", callback_data="move_delete_list")]
-        ]
+        keyboard = get_delete_confirmation_keyboard(strategy_id)
         
         await query.edit_message_text(
             f"<b>⚠️ Confirm Deletion</b>\n\n"
