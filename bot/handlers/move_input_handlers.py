@@ -223,8 +223,8 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
     try:
         target_trigger = float(text)
         
-        if not (-200 <= target_trigger <= 0):
-            raise ValueError("Target trigger must be between -200% and 0%")
+        if not (1000 <= target_trigger <= 0):
+            raise ValueError("Target trigger must be between 1000% and 0%")
         
         # Store target trigger
         await state_manager.set_state_data(user.id, {'target_trigger_percent': target_trigger})
@@ -241,7 +241,7 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
         await update.message.reply_text(
             f"<b>📝 Add MOVE Strategy</b>\n\n"
             f"<b>Target Trigger:</b> {target_trigger}%\n\n"
-            f"<b>Enter target limit % (e.g., -25 for -25%):</b>\n\n"
+            f"<b>Enter target limit % (e.g., 25 for 25%):</b>\n\n"
             f"<i>💡 Tip: Target limit should be <= target trigger</i>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
@@ -254,7 +254,7 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
         
         await update.message.reply_text(
             f"❌ Invalid target trigger: {str(e)}\n\n"
-            f"Please enter a number between -200 and 0:",
+            f"Please enter a number between 1000 and 0:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
