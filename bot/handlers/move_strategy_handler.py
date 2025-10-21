@@ -980,31 +980,31 @@ def register_move_strategy_handlers(application):
     
     handlers = [
         # Main menu
-        CallbackQueryHandler(move_strategy_menu_callback, pattern="^move_menu$"),
+        CallbackQueryHandler(move_strategy_menu_callback, pattern="^move_menu"),
         
         # Add strategy flow
-        CallbackQueryHandler(move_add_callback, pattern="^move_add$"),
-        CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"),
-        CallbackQueryHandler(move_asset_callback, pattern="^move_asset_"),
-        CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_"),
-        CallbackQueryHandler(move_direction_callback, pattern="^move_direction_"),
-        CallbackQueryHandler(move_confirm_save_callback, pattern="^move_confirm_save$"),
-        CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"),
-        CallbackQueryHandler(move_cancel_callback, pattern="^move_cancel$"),
+        CallbackQueryHandler(move_add_callback, pattern="^move_add"),
+        CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description"),
+        CallbackQueryHandler(move_asset_callback, pattern="^move_asset"),
+        CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry"),
+        CallbackQueryHandler(move_direction_callback, pattern="^move_direction"),
+        CallbackQueryHandler(move_confirm_save_callback, pattern="^move_confirm_save"),
+        CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target"),
+        CallbackQueryHandler(move_cancel_callback, pattern="^move_cancel"),
         
         # View strategies
         CallbackQueryHandler(move_view_callback, pattern="^move_view$"),
         
         # Edit strategy flow
-        CallbackQueryHandler(move_edit_list_callback, pattern="^move_edit_list$"),
-        CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[a-f0-9]{24}$"),
-        CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"),
-        CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"),
+        CallbackQueryHandler(move_edit_list_callback, pattern="^move_edit_list"),
+        CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit"),
+        CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field"),
+        CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save"),
         
         # Delete strategy flow
-        CallbackQueryHandler(move_delete_list_callback, pattern="^move_delete_list$"),
-        CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_[a-f0-9]{24}$"),
-        CallbackQueryHandler(move_delete_confirmed_callback, pattern="^move_delete_confirmed_"),
+        CallbackQueryHandler(move_delete_list_callback, pattern="^move_delete_list"),
+        CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete"),
+        CallbackQueryHandler(move_delete_confirmed_callback, pattern="^move_delete_confirmed"),
     ]
     
     for handler in handlers:
