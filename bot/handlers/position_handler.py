@@ -122,19 +122,6 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                                 f"unrealized_pnl={position.get('unrealized_pnl')}, pnl={position.get('pnl')}"
                             )
 
-                            if size < 0:
-                                # For shorts: premium collected - current market price
-                                try:
-                                    custom_pnl = entry_price - mark_price
-                                except Exception:
-                                    custom_pnl = 0.0
-                            else:
-                                # For longs: use API's unrealized_pnl
-                                try:
-                                    custom_pnl = float(position.get('unrealized_pnl', 0))
-                                except Exception:
-                                    custom_pnl = 0.0
-
                             direction = "🟢 Long" if size > 0 else "🔴 Short"
 
                             api_position_text += (
