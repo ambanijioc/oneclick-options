@@ -57,7 +57,6 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
         parse_mode='HTML'
     )
     
-    # Fetch positions for all APIs
     position_messages = []
     total_unrealized_pnl = 0
     total_positions = 0
@@ -75,41 +74,31 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
             
             api_key, api_secret = credentials
             
-            # Create Delta client
             client = DeltaClient(api_key, api_secret)
             
             try:
-                # Fetch positions with contract types (required for India API)
                 response = await client.get_positions()
                 
                 if response.get('success'):
                     result = response.get('result', [])
 
-                    # DEBUG: Log ALL positions before filtering
-                    logger.info(f"📊 API {api.api_name} - Total positions received: {len(result)}")
-                    for idx, pos in enumerate(result):
-                        logger.info(f"  Position {idx}: {pos.get('product', {}).get('symbol', 'Unknown')} | Size: {pos.get('size', 0)}")
-     
-                    # Filter only active positions (non-zero size)
+                    # Only positions with nonzero size
                     active_positions = [
                         pos for pos in result 
                         if float(pos.get('size', 0)) != 0
                     ]
-
-                    logger.info(f"📊 Active positions (non-zero size): {len(active_positions)}")
         
                     if active_positions:
-                        # Format positions
                         api_position_text = f"<b>📊 {api.api_name}</b>\n\n"
                         
                         for position in active_positions:
                             size = float(position.get('size', 0))
                             entry_price = float(position.get('entry_price', 0))
                             mark_price = float(position.get('mark_price', 0))
-                            unrealized_pnl = float(position.get('unrealized_pnl', 0))
+                            # FIX: Use `unrealised_pnl`, not `unrealized_pnl`
+                            unrealized_pnl = float(position.get('unrealised_pnl', 0))
                             symbol = position.get('product', {}).get('symbol', 'Unknown')
                             
-                            # Position direction
                             direction = "🟢 Long" if size > 0 else "🔴 Short"
                             
                             api_position_text += (
@@ -178,7 +167,6 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
             "Please try again later."
         )
     
-    # Display positions
     await query.edit_message_text(
         final_text,
         reply_markup=get_position_keyboard(),
@@ -193,9 +181,7 @@ async def position_refresh_callback(update: Update, context: ContextTypes.DEFAUL
     """
     Handle position refresh callback.
     """
-    # Refresh is the same as viewing positions
     await position_view_callback(update, context)
-    
     log_user_action(update.callback_query.from_user.id, "position_refresh", "Refreshed positions")
 
 
@@ -203,21 +189,17 @@ def register_position_handlers(application: Application):
     """
     Register position handlers.
     """
-    # Position view callback
     application.add_handler(CallbackQueryHandler(
         position_view_callback,
         pattern="^menu_positions$"
     ))
-    
-    # Position refresh callback
     application.add_handler(CallbackQueryHandler(
         position_refresh_callback,
         pattern="^position_refresh$"
     ))
-    
     logger.info("Position handlers registered")
 
 
 if __name__ == "__main__":
     print("Position handler module loaded")
-    
+        
