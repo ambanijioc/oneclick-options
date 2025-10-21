@@ -58,7 +58,7 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
     )
     
     position_messages = []
-    total_unrealized_pnl = 0
+    total_unrealized_pnl = 0.0
     total_positions = 0
     
     for api in apis:
@@ -95,10 +95,17 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                             size = float(position.get('size', 0))
                             entry_price = float(position.get('entry_price', 0))
                             mark_price = float(position.get('mark_price', 0))
-                            # FIX: Use `unrealised_pnl`, not `unrealized_pnl`
-                            unrealized_pnl = float(position.get('unrealised_pnl', 0))
                             symbol = position.get('product', {}).get('symbol', 'Unknown')
-                            
+
+                            # Use 'unrealised_pnl' if available, otherwise try 'pnl'
+                            unrealized_pnl = position.get('unrealised_pnl')
+                            if unrealized_pnl is None:
+                                unrealized_pnl = position.get('pnl', 0)
+                            try:
+                                unrealized_pnl = float(unrealized_pnl)
+                            except Exception:
+                                unrealized_pnl = 0
+
                             direction = "🟢 Long" if size > 0 else "🔴 Short"
                             
                             api_position_text += (
@@ -148,18 +155,15 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
     if position_messages:
         final_text = "<b>📊 Open Positions</b>\n\n"
         final_text += "\n".join(position_messages)
-        
-        # Add totals if positions exist
-        if total_positions > 0 and len(apis) > 1:
-            final_text += "="*30 + "\n"
-            final_text += f"<b>Total Positions:</b> {total_positions}\n"
-            final_text += f"<b>Total Unrealized PnL:</b> "
-            if total_unrealized_pnl > 0:
-                final_text += f"🟢 +${total_unrealized_pnl:,.2f}\n"
-            elif total_unrealized_pnl < 0:
-                final_text += f"🔴 ${total_unrealized_pnl:,.2f}\n"
-            else:
-                final_text += f"⚪ ${total_unrealized_pnl:,.2f}\n"
+        final_text += "="*30 + "\n"
+        final_text += f"<b>Total Positions:</b> {total_positions}\n"
+        final_text += f"<b>Total Unrealized PnL:</b> "
+        if total_unrealized_pnl > 0:
+            final_text += f"🟢 +${total_unrealized_pnl:,.2f}\n"
+        elif total_unrealized_pnl < 0:
+            final_text += f"🔴 ${total_unrealized_pnl:,.2f}\n"
+        else:
+            final_text += f"⚪ ${total_unrealized_pnl:,.2f}\n"
     else:
         final_text = (
             "<b>📊 Positions</b>\n\n"
@@ -202,4 +206,4 @@ def register_position_handlers(application: Application):
 
 if __name__ == "__main__":
     print("Position handler module loaded")
-        
+                    
