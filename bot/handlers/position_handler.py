@@ -104,36 +104,39 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                                 f"unrealized_pnl={position.get('unrealized_pnl')}, pnl={position.get('pnl')}"
                             )
 
-                            # Custom calculation for short positions
                             if size < 0:
+                                # For shorts: premium collected - current market price
+                                try:
                                     custom_pnl = entry_price - mark_price
+                                except Exception:
+                                    custom_pnl = 0.0
                             else:
-                                 # Long: use API's unrealized_pnl
+                                # For longs: use API's unrealized_pnl
                                 try:
                                     custom_pnl = float(position.get('unrealized_pnl', 0))
                                 except Exception:
                                     custom_pnl = 0.0
 
-                                direction = "🟢 Long" if size > 0 else "🔴 Short"
+                            direction = "🟢 Long" if size > 0 else "🔴 Short"
 
-                                api_position_text += (
-                                    f"{direction} {symbol}\n"
-                                    f"Size: {abs(size)}\n"
-                                    f"Entry: ${entry_price:,.2f}\n"
-                                    f"Mark: ${mark_price:,.2f}\n"
-                                    f"PnL: "
-                                )
+                            api_position_text += (
+                                f"{direction} {symbol}\n"
+                                f"Size: {abs(size)}\n"
+                                f"Entry: ${entry_price:,.2f}\n"
+                                f"Mark: ${mark_price:,.2f}\n"
+                                f"PnL: "
+                            )
 
-                                if custom_pnl > 0:
-                                    api_position_text += f"🟢 +${custom_pnl:,.2f}\n"
-                                elif custom_pnl < 0:
-                                    api_position_text += f"🔴 ${custom_pnl:,.2f}\n"
-                                else:
-                                    api_position_text += f"⚪ ${custom_pnl:,.2f}\n"
+                            if custom_pnl > 0:
+                                api_position_text += f"🟢 +${custom_pnl:,.2f}\n"
+                            elif custom_pnl < 0:
+                                api_position_text += f"🔴 ${custom_pnl:,.2f}\n"
+                            else:
+                                api_position_text += f"⚪ ${custom_pnl:,.2f}\n"
 
-                                api_position_text += "\n"
-                                total_unrealized_pnl += custom_pnl
-                                total_positions += 1
+                            api_position_text += "\n"
+                            total_unrealized_pnl += custom_pnl
+                            total_positions += 1
 
                         position_messages.append(api_position_text)
                     else:
