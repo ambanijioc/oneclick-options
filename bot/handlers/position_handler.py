@@ -97,6 +97,24 @@ async def position_view_callback(update: Update, context: ContextTypes.DEFAULT_T
                             entry_price = float(position.get('entry_price', 0))
                             mark_price = float(position.get('mark_price', 0))
                             symbol = position.get('product', {}).get('symbol', 'Unknown')
+                            size = float(position.get('size', 0))
+
+                            # Default: assume BTC unless ETH is found in symbol
+                            if 'ETH' in symbol:
+                                lot_size = 0.01
+                            else:
+                                lot_size = 0.001
+
+                            if size < 0:
+                                try:
+                                    custom_pnl = (entry_price - mark_price) * abs(size) * lot_size
+                                except Exception:
+                                    custom_pnl = 0.0
+                            else:
+                                try:
+                                    custom_pnl = float(position.get('unrealized_pnl', 0)) * abs(size) * lot_size
+                                except Exception:
+                                    custom_pnl = 0.0
 
                             # Log each field
                             logger.info(
