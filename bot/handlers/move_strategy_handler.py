@@ -851,7 +851,8 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
     await query.answer()
     user = query.from_user
     
-    strategy_id = query.data.split('_')[2]  # move_delete_{id}
+    # ✅ FIX: Extract strategy_id from correct index
+    strategy_id = query.data.split('_')[2]  # move_delete_{id} ✅ CORRECT
     
     try:
         strategy = await get_move_strategy(strategy_id)
@@ -864,7 +865,7 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
             )
             return
         
-        # ✅ FIXED: get_delete_confirmation_keyboard already returns InlineKeyboardMarkup
+        # Get keyboard - already returns InlineKeyboardMarkup
         keyboard = get_delete_confirmation_keyboard(strategy_id)
         
         # Safe direction display
@@ -878,7 +879,7 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
             f"Asset: {strategy.get('asset')}\n"
             f"Direction: {direction_display}\n\n"
             f"This action cannot be undone!",
-            reply_markup=keyboard,  # ✅ Use directly, don't wrap again!
+            reply_markup=keyboard,
             parse_mode='HTML'
         )
         
@@ -899,10 +900,17 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
     
     user = query.from_user
     
-    # ✅ FIX: Correct parsing based on callback pattern
-    # Callback is: move_delete_confirmed_{id}
+    # ✅ FIX: Extract from index 3 for move_delete_confirmed_{id}
     parts = query.data.split('_')
-    strategy_id = parts[3] if len(parts) > 3 else parts[2]  # Handle both patterns safely
+    strategy_id = parts[3] if len(parts) > 3 else None
+    
+    if not strategy_id:
+        await query.edit_message_text(
+            "❌ Invalid request.",
+            reply_markup=get_move_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
     
     try:
         strategy = await get_move_strategy(strategy_id)
@@ -915,8 +923,8 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
             )
             return
         
-        # ✅ FIX: Use correct field name
-        strategy_name = strategy.get('strategy_name', 'Unnamed')  # NOT 'name'
+        # Get strategy name BEFORE deletion
+        strategy_name = strategy.get('strategy_name', 'Unnamed')
         
         # Delete strategy
         await delete_move_strategy(strategy_id)
