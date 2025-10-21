@@ -512,10 +512,10 @@ async def move_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_
         
         keyboard = []
         for strategy in strategies:
-            strategy_id = str(strategy.get('_id'))
-            name = strategy.get('name')
-            asset = strategy.get('asset')
-            direction = strategy.get('direction')
+            strategy_id = strategy.get('id')  # ✅ Not '_id'
+            name = strategy.get('strategy_name', 'Unnamed')
+            asset = strategy.get('asset', 'N/A')
+            direction = strategy.get('direction', 'unknown')
             
             button_text = f"{name} ({asset} - {direction.capitalize()})"
             keyboard.append([InlineKeyboardButton(button_text, callback_data=f"move_edit_{strategy_id}")])
