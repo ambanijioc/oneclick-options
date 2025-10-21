@@ -15,7 +15,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("💰 Balance", callback_data="menu_balance")],
         [InlineKeyboardButton("📊 Positions", callback_data="menu_positions")],
-        [InlineKeyboardButton("📋 Orders", callback_data="menu_orders")],
+        [InlineKeyboardButton("📋 Orders", callback_data="menu_orders$")],
         [InlineKeyboardButton("📜 Trade History", callback_data="menu_trade_history")],
         [InlineKeyboardButton("📋 List Options", callback_data="menu_list_options")],
         [InlineKeyboardButton("📋 List Move Options", callback_data="menu_list_move_options")],
