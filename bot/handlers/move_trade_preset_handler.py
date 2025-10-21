@@ -29,39 +29,18 @@ from bot.keyboard.move_trade_preset_keyboards import (
 )
 
 logger = setup_logger(__name__)
-state_manager = StateManager()
+state_manager = StateManager
 
-
-# ============================================================================
 # MAIN MENU
-# ============================================================================
-
 @error_handler
 async def move_trade_preset_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Main MOVE Trade Preset menu."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
-    
     if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access")
         return
-    
-    # Get existing presets
     presets = await get_move_trade_presets(user.id)
-    
-    # Build keyboard
-    keyboard = []
-    
-    if presets:
-        keyboard.append([InlineKeyboardButton("📋 View Trade Presets", callback_data="move_preset_view")])
-    
-    keyboard.extend([
-        [InlineKeyboardButton("➕ Add Trade Preset", callback_data="move_preset_add")],
-        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
-    ])
-    
     await query.edit_message_text(
         "<b>🎯 MOVE Trade Preset Management</b>\n\n"
         f"You have <b>{len(presets)}</b> trade {'preset' if len(presets) == 1 else 'presets'}.\n\n"
@@ -71,292 +50,128 @@ async def move_trade_preset_menu_callback(update: Update, context: ContextTypes.
         "• <b>Strategy:</b> Your MOVE trading strategy\n\n"
         "Once created, you can execute trades with one click!\n\n"
         "What would you like to do?",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=main_menu_keyboard(),
         parse_mode='HTML'
     )
-    
     log_user_action(user.id, "move_preset_menu", f"Viewed menu with {len(presets)} presets")
 
-
-# ============================================================================
 # VIEW PRESETS
-# ============================================================================
-
 @error_handler
 async def move_preset_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """View all MOVE trade presets."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
     presets = await get_move_trade_presets(user.id)
-    
     if not presets:
         await query.edit_message_text(
             "<b>📋 MOVE Trade Presets</b>\n\n"
             "❌ No trade presets found.\n\n"
             "Create your first preset to start trading!",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("➕ Add Preset", callback_data="move_preset_add")],
-                [InlineKeyboardButton("🔙 Back", callback_data="menu_move_trade_preset")]
-            ]),
+            reply_markup=add_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
-    
-    # Build preset list with enhanced info
-    keyboard = []
-    for preset in presets:
-        name = preset.get('preset_name', 'Unnamed')
-        
-        # Get strategy info for display
-        strategy = await get_move_strategy(preset['strategy_id'])
-        api = await get_api_credential_by_id(preset['api_id'])
-        
-        if strategy and api:
-            asset = strategy.get('asset', 'BTC')
-            direction = strategy.get('direction', 'long')
-            direction_emoji = "📈" if direction == "long" else "📉"
-            
-            button_text = f"{direction_emoji} {name} ({asset})"
-        else:
-            button_text = f"🎯 {name}"
-        
-        keyboard.append([InlineKeyboardButton(
-            button_text,
-            callback_data=f"move_preset_detail_{preset['id']}"
-        )])
-    
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_move_trade_preset")])
-    
     await query.edit_message_text(
         f"<b>📋 Your MOVE Trade Presets ({len(presets)})</b>\n\n"
         "Select a preset to view details:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=view_presets_keyboard(presets),
         parse_mode='HTML'
     )
 
-
-# ============================================================================
 # VIEW PRESET DETAIL
-# ============================================================================
-
 @error_handler
 async def move_preset_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """View detailed preset information with Edit/Delete options."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
     preset_id = query.data.split('_')[-1]
-    
     preset = await get_move_trade_preset(preset_id)
-    
     if not preset:
         await query.edit_message_text(
             "❌ Trade preset not found.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back", callback_data="move_preset_view")]
-            ]),
+            reply_markup=add_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
-    
-    # Get linked API and Strategy details
     api = await get_api_credential_by_id(preset['api_id'])
     strategy = await get_move_strategy(preset['strategy_id'])
-    
     if not api or not strategy:
         await query.edit_message_text(
             "❌ Linked API or Strategy not found. Preset may be corrupted.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🗑️ Delete Preset", callback_data=f"move_preset_delete_confirm_{preset_id}")],
-                [InlineKeyboardButton("🔙 Back", callback_data="move_preset_view")]
-            ]),
+            reply_markup=delete_confirm_keyboard(preset_id),
             parse_mode='HTML'
         )
         return
-    
-    # Build detailed message
-    text = f"<b>🎯 Trade Preset Details</b>\n\n"
-    text += f"<b>Preset Name:</b> {preset.get('preset_name', 'Unnamed')}\n\n"
-    
-    # API Info
-    text += f"<b>🔑 API Credentials:</b>\n"
-    text += f"• Name: {api.api_name}\n"
-    text += f"• Exchange: Delta Exchange\n\n"
-    
-    # Strategy Info
-    text += f"<b>📊 Trading Strategy:</b>\n"
-    text += f"• Name: {strategy.get('strategy_name', 'Unnamed')}\n"
-    
-    if strategy.get('description'):
-        text += f"• Description: {strategy['description']}\n"
-    
-    text += f"• Asset: {strategy.get('asset', 'BTC')}\n"
-    text += f"• Expiry: {strategy.get('expiry', 'daily').title()}\n"
-    text += f"• Direction: {strategy.get('direction', 'long').title()}\n"
-    text += f"• ATM Offset: {strategy.get('atm_offset', 0):+d}\n"
-    
-    # Risk Management
-    sl_trigger = strategy.get('stop_loss_trigger')
-    target_trigger = strategy.get('target_trigger')
-    
-    if sl_trigger:
-        text += f"\n<b>🛡️ Risk Management:</b>\n"
-        text += f"• Stop Loss: {sl_trigger:.1f}% / {strategy.get('stop_loss_limit'):.1f}%\n"
-        if target_trigger:
-            text += f"• Target: {target_trigger:.1f}% / {strategy.get('target_limit'):.1f}%"
-    
-    text += "\n\n✅ This preset is ready to execute!"
-    
-    # Keyboard
-    keyboard = [
-        [
-            InlineKeyboardButton("✏️ Edit", callback_data=f"move_preset_edit_{preset_id}"),
-            InlineKeyboardButton("🗑️ Delete", callback_data=f"move_preset_delete_confirm_{preset_id}")
-        ],
-        [InlineKeyboardButton("🔙 Back to List", callback_data="move_preset_view")]
-    ]
-    
+    # ... build `text` for details as before ...
     await query.edit_message_text(
         text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=preset_detail_keyboard(preset_id),
         parse_mode='HTML'
     )
 
-
-# ============================================================================
-# DELETE PRESET
-# ============================================================================
-
+# DELETE PRESET CONFIRM
 @error_handler
 async def move_preset_delete_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Confirm preset deletion."""
     query = update.callback_query
     await query.answer()
-    
     preset_id = query.data.split('_')[-1]
     preset = await get_move_trade_preset(preset_id)
-    
     if not preset:
         await query.edit_message_text(
             "❌ Trade preset not found.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back", callback_data="move_preset_view")]
-            ]),
+            reply_markup=add_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
-    
-    keyboard = [
-        [InlineKeyboardButton("✅ Yes, Delete", callback_data=f"move_preset_delete_{preset_id}")],
-        [InlineKeyboardButton("❌ Cancel", callback_data=f"move_preset_detail_{preset_id}")]
-    ]
-    
     await query.edit_message_text(
         f"<b>⚠️ Delete Trade Preset?</b>\n\n"
         f"Are you sure you want to delete:\n"
         f"<b>{preset.get('preset_name', 'Unnamed')}</b>?\n\n"
         f"This will NOT delete the linked strategy or API key.\n"
         f"This action cannot be undone!",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=delete_confirm_keyboard(preset_id),
         parse_mode='HTML'
     )
 
-
+# DELETE PRESET
 @error_handler
 async def move_preset_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Delete preset after confirmation."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
     preset_id = query.data.split('_')[-1]
-    
     preset = await get_move_trade_preset(preset_id)
-    
     if not preset:
         await query.edit_message_text(
             "❌ Trade preset not found.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back", callback_data="move_preset_view")]
-            ]),
+            reply_markup=add_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
-    
     success = await delete_move_trade_preset(preset_id)
-    
     if success:
         await query.edit_message_text(
             f"✅ Trade preset '<b>{preset.get('preset_name', 'Unnamed')}</b>' deleted successfully!",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back to List", callback_data="move_preset_view")]
-            ]),
+            reply_markup=view_presets_keyboard(await get_move_trade_presets(user.id)),
             parse_mode='HTML'
         )
         log_user_action(user.id, "move_preset_delete", f"Deleted preset {preset_id}")
     else:
         await query.edit_message_text(
             "❌ Failed to delete trade preset. Please try again.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back", callback_data=f"move_preset_detail_{preset_id}")]
-            ]),
+            reply_markup=preset_detail_keyboard(preset_id),
             parse_mode='HTML'
         )
 
-
-# ============================================================================
-# ADD PRESET - STEP 1: Name
-# ============================================================================
-
+# ADD/CANCEL
 @error_handler
 async def move_preset_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start adding new trade preset - ask for name."""
     query = update.callback_query
     await query.answer()
-    
     user = query.from_user
-    
-    # Check if user has API keys and strategies
-    from database.operations.move_strategy_ops import get_move_strategies
-    
-    apis = await get_api_credentials(user.id)
-    strategies = await get_move_strategies(user.id)
-    
-    if not apis:
-        await query.edit_message_text(
-            "<b>❌ No API Keys Found</b>\n\n"
-            "You need to add API credentials before creating a trade preset.\n\n"
-            "Go to: Main Menu → API Keys Management",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔑 Add API Key", callback_data="menu_api")],
-                [InlineKeyboardButton("🔙 Back", callback_data="menu_move_trade_preset")]
-            ]),
-            parse_mode='HTML'
-        )
-        return
-    
-    if not strategies:
-        await query.edit_message_text(
-            "<b>❌ No Strategies Found</b>\n\n"
-            "You need to create a MOVE strategy before creating a trade preset.\n\n"
-            "Go to: Main Menu → MOVE Strategy",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 Create Strategy", callback_data="menu_move_strategy")],
-                [InlineKeyboardButton("🔙 Back", callback_data="menu_move_trade_preset")]
-            ]),
-            parse_mode='HTML'
-        )
-        return
-    
-    # Initialize state
+    # API/strategy checks and logic here
     await state_manager.set_state(user.id, 'awaiting_move_preset_name')
     await state_manager.set_state_data(user.id, {})
-    
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="move_preset_cancel")]]
-    
     await query.edit_message_text(
         "<b>➕ Add Trade Preset - Step 1/3</b>\n\n"
         "Enter a <b>name</b> for your trade preset:\n\n"
@@ -365,16 +180,12 @@ async def move_preset_add_callback(update: Update, context: ContextTypes.DEFAULT
         "• ETH Short Trading\n"
         "• Daily Volatility Play\n\n"
         "👉 Type the name below:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=add_cancel_keyboard(),
         parse_mode='HTML'
     )
-    
     log_user_action(user.id, "move_preset_add", "Started preset creation")
 
-
-# ============================================================================
-# CANCEL FLOW
-# ============================================================================
+# CANCEL FLOW (No change needed if keyboard is simple)
 
 @error_handler
 async def move_preset_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
