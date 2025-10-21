@@ -899,12 +899,12 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
     await query.answer()
     
     user = query.from_user
-    
+
+    import re
     # ✅ FIX: Extract from index 3 for move_delete_confirmed_{id}
     parts = query.data.split('_')
     strategy_id = parts[3] if len(parts) > 3 else None
-    
-    if not strategy_id:
+    if not strategy_id or not re.match(r"^[a-fA-F0-9]{24}$", strategy_id):
         await query.edit_message_text(
             "❌ Invalid request.",
             reply_markup=get_move_menu_keyboard(),
@@ -978,7 +978,7 @@ def register_move_strategy_handlers(application):
         # Delete strategy flow
         CallbackQueryHandler(move_delete_list_callback, pattern="^move_delete_list"),
         CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete"),
-        CallbackQueryHandler(move_delete_confirmed_callback, pattern="^move_delete_confirmed"),
+        CallbackQueryHandler(move_delete_confirmed_callback, pattern="^move_delete_confirmed_[a-fA-F0-9]{24}$"),
     ]
     
     for handler in handlers:
