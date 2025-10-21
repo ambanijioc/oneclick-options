@@ -490,63 +490,63 @@ def register_move_trade_preset_handlers(application: Application):
     # Main menu
     application.add_handler(CallbackQueryHandler(
         move_trade_preset_menu_callback,
-        pattern="^menu_move_trade_preset$"
+        pattern="^menu_move_trade_preset"
     ))
     
     # View presets
     application.add_handler(CallbackQueryHandler(
         move_preset_view_callback,
-        pattern="^move_preset_view$"
+        pattern="^move_preset_view"
     ))
     
     # View detail
     application.add_handler(CallbackQueryHandler(
         move_preset_detail_callback,
-        pattern="^move_preset_detail_"
+        pattern="^move_preset_detail"
     ))
     
     # Delete (confirmation + action)
     application.add_handler(CallbackQueryHandler(
         move_preset_delete_confirm_callback,
-        pattern="^move_preset_delete_confirm_"
+        pattern="^move_preset_delete_confirm"
     ))
     
     application.add_handler(CallbackQueryHandler(
         move_preset_delete_callback,
-        pattern="^move_preset_delete_"
+        pattern="^move_preset_delete"
     ))
     
     # Add preset flow
     application.add_handler(CallbackQueryHandler(
         move_preset_add_callback,
-        pattern="^move_preset_add$"
+        pattern="^move_preset_add"
     ))
     
     application.add_handler(CallbackQueryHandler(
         move_preset_api_callback,
-        pattern="^move_preset_api_"
+        pattern="^move_preset_api"
     ))
     
     application.add_handler(CallbackQueryHandler(
         move_preset_strategy_callback,
-        pattern="^move_preset_strategy_"
+        pattern="^move_preset_strategy"
     ))
     
     application.add_handler(CallbackQueryHandler(
         move_preset_confirm_callback,
-        pattern="^move_preset_confirm$"
+        pattern="^move_preset_confirm"
     ))
     
     # Edit
     application.add_handler(CallbackQueryHandler(
         move_preset_edit_callback,
-        pattern="^move_preset_edit_"
+        pattern="^move_preset_edit"
     ))
     
     # Cancel
     application.add_handler(CallbackQueryHandler(
         move_preset_cancel_callback,
-        pattern="^move_preset_cancel$"
+        pattern="^move_preset_cancel"
     ))
     
     # Text input handler
