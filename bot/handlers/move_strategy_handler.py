@@ -458,10 +458,10 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 desc = strategy.get('description')[:50]
                 text += f"   • Description: {desc}...\n" if len(strategy.get('description')) > 50 else f"   • Description: {desc}\n"
             
-            text += f"   • SL: {strategy.get('sl_trigger_percent')}% / {strategy.get('sl_limit_percent')}%\n"
+            text += f"   • SL: {strategy.get('stop_loss_trigger')}% / {strategy.get('stop_loss_limit')}%\n"
             
             if strategy.get('target_trigger_percent'):
-                text += f"   • Target: {strategy.get('target_trigger_percent')}% / {strategy.get('target_limit_percent')}%\n"
+                text += f"   • Target: {strategy.get('target_trigger')}% / {strategy.get('target_limit')}%\n"
             
             text += "\n"
         
