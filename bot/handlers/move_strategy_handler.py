@@ -857,10 +857,13 @@ async def move_delete_list_callback(update: Update, context: ContextTypes.DEFAUL
         
         keyboard = []
         for strategy in strategies:
-            strategy_id = str(strategy.get('_id'))
-            name = strategy.get('name')
-            asset = strategy.get('asset')
+            strategy_id = strategy.get('id')
+            name = strategy.get('strategy_name', 'Unnamed')
+            asset = strategy.get('asset', 'N/A')
             direction = strategy.get('direction')
+
+            # Safe capitalize
+            direction_display = direction.capitalize() if direction else 'N/A'
             
             button_text = f"❌ {name} ({asset} - {direction.capitalize()})"
             keyboard.append([InlineKeyboardButton(button_text, callback_data=f"move_delete_{strategy_id}")])
