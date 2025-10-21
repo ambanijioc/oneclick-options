@@ -893,18 +893,29 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
 
 
 @error_handler
+@error_handler
 async def move_delete_confirmed_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Execute deletion of MOVE strategy."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
-
-    import re
+    
+    # ✅ ADD DETAILED LOGGING
+    logger.info(f"🔍 DELETE CONFIRMED - Raw callback_data: '{query.data}'")
+    logger.info(f"🔍 DELETE CONFIRMED - User ID: {user.id}")
+    
     # ✅ FIX: Extract from index 3 for move_delete_confirmed_{id}
+    import re
     parts = query.data.split('_')
+    logger.info(f"🔍 DELETE CONFIRMED - Split parts: {parts}")
+    logger.info(f"🔍 DELETE CONFIRMED - Parts length: {len(parts)}")
+    
     strategy_id = parts[3] if len(parts) > 3 else None
+    logger.info(f"🔍 DELETE CONFIRMED - Extracted strategy_id: '{strategy_id}'")
+    
     if not strategy_id or not re.match(r"^[a-fA-F0-9]{24}$", strategy_id):
+        logger.warning(f"⚠️ DELETE CONFIRMED - Invalid strategy ID: '{strategy_id}'")
         await query.edit_message_text(
             "❌ Invalid request.",
             reply_markup=get_move_menu_keyboard(),
@@ -913,9 +924,11 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
         return
     
     try:
+        logger.info(f"🔍 DELETE CONFIRMED - Fetching strategy with ID: {strategy_id}")
         strategy = await get_move_strategy(strategy_id)
         
         if not strategy or strategy.get('user_id') != user.id:
+            logger.warning(f"⚠️ DELETE CONFIRMED - Strategy not found or access denied for ID: {strategy_id}")
             await query.edit_message_text(
                 "❌ Strategy not found or access denied.",
                 reply_markup=get_move_menu_keyboard(),
@@ -925,11 +938,13 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
         
         # Get strategy name BEFORE deletion
         strategy_name = strategy.get('strategy_name', 'Unnamed')
+        logger.info(f"🔍 DELETE CONFIRMED - Deleting strategy '{strategy_name}' (ID: {strategy_id})")
         
         # Delete strategy
         await delete_move_strategy(strategy_id)
         
         log_user_action(user.id, f"Deleted MOVE strategy: {strategy_name}")
+        logger.info(f"✅ DELETE CONFIRMED - Successfully deleted strategy '{strategy_name}'")
         
         await query.edit_message_text(
             f"✅ <b>Strategy Deleted</b>\n\n"
@@ -939,12 +954,13 @@ async def move_delete_confirmed_callback(update: Update, context: ContextTypes.D
         )
     
     except Exception as e:
-        logger.error(f"Error deleting MOVE strategy: {e}", exc_info=True)
+        logger.error(f"❌ DELETE CONFIRMED - Error deleting MOVE strategy: {e}", exc_info=True)
         await query.edit_message_text(
             f"❌ Error deleting strategy: {str(e)}",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
         )
+
 
 # ==================== HANDLER REGISTRATION ====================
 
