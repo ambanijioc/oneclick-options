@@ -29,7 +29,7 @@ from bot.keyboard.move_trade_preset_keyboards import (
 )
 
 logger = setup_logger(__name__)
-state_manager = StateManager
+state_manager = StateManager()
 
 # MAIN MENU
 @error_handler
