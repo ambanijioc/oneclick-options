@@ -513,7 +513,7 @@ def register_move_trade_preset_handlers(application: Application):
     
     application.add_handler(CallbackQueryHandler(
         move_preset_delete_callback,
-        pattern="^move_preset_delete_(?!confirm)"
+        pattern="^move_preset_delete_"
     ))
     
     # Add preset flow
