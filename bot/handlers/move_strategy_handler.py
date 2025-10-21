@@ -39,18 +39,6 @@ from bot.keyboards.move_strategy_keyboards import (
 logger = setup_logger(__name__)
 
 
-def get_move_menu_keyboard():
-    """Get MOVE strategy management menu keyboard."""
-    keyboard = [
-        [InlineKeyboardButton("➕ Add Strategy", callback_data="move_add")],
-        [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_edit_list")],
-        [InlineKeyboardButton("🗑️ Delete Strategy", callback_data="move_delete_list")],
-        [InlineKeyboardButton("👁️ View Strategies", callback_data="move_view")],
-        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
 @error_handler
 async def move_strategy_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Main MOVE strategy menu."""
@@ -454,7 +442,7 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             
             text += f"   • SL: {strategy.get('stop_loss_trigger')}% / {strategy.get('stop_loss_limit')}%\n"
             
-            if strategy.get('target_trigger_percent'):
+            if strategy.get('target_trigger'):
                 text += f"   • Target: {strategy.get('target_trigger')}% / {strategy.get('target_limit')}%\n"
             
             text += "\n"
