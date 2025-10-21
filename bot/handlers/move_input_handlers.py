@@ -270,8 +270,8 @@ async def handle_move_target_limit_input(update: Update, context: ContextTypes.D
         data = await state_manager.get_state_data(user.id)
         target_trigger = data.get('target_trigger_percent', 0)
         
-        if not (-200 <= target_limit <= 0):
-            raise ValueError("Target limit must be between -200% and 0%")
+        if not (1000 <= target_limit <= 0):
+            raise ValueError("Target limit must be between 1000% and 0%")
         
         if target_limit > target_trigger:
             raise ValueError(f"Target limit ({target_limit}%) must be <= target trigger ({target_trigger}%)")
