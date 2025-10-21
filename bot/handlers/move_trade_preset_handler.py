@@ -428,7 +428,7 @@ async def move_preset_confirm_callback(update: Update, context: ContextTypes.DEF
         
         keyboard = [
             [InlineKeyboardButton("🚀 Execute Manual Trade", callback_data="menu_move_manual_trade")],
-            [InlineKeyboardButton("📋 View Presets", callback_data="move_preset_view$")],
+            [InlineKeyboardButton("📋 View Presets", callback_data="move_preset_view")],
             [InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main")]
         ]
         
