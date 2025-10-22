@@ -550,19 +550,32 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         # Show edit options
         keyboard = get_edit_fields_keyboard()
         
+        # Safe extraction
+        name = strategy.get('strategy_name', 'Unnamed')
+        asset = strategy.get('asset', 'N/A')
+        expiry = strategy.get('expiry', 'N/A')  # ✅ Use 'expiry' not 'expiry_type'
+        direction = strategy.get('direction', 'N/A')
+        atm_offset = strategy.get('atm_offset', 0)
+        sl_trigger = strategy.get('stop_loss_trigger', 0)
+        sl_limit = strategy.get('stop_loss_limit', 0)
+
+        # Safe capitalize
+        expiry_display = expiry.capitalize() if isinstance(expiry, str) and expiry else 'N/A'
+        direction_display = direction.capitalize() if isinstance(direction, str) and direction else 'N/A'
+
         text = (
-            f"<b>✏️ Edit: {strategy.get('name')}</b>\n\n"
+            f"<b>✏️ Edit: {name}</b>\n\n"
             f"<b>Current Settings:</b>\n"
-            f"• <b>Asset:</b> {strategy.get('asset')}\n"
-            f"• <b>Expiry:</b> {strategy.get('expiry_type').capitalize()}\n"
-            f"• <b>Direction:</b> {strategy.get('direction').capitalize()}\n"
-            f"• <b>ATM Offset:</b> {strategy.get('atm_offset')}\n"
-            f"• <b>SL:</b> {strategy.get('sl_trigger_percent')}% / {strategy.get('sl_limit_percent')}%\n"
+            f"• <b>Asset:</b> {asset}\n"
+            f"• <b>Expiry:</b> {expiry_display}\n"
+            f"• <b>Direction:</b> {direction_display}\n"
+            f"• <b>ATM Offset:</b> {atm_offset}\n"
+            f"• <b>SL:</b> {sl_trigger}% / {sl_limit}%\n"
         )
-        
-        if strategy.get('target_trigger_percent'):
-            text += f"• <b>Target:</b> {strategy.get('target_trigger_percent')}% / {strategy.get('target_limit_percent')}%\n"
-        
+                
+        if strategy.get('target_trigger'):
+            text += f"• <b>Target:</b> {strategy.get('target_trigger')}% / {strategy.get('target_limit')}%\n"
+
         text += "\n<b>Select field to edit:</b>"
         
         await query.edit_message_text(
