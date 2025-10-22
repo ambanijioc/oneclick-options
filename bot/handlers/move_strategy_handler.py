@@ -548,7 +548,7 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
         
         # Show edit options
-        keyboard = get_edit_fields_keyboard()
+        keyboard = get_edit_fields_keyboard(strategy_id)  # ✅ FIXED
         
         # Safe extraction
         name = strategy.get('strategy_name', 'Unnamed')
