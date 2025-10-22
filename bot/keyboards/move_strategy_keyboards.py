@@ -139,31 +139,32 @@ def get_edit_fields_keyboard():
 
 
 def get_edit_asset_keyboard(strategy_id):
-    """Get asset edit keyboard."""
+    """Get keyboard for editing asset."""
     keyboard = [
-        [InlineKeyboardButton("₿ BTC", callback_data="move_edit_save_asset_BTC")],
-        [InlineKeyboardButton("Ξ ETH", callback_data="move_edit_save_asset_ETH")],
-        [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
+        [InlineKeyboardButton("📊 BTC", callback_data=f"move_edit_save_asset_{strategy_id}_BTC")],
+        [InlineKeyboardButton("💰 ETH", callback_data=f"move_edit_save_asset_{strategy_id}_ETH")],
+        [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(keyboard)  # ✅ Or return keyboard if wrapping in handler
 
 
 def get_edit_expiry_keyboard(strategy_id):
-    """Get expiry edit keyboard."""
+    """Get keyboard for editing expiry."""
     keyboard = [
-        [InlineKeyboardButton("📅 Daily", callback_data="move_edit_save_expiry_daily")],
-        [InlineKeyboardButton("📆 Weekly", callback_data="move_edit_save_expiry_weekly")],
-        [InlineKeyboardButton("📊 Monthly", callback_data="move_edit_save_expiry_monthly")],
-        [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
+        [InlineKeyboardButton("📅 Daily", callback_data=f"move_edit_save_expiry_{strategy_id}_daily")],
+        [InlineKeyboardButton("📆 Weekly", callback_data=f"move_edit_save_expiry_{strategy_id}_weekly")],
+        [InlineKeyboardButton("📊 Monthly", callback_data=f"move_edit_save_expiry_{strategy_id}_monthly")],
+        [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
 def get_edit_direction_keyboard(strategy_id):
-    """Get direction edit keyboard."""
+    """Get keyboard for editing direction."""
     keyboard = [
-        [InlineKeyboardButton("🟢 Long", callback_data="move_edit_save_direction_long")],
-        [InlineKeyboardButton("🔴 Short", callback_data="move_edit_save_direction_short")],
-        [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
+        [InlineKeyboardButton("🔼 Long", callback_data=f"move_edit_save_direction_{strategy_id}_long")],
+        [InlineKeyboardButton("🔽 Short", callback_data=f"move_edit_save_direction_{strategy_id}_short")],
+        [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
     return InlineKeyboardMarkup(keyboard)
+
