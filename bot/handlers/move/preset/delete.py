@@ -36,7 +36,7 @@ async def move_preset_delete_callback(update: Update, context: ContextTypes.DEFA
     
     log_user_action(user.id, "Requested MOVE preset list for deletion")
     
-    presets = await get_move_presets(user.id)
+    presets = await get_move_trade_presets(user.id)
     
     if not presets:
         await query.edit_message_text(
@@ -64,7 +64,7 @@ async def move_preset_delete_confirm_callback(update: Update, context: ContextTy
     
     preset_id = query.data.split('_')[-1]
     
-    preset = await get_move_preset(user.id, preset_id)
+    preset = await get_move_trade_presets(user.id, preset_id)
     
     if not preset:
         await query.edit_message_text(
@@ -94,7 +94,7 @@ async def move_preset_delete_execute_callback(update: Update, context: ContextTy
     
     preset_id = query.data.split('_')[-1]
     
-    preset = await get_move_preset(user.id, preset_id)
+    preset = await get_move_trade_presets(user.id, preset_id)
     
     if not preset:
         await query.edit_message_text(
