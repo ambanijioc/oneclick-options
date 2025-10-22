@@ -36,7 +36,7 @@ async def move_preset_delete_callback(update: Update, context: ContextTypes.DEFA
     
     log_user_action(user.id, "Requested MOVE preset list for deletion")
     
-    presets = await get_move_trade_preset_by_id(preset_id)
+    presets = await get_move_trade_preset_by_id(user.id)
     
     if not presets:
         await query.edit_message_text(
