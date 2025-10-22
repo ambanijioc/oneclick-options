@@ -20,7 +20,7 @@ from database.operations.move_strategy_ops import (
     get_move_strategy
 )
 from database.operations.api_ops import get_api_credentials, get_api_credential_by_id
-from bot.keyboard.move_trade_preset_keyboards import (
+from bot.keyboards.move_trade_preset_keyboards import (
     main_menu_keyboard,
     view_presets_keyboard,
     preset_detail_keyboard,
