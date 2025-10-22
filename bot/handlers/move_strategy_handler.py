@@ -606,6 +606,7 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
     strategy_id = data.get('edit_strategy_id')
     
     if not strategy_id:
+        logger.error(f"No strategy_id in state for user {user.id}")
         await query.edit_message_text(
             "❌ Session expired. Please try again.",
             reply_markup=get_move_menu_keyboard(),
@@ -615,7 +616,7 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
     
     try:
         strategy = await get_move_strategy(strategy_id)
-        
+
         # Handle different field types
         if field in ['asset', 'expiry', 'direction']:
             # Button-based selection
