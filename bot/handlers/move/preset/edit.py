@@ -39,7 +39,7 @@ async def move_preset_edit_callback(update: Update, context: ContextTypes.DEFAUL
     
     log_user_action(user.id, "Requested MOVE preset list for editing")
     
-    presets = await get_move_presets(user.id)
+    presets = await get_move_trade_presets(user.id)
     
     if not presets:
         await query.edit_message_text(
