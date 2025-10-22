@@ -691,31 +691,20 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
     user = query.from_user
     parts = query.data.split('_')  # move_edit_save_asset_BTC
     field = parts[3]
-    value = parts[4]
-    
-    data = await state_manager.get_state_data(user.id)
-    strategy_id = data.get('edit_strategy_id')
-    
-    if not strategy_id:
-        await query.edit_message_text(
-            "❌ Session expired. Please try again.",
-            reply_markup=get_move_menu_keyboard(),
-            parse_mode='HTML'
-        )
-        return
+    strategy_id = parts[4] # 67123abc  ✅ FIXED
+    value = parts[5]
     
     try:
         # Map field names
         field_map = {
             'asset': 'asset',
-            'expiry': 'expiry_type',
+            'expiry': 'expiry',
             'direction': 'direction'
         }
         
         # Update strategy
         update_data = {field_map.get(field): value}
         await update_move_strategy(strategy_id, update_data)
-        
         log_user_action(user.id, f"Updated MOVE strategy {field}: {value}")
         
         # Show success and return to strategy edit menu
@@ -725,7 +714,10 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
             f"<b>✅ Updated Successfully!</b>\n\n"
             f"<b>{field.title()}:</b> {value}\n\n"
             f"Strategy <b>{strategy.get('name')}</b> has been updated.",
-            reply_markup=get_continue_edit_keyboard(strategy_id),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Continue Editing", callback_data=f"move_edit_{strategy_id}")],
+                [InlineKeyboardButton("Back to Menu", callback_data="move_menu")]
+            ]),
             parse_mode='HTML'
         )
     
