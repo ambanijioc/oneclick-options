@@ -194,16 +194,16 @@ async def handle_move_edit_lot_size_input(update: Update, context: ContextTypes.
     pass
 
 __all__ = [
-    'handle_move_name_input',
-    'handle_move_description_input',
-    'handle_move_atm_offset_input',  # ⬅️ ADD THIS LINE
-    'handle_move_lot_size_input',
-    'handle_move_otm_value_input',
-    'handle_move_sl_trigger_input',
-    'handle_move_sl_limit_input',
-    'handle_move_target_trigger_input',
-    'handle_move_target_limit_input',
-    'handle_move_edit_name_input',
+'handle_move_name_input',              # Step 1: Name
+    'handle_move_description_input',       # Step 2: Description
+    'handle_move_lot_size_input',          # Step 6: Lot Size ✅ KEEP
+    'handle_move_atm_offset_input',        # Step 7: ATM Offset ✅ KEEP
+    # 'handle_move_otm_value_input',       # ❌ DELETE - Not used in MOVE
+    'handle_move_sl_trigger_input',        # Step 8: SL Trigger
+    'handle_move_sl_limit_input',          # Step 9: SL Limit  
+    'handle_move_target_trigger_input',    # Step 10: Target Trigger
+    'handle_move_target_limit_input',      # Step 11: Target Limit
+    'handle_move_edit_name_input',         # Edit handlers
     'handle_move_edit_description_input',
     'handle_move_edit_lot_size_input',
 ]
