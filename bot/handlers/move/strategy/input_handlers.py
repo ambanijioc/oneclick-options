@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 from bot.utils.logger import setup_logger
 from bot.utils.state_manager import state_manager
 from bot.utils.error_handler import error_handler
+from bot.keyboards.move_strategy_keyboards import get_asset_keyboard
 
 logger = setup_logger(__name__)
 
@@ -30,13 +31,20 @@ async def handle_move_description_input(update: Update, context: ContextTypes.DE
     """Handle strategy description input."""
     user = update.effective_user
     
-    await state_manager.set_state_data(user.id, {'description': text})
+    # Handle /skip command
+    if text.lower() == '/skip':
+        description = "No description provided"
+    else:
+        description = text
+    
+    await state_manager.set_state_data(user.id, {'description': description})
     await state_manager.set_state(user.id, 'move_add_asset')
     
-    # Trigger asset selection callback
+    # Show asset selection keyboard
     await update.message.reply_text(
         f"✅ Description set.\n\n"
-        f"Select asset: BTC or ETH"
+        f"Select asset:",
+        reply_markup=get_asset_keyboard()
     )
 
 @error_handler
@@ -122,6 +130,18 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
     """Handle target trigger input."""
     user = update.effective_user
     
+    # Handle /skip command
+    if text.lower() == '/skip':
+        await state_manager.set_state_data(user.id, {
+            'target_trigger_pct': None,
+            'target_limit_pct': None
+        })
+        
+        # Show confirmation
+        from .create import show_move_confirmation
+        await show_move_confirmation(update, context)
+        return
+    
     try:
         target_trigger = float(text)
         if target_trigger < 0 or target_trigger > 1000:
@@ -185,5 +205,4 @@ __all__ = [
     'handle_move_edit_name_input',
     'handle_move_edit_description_input',
     'handle_move_edit_lot_size_input',
-      ]
-      
+]
