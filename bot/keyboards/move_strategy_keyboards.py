@@ -120,20 +120,20 @@ def get_strategy_list_keyboard(strategies, action="edit"):
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_edit_fields_keyboard():
-    """Get keyboard for selecting field to edit."""
+def get_edit_fields_keyboard(strategy_id):
+    """Get keyboard for selecting which field to edit."""
     keyboard = [
-        [InlineKeyboardButton("📝 Edit Name", callback_data="move_edit_field_name")],
-        [InlineKeyboardButton("📄 Edit Description", callback_data="move_edit_field_description")],
-        [InlineKeyboardButton("💰 Edit Asset", callback_data="move_edit_field_asset")],
-        [InlineKeyboardButton("📅 Edit Expiry", callback_data="move_edit_field_expiry")],
-        [InlineKeyboardButton("🎯 Edit Direction", callback_data="move_edit_field_direction")],
-        [InlineKeyboardButton("📊 Edit ATM Offset", callback_data="move_edit_field_atm_offset")],
-        [InlineKeyboardButton("🔴 Edit SL Trigger", callback_data="move_edit_field_sl_trigger")],
-        [InlineKeyboardButton("🔴 Edit SL Limit", callback_data="move_edit_field_sl_limit")],
-        [InlineKeyboardButton("🟢 Edit Target Trigger", callback_data="move_edit_field_target_trigger")],
-        [InlineKeyboardButton("🟢 Edit Target Limit", callback_data="move_edit_field_target_limit")],
-        [InlineKeyboardButton("🔙 Back", callback_data="move_edit_list")]
+        [InlineKeyboardButton("📝 Name", callback_data=f"move_edit_field_{strategy_id}_name")],
+        [InlineKeyboardButton("📄 Description", callback_data=f"move_edit_field_{strategy_id}_description")],
+        [InlineKeyboardButton("📊 Asset", callback_data=f"move_edit_field_{strategy_id}_asset")],
+        [InlineKeyboardButton("📅 Expiry", callback_data=f"move_edit_field_{strategy_id}_expiry")],
+        [InlineKeyboardButton("🎯 Direction", callback_data=f"move_edit_field_{strategy_id}_direction")],
+        [InlineKeyboardButton("🔢 ATM Offset", callback_data=f"move_edit_field_{strategy_id}_atm_offset")],
+        [InlineKeyboardButton("🛑 SL Trigger", callback_data=f"move_edit_field_{strategy_id}_sl_trigger")],
+        [InlineKeyboardButton("🛑 SL Limit", callback_data=f"move_edit_field_{strategy_id}_sl_limit")],
+        [InlineKeyboardButton("🎯 Target Trigger", callback_data=f"move_edit_field_{strategy_id}_target_trigger")],
+        [InlineKeyboardButton("🎯 Target Limit", callback_data=f"move_edit_field_{strategy_id}_target_limit")],
+        [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
