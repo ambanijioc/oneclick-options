@@ -1,7 +1,5 @@
 """
 MOVE Preset Creation Handler
-
-Handles creating trade presets for MOVE strategies (quick entry/exit configurations).
 """
 
 from telegram import Update
@@ -11,7 +9,10 @@ from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
-from database.operations.move_trade_preset_ops import create_move_preset
+
+# FIX: Use correct function name from your database file
+from database.operations.move_trade_preset_ops import create_move_trade_preset
+
 from bot.keyboards.move_strategy_keyboards import (
     get_cancel_keyboard,
     get_confirmation_keyboard,
@@ -46,9 +47,42 @@ async def move_preset_create_callback(update: Update, context: ContextTypes.DEFA
         parse_mode='HTML'
     )
 
+async def show_move_preset_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show final confirmation before saving preset."""
+    user = update.effective_user
+    data = await state_manager.get_state_data(user.id)
+    
+    name = data.get('name') or "Unnamed"
+    api_id = data.get('api_id', 'N/A')
+    strategy_id = data.get('strategy_id', 'N/A')
+    
+    text = (
+        f"✅ MOVE Preset - Final Confirmation\n\n"
+        f"📋 Details:\n"
+        f"• Name: {name}\n"
+        f"• API: {api_id}\n"
+        f"• Strategy: {strategy_id}\n\n"
+        f"Save this preset?"
+    )
+    
+    keyboard = get_confirmation_keyboard()
+    
+    if update.callback_query:
+        await update.callback_query.edit_message_text(
+            text,
+            reply_markup=keyboard,
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text(
+            text,
+            reply_markup=keyboard,
+            parse_mode='HTML'
+        )
+
 @error_handler
 async def move_preset_confirm_save_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Save MOVE preset to database."""
+    """Save the MOVE preset to database."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -58,12 +92,12 @@ async def move_preset_confirm_save_callback(update: Update, context: ContextType
     try:
         preset_data = {
             'preset_name': data.get('name'),
-            'description': data.get('description', ''),
-            'entry_lots': data.get('entry_lots', 1),
-            'exit_lots': data.get('exit_lots', 1)
+            'api_id': data.get('api_id', ''),
+            'strategy_id': data.get('strategy_id', '')
         }
         
-        result = await create_move_preset(user.id, preset_data)
+        # FIX: Use correct function name
+        result = await create_move_trade_preset(user.id, preset_data)
         
         if not result:
             raise Exception("Failed to save preset to database")
@@ -73,9 +107,7 @@ async def move_preset_confirm_save_callback(update: Update, context: ContextType
         
         await query.edit_message_text(
             f"✅ MOVE Preset Created!\n\n"
-            f"Name: {data.get('name')}\n"
-            f"Entry Lots: {data.get('entry_lots', 1)}\n"
-            f"Exit Lots: {data.get('exit_lots', 1)}\n\n"
+            f"Name: {data.get('name')}\n\n"
             f"Preset has been saved successfully!",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
@@ -92,5 +124,6 @@ async def move_preset_confirm_save_callback(update: Update, context: ContextType
 
 __all__ = [
     'move_preset_create_callback',
+    'show_move_preset_confirmation',
     'move_preset_confirm_save_callback',
-]
+    ]
