@@ -143,7 +143,7 @@ async def move_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     logger.info(f"🔍 DEBUG keyboard type: {type(keyboard)}")
     logger.info(f"🔍 DEBUG keyboard value: {keyboard}")
-    reply_markup=keyboard
+    reply_markup=keyboard,
     
     data = await state_manager.get_state_data(user.id)
     
