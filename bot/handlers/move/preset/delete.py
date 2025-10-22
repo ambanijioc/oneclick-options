@@ -11,9 +11,9 @@ from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.validators.user_validator import check_user_authorization
 from database.operations.move_trade_preset_ops import (
-    get_move_presets,
-    get_move_preset,
-    delete_move_preset
+    get_move_trade_presets,
+    get_move_trade_preset_by_id,
+    delete_move_trade_preset
 )
 from bot.keyboards.move_strategy_keyboards import (
     get_preset_list_keyboard,
