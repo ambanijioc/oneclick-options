@@ -827,7 +827,7 @@ async def move_delete_list_callback(update: Update, context: ContextTypes.DEFAUL
             "<b>🗑️ Delete MOVE Strategy</b>\n\n"
             "⚠️ <b>Warning:</b> This action cannot be undone!\n\n"
             "Select a strategy to delete:",
-            reply_markup=keyboard,
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
     
