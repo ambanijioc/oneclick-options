@@ -606,18 +606,6 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
     strategy_id = parts[3]  # '67123abc'
     field = parts[4]        # 'asset'
     
-    #data = await state_manager.get_state_data(user.id)
-   # strategy_id = data.get('edit_strategy_id')
-    
-   # if not strategy_id:
-    #    logger.error(f"No strategy_id in state for user {user.id}")
-      #  await query.edit_message_text(
-          #  "❌ Session expired. Please try again.",
-           # reply_markup=get_move_menu_keyboard(),
-           # parse_mode='HTML'
-     #   )
-      #  return
-    
     try:
         strategy = await get_move_strategy(strategy_id)
 
@@ -695,10 +683,11 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
     
     user = query.from_user
-    parts = query.data.split('_')  # move_edit_save_asset_BTC
-    field = parts[3]
-    strategy_id = parts[4] # 67123abc  ✅ FIXED
-    value = parts[5]
+    parts = query.data.split('_')  # move_edit_save_asset_67123abc_BTC
+    # parts = ['move', 'edit', 'save', 'asset', '67123abc', 'BTC']
+    field = parts[3]       # 'asset' ✅
+    strategy_id = parts[4] # '67123abc' ✅
+    value = parts[5]       # 'BTC' ✅
     
     try:
         # Map field names
