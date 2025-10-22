@@ -48,6 +48,24 @@ async def handle_move_description_input(update: Update, context: ContextTypes.DE
     )
 
 @error_handler
+async def handle_move_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle ATM offset input."""
+    user = update.effective_user
+    
+    try:
+        atm_offset = float(text)
+        
+        await state_manager.set_state_data(user.id, {'atm_offset': atm_offset})
+        await state_manager.set_state(user.id, 'move_add_sl_trigger')
+        
+        await update.message.reply_text(
+            f"✅ ATM offset set: {atm_offset}\n\n"
+            f"Enter Stop Loss trigger percentage:"
+        )
+    except ValueError:
+        await update.message.reply_text("❌ Invalid number. Please try again.")
+        
+@error_handler
 async def handle_move_lot_size_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle lot size input."""
     user = update.effective_user
