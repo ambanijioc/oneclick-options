@@ -214,6 +214,7 @@ async def handle_move_edit_lot_size_input(update: Update, context: ContextTypes.
 __all__ = [
     'handle_move_name_input',
     'handle_move_description_input',
+    'handle_move_atm_offset_input',  # ⬅️ ADD THIS LINE
     'handle_move_lot_size_input',
     'handle_move_otm_value_input',
     'handle_move_sl_trigger_input',
