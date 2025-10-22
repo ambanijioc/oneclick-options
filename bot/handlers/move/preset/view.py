@@ -63,7 +63,7 @@ async def move_preset_view_details_callback(update: Update, context: ContextType
     
     preset_id = query.data.split('_')[-1]
     
-    preset = await get_move_preset(user.id, preset_id)
+    preset = await get_move_trade_presets(user.id, preset_id)
     
     if not preset:
         await query.edit_message_text(
