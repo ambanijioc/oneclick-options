@@ -15,13 +15,13 @@ def get_move_menu_keyboard():
         [InlineKeyboardButton("👁️ View Strategies", callback_data="move_view")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_cancel_keyboard():
     """Get simple cancel keyboard."""
     keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_asset_keyboard():
@@ -31,7 +31,7 @@ def get_asset_keyboard():
         [InlineKeyboardButton("Ξ ETH", callback_data="move_asset_ETH")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_expiry_keyboard():
@@ -42,7 +42,7 @@ def get_expiry_keyboard():
         [InlineKeyboardButton("📊 Monthly", callback_data="move_expiry_monthly")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_direction_keyboard():
@@ -52,7 +52,7 @@ def get_direction_keyboard():
         [InlineKeyboardButton("🔴 Short (Sell)", callback_data="move_direction_short")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_confirmation_keyboard():
@@ -61,7 +61,7 @@ def get_confirmation_keyboard():
         [InlineKeyboardButton("✅ Confirm & Save", callback_data="move_confirm_save")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_skip_target_keyboard():
@@ -70,7 +70,7 @@ def get_skip_target_keyboard():
         [InlineKeyboardButton("⏭️ Skip Target", callback_data="move_skip_target")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_continue_edit_keyboard(strategy_id):
@@ -79,7 +79,7 @@ def get_continue_edit_keyboard(strategy_id):
         [InlineKeyboardButton("✏️ Continue Editing", callback_data=f"move_edit_{strategy_id}")],
         [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_delete_confirmation_keyboard(strategy_id):
@@ -87,7 +87,7 @@ def get_delete_confirmation_keyboard(strategy_id):
         [InlineKeyboardButton("✅ Yes, Delete", callback_data=f"move_delete_confirmed_{strategy_id}")],
         [InlineKeyboardButton("❌ No, Cancel", callback_data="move_delete_list")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_strategy_list_keyboard(strategies, action="edit"):
@@ -135,7 +135,7 @@ def get_edit_fields_keyboard():
         [InlineKeyboardButton("🟢 Edit Target Limit", callback_data="move_edit_field_target_limit")],
         [InlineKeyboardButton("🔙 Back", callback_data="move_edit_list")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_edit_asset_keyboard(strategy_id):
@@ -145,7 +145,7 @@ def get_edit_asset_keyboard(strategy_id):
         [InlineKeyboardButton("Ξ ETH", callback_data="move_edit_save_asset_ETH")],
         [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_edit_expiry_keyboard(strategy_id):
@@ -156,7 +156,7 @@ def get_edit_expiry_keyboard(strategy_id):
         [InlineKeyboardButton("📊 Monthly", callback_data="move_edit_save_expiry_monthly")],
         [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 def get_edit_direction_keyboard(strategy_id):
@@ -166,4 +166,4 @@ def get_edit_direction_keyboard(strategy_id):
         [InlineKeyboardButton("🔴 Short", callback_data="move_edit_save_direction_short")],
         [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
