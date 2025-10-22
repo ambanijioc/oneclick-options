@@ -600,19 +600,23 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
     await query.answer()
     
     user = query.from_user
-    field = '_'.join(query.data.split('_')[3:])  # move_edit_field_name -> name
+
+    # Parse callback data: move_edit_field_67123abc_asset
+    parts = query.data.split('_')
+    strategy_id = parts[3]  # '67123abc'
+    field = parts[4]        # 'asset'
     
-    data = await state_manager.get_state_data(user.id)
-    strategy_id = data.get('edit_strategy_id')
+    #data = await state_manager.get_state_data(user.id)
+   # strategy_id = data.get('edit_strategy_id')
     
-    if not strategy_id:
-        logger.error(f"No strategy_id in state for user {user.id}")
-        await query.edit_message_text(
-            "❌ Session expired. Please try again.",
-            reply_markup=get_move_menu_keyboard(),
-            parse_mode='HTML'
-        )
-        return
+   # if not strategy_id:
+    #    logger.error(f"No strategy_id in state for user {user.id}")
+      #  await query.edit_message_text(
+          #  "❌ Session expired. Please try again.",
+           # reply_markup=get_move_menu_keyboard(),
+           # parse_mode='HTML'
+     #   )
+      #  return
     
     try:
         strategy = await get_move_strategy(strategy_id)
@@ -642,6 +646,8 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
         
         else:
             # Text input fields
+            await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+          
             state_map = {
                 'name': 'move_edit_name_input',
                 'description': 'move_edit_desc_input',
