@@ -223,8 +223,8 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
     try:
         target_trigger = float(text)
         
-        if not (1000 <= target_trigger <= 0):
-            raise ValueError("Target trigger must be between 1000% and 0%")
+        if not (0 <= target_trigger <= 1000):
+            raise ValueError("Target trigger must be between 0% and 1000%")
         
         # Store target trigger
         await state_manager.set_state_data(user.id, {'target_trigger_percent': target_trigger})
@@ -242,7 +242,7 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
             f"<b>📝 Add MOVE Strategy</b>\n\n"
             f"<b>Target Trigger:</b> {target_trigger}%\n\n"
             f"<b>Enter target limit % (e.g., 25 for 25%):</b>\n\n"
-            f"<i>💡 Tip: Target limit should be <= target trigger</i>",
+            f"<i>💡 Tip: Target limit should be >= target trigger</i>",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
@@ -270,10 +270,10 @@ async def handle_move_target_limit_input(update: Update, context: ContextTypes.D
         data = await state_manager.get_state_data(user.id)
         target_trigger = data.get('target_trigger_percent', 0)
         
-        if not (1000 <= target_limit <= 0):
-            raise ValueError("Target limit must be between 1000% and 0%")
+        if not (0 <= target_limit <= 1000):
+            raise ValueError("Target limit must be between 0% and 1000%")
         
-        if target_limit > target_trigger:
+        if target_limit < target_trigger:
             raise ValueError(f"Target limit ({target_limit}%) must be <= target trigger ({target_trigger}%)")
         
         # Store target limit
