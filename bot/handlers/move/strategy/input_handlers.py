@@ -86,24 +86,6 @@ async def handle_move_lot_size_input(update: Update, context: ContextTypes.DEFAU
         await update.message.reply_text(f"❌ {str(e)}\nPlease enter a valid number.")
 
 @error_handler
-async def handle_move_otm_value_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-    """Handle OTM offset value input."""
-    user = update.effective_user
-    
-    try:
-        otm_value = float(text)
-        
-        await state_manager.set_state_data(user.id, {'otm_value': otm_value})
-        await state_manager.set_state(user.id, 'move_add_sl_trigger')
-        
-        await update.message.reply_text(
-            f"✅ OTM offset set: {otm_value}\n\n"
-            f"Enter Stop Loss trigger percentage:"
-        )
-    except ValueError:
-        await update.message.reply_text("❌ Invalid number. Please try again.")
-
-@error_handler
 async def handle_move_sl_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle SL trigger input."""
     user = update.effective_user
