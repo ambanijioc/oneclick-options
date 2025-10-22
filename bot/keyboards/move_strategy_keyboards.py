@@ -84,7 +84,7 @@ def get_continue_edit_keyboard(strategy_id):
 
 def get_delete_confirmation_keyboard(strategy_id):
     keyboard = [
-        [InlineKeyboardButton("✅ Yes, Delete", callback_data=f"move_delete_{strategy_id}")],
+        [InlineKeyboardButton("✅ Yes, Delete", callback_data=f"move_delete_confirmed_{strategy_id}")],
         [InlineKeyboardButton("❌ No, Cancel", callback_data="move_delete_list")]
     ]
     return InlineKeyboardMarkup(keyboard)
