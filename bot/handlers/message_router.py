@@ -70,6 +70,10 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state_str == 'move_add_description':
             from .move.strategy.input_handlers import handle_move_description_input
             await handle_move_description_input(update, context, text)
+
+        elif state_str == 'move_add_atm_offset':  # ⬅️ THIS LINE EXISTS
+            from .move_input_handlers import handle_move_atm_offset_input
+            await handle_move_atm_offset_input(update, context, text)
         
         elif state_str == 'move_add_lot_size':
             from .move.strategy.input_handlers import handle_move_lot_size_input
