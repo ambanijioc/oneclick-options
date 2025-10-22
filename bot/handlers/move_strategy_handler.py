@@ -992,9 +992,10 @@ def register_move_strategy_handlers(application):
         CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save"),
         
         # Delete strategy flow
-        CallbackQueryHandler(move_delete_list_callback, pattern="^move_delete_list"),
-        CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete"),
-        CallbackQueryHandler(move_delete_confirmed_callback, pattern="^move_delete_confirmed"),
+        CallbackQueryHandler(move_delete_confirmed_callback, pattern="^move_delete_confirmed_[a-fA-F0-9]{24}$"),  # ✅ Most specific first
+        CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_[a-fA-F0-9]{24}$"),  # ✅ Exact match with ID
+        CallbackQueryHandler(move_delete_list_callback, pattern="^move_delete_list$"),  # ✅ Exact match
+
     ]
     
     for handler in handlers:
