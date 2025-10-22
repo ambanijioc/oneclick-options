@@ -117,7 +117,7 @@ async def move_skip_description_callback(update: Update, context: ContextTypes.D
         f"<b>Step 2/7: Asset Selection</b>\n\n"
         f"<b>Name:</b> {data.get('name')}\n\n"
         f"<b>Select underlying asset:</b>",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
 
@@ -140,9 +140,10 @@ async def move_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await state_manager.set_state(user.id, 'move_add_expiry')
     
     keyboard = get_expiry_keyboard()
+    
     logger.info(f"🔍 DEBUG keyboard type: {type(keyboard)}")
     logger.info(f"🔍 DEBUG keyboard value: {keyboard}")
-    reply_markup=InlineKeyboardMarkup(keyboard)
+    reply_markup=keyboard
     
     data = await state_manager.get_state_data(user.id)
     
@@ -152,7 +153,7 @@ async def move_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"<b>Name:</b> {data.get('name')}\n"
         f"<b>Asset:</b> {asset}\n\n"
         f"<b>Select expiry type:</b>",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
 
@@ -187,7 +188,7 @@ async def move_expiry_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         f"<b>Select position direction:</b>\n\n"
         f"🟢 <b>Long:</b> Buy MOVE contract (profit from volatility)\n"
         f"🔴 <b>Short:</b> Sell MOVE contract (profit from low volatility)",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
 
@@ -226,7 +227,7 @@ async def move_direction_callback(update: Update, context: ContextTypes.DEFAULT_
         f"• <code>1</code> - 1 strike above ATM\n"
         f"• <code>-1</code> - 1 strike below ATM\n\n"
         f"<i>Range: -10 to +10</i>",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
 
@@ -287,14 +288,14 @@ async def show_move_confirmation(update: Update, context: ContextTypes.DEFAULT_T
         # User clicked "Skip Target" button
         await update.callback_query.edit_message_text(
             text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=keyboard,
             parse_mode='HTML'
         )
     else:
         # User entered text input (last step in flow)
         await update.message.reply_text(
             text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=keyboard,
             parse_mode='HTML'
         )
 
@@ -510,7 +511,7 @@ async def move_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text(
             "<b>✏️ Edit MOVE Strategy</b>\n\n"
             "Select a strategy to edit:",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=keyboard,
             parse_mode='HTML'
         )
     
@@ -566,7 +567,7 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         
         await query.edit_message_text(
             text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=keyboard,
             parse_mode='HTML'
         )
     
@@ -621,7 +622,7 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
                 f"<b>✏️ Edit {field.replace('_', ' ').title()}</b>\n\n"
                 f"<b>Current:</b> {strategy.get(field if field != 'expiry' else 'expiry_type')}\n\n"
                 f"{prompt}",
-                reply_markup=InlineKeyboardMarkup(keyboard),
+                reply_markup=keyboard,
                 parse_mode='HTML'
             )
         
@@ -639,9 +640,7 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
             
             await state_manager.set_state(user.id, state_map.get(field))
             
-            keyboard = [
-                [InlineKeyboardButton("❌ Cancel", callback_data=f"move_edit_{strategy_id}")]
-            ]
+            keyboard = get_cancel_keyboard()
             
             field_prompts = {
                 'name': f"Current: {strategy.get('name')}\n\nEnter new name:",
@@ -656,7 +655,7 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_text(
                 f"<b>✏️ Edit {field.replace('_', ' ').title()}</b>\n\n"
                 f"{field_prompts.get(field)}",
-                reply_markup=InlineKeyboardMarkup(keyboard),
+                reply_markup=keyboard,
                 parse_mode='HTML'
             )
     
@@ -712,10 +711,7 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
             f"<b>✅ Updated Successfully!</b>\n\n"
             f"<b>{field.title()}:</b> {value}\n\n"
             f"Strategy <b>{strategy.get('name')}</b> has been updated.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✏️ Continue Editing", callback_data=f"move_edit_{strategy_id}")],
-                [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
-            ]),
+            reply_markup=get_continue_edit_keyboard(strategy_id),
             parse_mode='HTML'
         )
     
@@ -769,15 +765,12 @@ async def save_move_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         log_user_action(user.id, f"Updated MOVE strategy: {strategy.get('name')}")
         
-        keyboard = [
-            [InlineKeyboardButton("✏️ Continue Editing", callback_data=f"move_edit_{strategy_id}")],
-            [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
-        ]
+        keyboard = get_continue_edit_keyboard(strategy_id)
         
         await update.message.reply_text(
             f"<b>✅ Updated Successfully!</b>\n\n"
             f"Strategy <b>{strategy.get('name')}</b> has been updated.",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=keyboard,
             parse_mode='HTML'
         )
     
@@ -834,7 +827,7 @@ async def move_delete_list_callback(update: Update, context: ContextTypes.DEFAUL
             "<b>🗑️ Delete MOVE Strategy</b>\n\n"
             "⚠️ <b>Warning:</b> This action cannot be undone!\n\n"
             "Select a strategy to delete:",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=keyboard,
             parse_mode='HTML'
         )
     
