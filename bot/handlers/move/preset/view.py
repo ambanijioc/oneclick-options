@@ -13,7 +13,6 @@ from bot.validators.user_validator import check_user_authorization
 from database.operations.move_trade_preset_ops import (
     get_move_trade_presets,
     get_move_trade_preset_by_id,
-    delete_move_trade_preset
 )
 from bot.keyboards.move_strategy_keyboards import (
     get_preset_list_keyboard,
@@ -63,7 +62,7 @@ async def move_preset_view_details_callback(update: Update, context: ContextType
     
     preset_id = query.data.split('_')[-1]
     
-    preset = await get_move_trade_presets(user.id, preset_id)
+    preset = await get_move_trade_preset_by_id(preset_id)
     
     if not preset:
         await query.edit_message_text(
