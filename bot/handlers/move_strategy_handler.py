@@ -511,7 +511,7 @@ async def move_edit_list_callback(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text(
             "<b>✏️ Edit MOVE Strategy</b>\n\n"
             "Select a strategy to edit:",
-            reply_markup=keyboard,
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
     
