@@ -26,7 +26,7 @@ from database.operations.api_ops import (
     get_decrypted_api_credential,
     get_api_credential_by_id  # ✅ ADD THIS
 )
-from services.delta.client import DeltaClient  # ✅ FIXED PATH
+from delta.client import DeltaClient  # ✅ FIXED PATH
 
 logger = setup_logger(__name__)
 
