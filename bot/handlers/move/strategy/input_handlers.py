@@ -128,8 +128,11 @@ async def handle_move_sl_limit_input(update: Update, context: ContextTypes.DEFAU
         await state_manager.set_state(user.id, 'move_add_target_trigger')
         
         await update.message.reply_text(
-            f"✅ SL Limit set: {sl_limit}%\n\n"
-            f"Enter Target trigger percentage (or /skip):"
+            f"<b>📝 Add MOVE Strategy</b>\n\n"
+            f"<b>SL Limit set:</b> {sl_limit}%\n\n"
+            f"<b>Enter Target trigger percentage (optional):</b>",
+            reply_markup=get_skip_target_keyboard(),  # ✅ USE IMPORTED FUNCTION
+            parse_mode='HTML'
         )
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}\nPlease enter a valid percentage.")
