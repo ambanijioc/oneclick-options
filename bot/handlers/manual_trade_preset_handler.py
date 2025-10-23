@@ -82,7 +82,7 @@ async def manual_preset_add_callback(update: Update, context: ContextTypes.DEFAU
     # Set state
     await state_manager.set_state(user.id, 'manual_preset_add_name')
     
-    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")]]
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_trade_presets")]]
     
     await query.edit_message_text(
         "<b>➕ Add Manual Trade Preset</b>\n\n"
@@ -197,7 +197,7 @@ async def manual_preset_strategy_callback(update: Update, context: ContextTypes.
     
     keyboard = [
         [InlineKeyboardButton("✅ Confirm", callback_data="manual_preset_confirm")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_preset")]
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_trade_presets")]
     ]
     
     await query.edit_message_text(
@@ -269,7 +269,7 @@ async def manual_preset_view_list_callback(update: Update, context: ContextTypes
             f"📋 {preset['preset_name']}",
             callback_data=f"manual_preset_view_{preset['id']}"
         )])
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_manual_preset")])
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_manual_trade_presets")])
     
     await query.edit_message_text(
         "<b>👁️ View Presets</b>\n\n"
@@ -316,7 +316,7 @@ async def manual_preset_view_callback(update: Update, context: ContextTypes.DEFA
     
     keyboard = [
         [InlineKeyboardButton("🔙 Back to List", callback_data="manual_preset_view_list")],
-        [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_manual_preset")]
+        [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_manual_trade_presets")]
     ]
     
     await query.edit_message_text(
@@ -353,7 +353,7 @@ async def manual_preset_delete_list_callback(update: Update, context: ContextTyp
             f"🗑️ {preset['preset_name']}",
             callback_data=f"manual_preset_delete_{preset['id']}"
         )])
-    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_trade_presets")])
     
     await query.edit_message_text(
         "<b>🗑️ Delete Preset</b>\n\n"
@@ -384,7 +384,7 @@ async def manual_preset_delete_callback(update: Update, context: ContextTypes.DE
     
     keyboard = [
         [InlineKeyboardButton("✅ Confirm Delete", callback_data="manual_preset_delete_confirm")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_preset")]
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_trade_presets")]
     ]
     
     await query.edit_message_text(
@@ -463,7 +463,7 @@ async def manual_preset_edit_list_callback(update: Update, context: ContextTypes
             f"✏️ {preset['preset_name']}",
             callback_data=f"manual_preset_edit_{preset['id']}"
         )])
-    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_trade_presets")])
     
     await query.edit_message_text(
         "<b>✏️ Edit Preset</b>\n\n"
@@ -499,7 +499,7 @@ async def manual_preset_edit_callback(update: Update, context: ContextTypes.DEFA
     apis = await get_api_credentials(user.id)
     
     if not apis:
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")]]
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_trade_presets")]]
         await query.edit_message_text(
             "<b>✏️ Edit Preset</b>\n\n"
             "❌ No API credentials found.",
@@ -515,7 +515,7 @@ async def manual_preset_edit_callback(update: Update, context: ContextTypes.DEFA
             f"📊 {api.api_name}",
             callback_data=f"manual_preset_edit_api_{api.id}"
         )])
-    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_trade_presets")])
     
     await query.edit_message_text(
         f"<b>✏️ Edit Preset: {preset['preset_name']}</b>\n\n"
@@ -544,7 +544,7 @@ async def manual_preset_edit_api_callback(update: Update, context: ContextTypes.
     strangle_strategies = await get_strategy_presets_by_type(user.id, "strangle")
     
     if not straddle_strategies and not strangle_strategies:
-        keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="menu_manual_preset")]]
+        keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="menu_manual_trade_presets")]]
         await query.edit_message_text(
             "<b>✏️ Edit Preset</b>\n\n"
             "❌ No strategies found.",
@@ -574,7 +574,7 @@ async def manual_preset_edit_api_callback(update: Update, context: ContextTypes.
                 callback_data=f"manual_preset_edit_strategy_{strategy.id}_strangle"
             )])
     
-    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_preset")])
+    keyboard.append([InlineKeyboardButton("🔙 Cancel", callback_data="menu_manual_trade_presets")])
     
     await query.edit_message_text(
         "<b>✏️ Edit Preset</b>\n\n"
@@ -626,7 +626,7 @@ async def manual_preset_edit_strategy_callback(update: Update, context: ContextT
     
     keyboard = [
         [InlineKeyboardButton("✅ Confirm", callback_data="manual_preset_edit_confirm")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_preset")]
+        [InlineKeyboardButton("❌ Cancel", callback_data="menu_manual_trade_presets")]
     ]
     
     await query.edit_message_text(
