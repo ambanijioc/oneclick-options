@@ -232,24 +232,52 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             raise Exception(f"Failed to fetch options: {products_response.get('error', {}).get('message')}")
         
         products = products_response['result']
-        # Get current week's Friday expiry
-        today = datetime.now()
-        days_until_friday = (4 - today.weekday()) % 7
-        if days_until_friday == 0 and today.hour >= 15:  # After 3 PM on Friday, use next week
-            days_until_friday = 7
-        target_expiry_date = today + timedelta(days=days_until_friday)
-        target_expiry = target_expiry_date.strftime('%y%m%d')  # Format: 231025
+        # ✅ DELTA INDIA: DAILY OPTIONS EXPIRY AT 5:30 PM IST
+        # Get current time in IST
+        ist = pytz.timezone('Asia/Kolkata')
+        now_ist = datetime.now(ist)
 
-        logger.info(f"Target expiry: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
+        # Determine target expiry date
+        # If before 5:30 PM today, use today's expiry
+        # If after 5:30 PM, use tomorrow's expiry
+        if now_ist.hour < 17 or (now_ist.hour == 17 and now_ist.minute < 30):
+            # Before 5:30 PM - use today's expiry
+            target_expiry_date = now_ist.date()
+        else:
+            # After 5:30 PM - use tomorrow's expiry
+            target_expiry_date = now_ist.date() + timedelta(days=1)
 
+        target_expiry = target_expiry_date.strftime('%y%m%d')
+
+        logger.info(f"Current time: {now_ist.strftime('%I:%M %p IST')} | Target expiry: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
+
+        # Filter options by expiry and asset
         filtered_options = [
             p for p in products
             if asset in p.get('symbol', '') 
             and p.get('state') == 'live'
-            and target_expiry in p.get('symbol', '')  # ✅ FILTER BY EXPIRY!
+            and target_expiry in p.get('symbol', '')
         ]
-        
-        logger.info(f"Found {len(filtered_options)} live options for {asset}")
+
+        # Fallback: if no options found, try tomorrow
+        if not filtered_options:
+            logger.warning(f"No options found for expiry {target_expiry}, trying next day...")
+            target_expiry_date = target_expiry_date + timedelta(days=1)
+            target_expiry = target_expiry_date.strftime('%y%m%d')
+            logger.info(f"Using next day's expiry: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
+    
+            filtered_options = [
+                p for p in products
+                if asset in p.get('symbol', '') 
+                and p.get('state') == 'live'
+                and target_expiry in p.get('symbol', '')
+            ]
+            
+            if not filtered_options:
+                raise Exception(f"No options found for {asset} with expiry {target_expiry}")
+
+        logger.info(f"Found {len(filtered_options)} live options for {asset} expiring {target_expiry}")
+
         
         # Calculate strikes based on strategy type
         if preset['strategy_type'] == 'straddle':
