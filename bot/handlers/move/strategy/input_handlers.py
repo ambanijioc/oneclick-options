@@ -104,7 +104,8 @@ async def handle_move_sl_trigger_input(update: Update, context: ContextTypes.DEF
         if sl_trigger < 0 or sl_trigger > 100:
             raise ValueError("Percentage must be between 0 and 100")
         
-        await state_manager.set_state_data(user.id, {'sl_trigger_pct': sl_trigger})
+        # ✅ FIX: Use _percent suffix consistently!
+        await state_manager.set_state_data(user.id, {'sl_trigger_percent': sl_trigger})
         await state_manager.set_state(user.id, 'move_add_sl_limit')
         
         await update.message.reply_text(
@@ -162,7 +163,8 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
         if target_trigger < 0 or target_trigger > 1000:
             raise ValueError("Percentage must be between 0 and 1000")
         
-        await state_manager.set_state_data(user.id, {'target_trigger_pct': target_trigger})
+        # ✅ FIX: Use _percent suffix!
+        await state_manager.set_state_data(user.id, {'target_trigger_percent': target_trigger})
         await state_manager.set_state(user.id, 'move_add_target_limit')
         
         await update.message.reply_text(
@@ -182,7 +184,7 @@ async def handle_move_target_limit_input(update: Update, context: ContextTypes.D
         if target_limit < 0 or target_limit > 1000:
             raise ValueError("Percentage must be between 0 and 1000")
         
-        await state_manager.set_state_data(user.id, {'target_limit_pct': target_limit})
+        await state_manager.set_state_data(user.id, {'target_limit_percent': target_limit})
         
         # Show confirmation
         from .create import show_move_confirmation
