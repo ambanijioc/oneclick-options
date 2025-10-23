@@ -71,8 +71,8 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .move.strategy.input_handlers import handle_move_description_input
             await handle_move_description_input(update, context, text)
 
-        elif state_str == 'move_add_atm_offset':  # ⬅️ THIS LINE EXISTS
-            from .move_input_handlers import handle_move_atm_offset_input
+        elif state_str == 'move_add_atm_offset':
+            from .move.strategy.input_handlers import handle_move_atm_offset_input  # CORRECT PATH
             await handle_move_atm_offset_input(update, context, text)
         
         elif state_str == 'move_add_lot_size':
