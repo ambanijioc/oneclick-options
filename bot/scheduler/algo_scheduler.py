@@ -202,24 +202,25 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         api_key, api_secret = credentials
         client = DeltaClient(api_key, api_secret)
         
+        # Get spot price using get_spot_price (same as manual trade)
         try:
-            # Get spot price
-            ticker_response = await client.get_ticker(asset)
-            if not ticker_response or not ticker_response.get('success'):
-                error_msg = ticker_response.get('error', {}).get('message', 'Unknown error') if ticker_response else 'No response from exchange'
-                logger.error(f"❌ Failed to fetch spot price: {error_msg}")
-                await update_algo_execution(setup_id, 'failed', {'error': f'Failed to get spot price: {error_msg}'})
+            spot_price = await client.get_spot_price(asset)
+            logger.info(f"Spot price for {asset}: {spot_price}")
+        except Exception as e:
+            error_msg = f"Failed to fetch spot price: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            await update_algo_execution(setup_id, 'failed', {'error': error_msg})
     
-                # Send error notification
-                try:
-                    await bot_application.bot.send_message(
-                        chat_id=user_id,
-                        text=f"❌ <b>Algo Trade Failed</b>\n\n<b>Time:</b> {datetime.now(IST).strftime('%I:%M %p IST')}\n<b>Error:</b> Unable to fetch market price from exchange",
-                        parse_mode='HTML'
-                    )
-                except Exception:
-                    pass
-                return
+            # Send error notification
+            try:
+                await bot_application.bot.send_message(
+                    chat_id=user_id,
+                    text=f"❌ <b>Algo Trade Failed</b>\n\n<b>Time:</b> {datetime.now(IST).strftime('%I:%M %p IST')}\n<b>Error:</b> Unable to fetch market price from exchange",
+                    parse_mode='HTML'
+                )
+            except Exception:
+                pass
+            return
 
             # Safely extract spot_price
             result = ticker_response.get('result', {})
