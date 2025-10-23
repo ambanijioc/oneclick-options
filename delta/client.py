@@ -578,38 +578,43 @@ class DeltaClient:
     async def get_spot_price(self, asset: str = "BTC") -> float:
         """
         Get spot price for asset using tickers endpoint.
-    
+
         Args:
             asset: Asset symbol (BTC or ETH)
-    
+
         Returns:
             Spot price as float
-        """
+        """    
         try:
             symbol = f"{asset}USD"
             print(f"✅ Fetching spot price for {symbol}")
             self.logger.info(f"Fetching spot price for {symbol}")
-        
+    
             response = await self._request('GET', f'/v2/tickers/{symbol}', authenticated=False)
-        
+    
             print(f"✅ Ticker response: {response}")
-        
-            self.logger.info(f"Ticker API response: {response}")  # ✅ ADD THIS!
-        
+            self.logger.info(f"Ticker API response: {response}")
+    
+            # ✅ CRITICAL FIX: Extract result from response
+            result = response.get('result', {}) if response.get('success') else {}
+    
             if result.get('spot_price'):
                 price = float(result['spot_price'])
                 print(f"✅ Spot price: {price}")
+                self.logger.info(f"✅ Spot price: {price}")
                 return price
-        
+    
             if result.get('mark_price'):
                 price = float(result['mark_price'])
                 print(f"✅ Mark price (fallback): {price}")
+                self.logger.info(f"✅ Mark price (fallback): {price}")
                 return price
-        
+    
             self.logger.error(f"❌ No price found in response: {response}")
+            print(f"❌ No price found")
             return 0.0
-        
-        except Exception as 
+    
+        except Exception as e:
             print(f"❌ Exception: {e}")
             self.logger.error(f"❌ Exception fetching spot price: {e}", exc_info=True)
             raise
