@@ -317,6 +317,7 @@ async def ask_sl_monitor_preference(update, context):
         [InlineKeyboardButton("🔙 Back", callback_data="straddle_create_cancel")]
     ]
     
+    # ✅ FIX: Use update.message.reply_text (NOT callback_query.edit_message_text)
     await update.message.reply_text(
         "<b>🎯 SL-to-Cost Monitoring</b>\n\n"
         "<b>What it does:</b>\n"
@@ -327,7 +328,6 @@ async def ask_sl_monitor_preference(update, context):
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
-
 
 async def handle_sl_monitor_yes(update, context):
     """User enabled SL monitoring."""
