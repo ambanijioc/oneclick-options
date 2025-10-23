@@ -267,7 +267,7 @@ async def handle_straddle_target_limit_input(update: Update, context: ContextTyp
         )
 
 
-async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+async def handle_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle straddle strategy ATM offset input."""
     user = update.effective_user
     
