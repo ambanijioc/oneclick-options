@@ -282,7 +282,8 @@ async def handle_move_target_limit_input(update: Update, context: ContextTypes.D
         logger.info(f"✅ MOVE target limit stored: {target_limit}%")
         
         # Trigger final confirmation
-        from .move_strategy_handler import show_move_confirmation
+        from bot.handlers.move.strategy.create import show_move_confirmation
+        
         await show_move_confirmation(update, context)
     
     except ValueError as e:
@@ -310,7 +311,8 @@ async def handle_move_edit_name_input(update: Update, context: ContextTypes.DEFA
     logger.info(f"✅ MOVE edit name stored: {text}")
     
     # Trigger save
-    from .move_strategy_handler import save_move_edit
+    from bot.handlers.move.strategy.edit import save_move_edit
+
     await save_move_edit(update, context)
 
 
