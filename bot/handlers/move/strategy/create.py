@@ -10,6 +10,7 @@ from bot.utils.error_handler import error_handler
 from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
 from database.operations.move_strategy_ops import create_move_strategy
+from database.operations.move_strategy_ops import create_move_strategy, get_move_strategies  # ✅ ADD get_move_strategies
 from bot.keyboards.move_strategy_keyboards import (
     get_cancel_keyboard,
     get_asset_keyboard,
