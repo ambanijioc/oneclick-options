@@ -178,73 +178,6 @@ async def straddle_cancel_callback(update: Update, context: ContextTypes.DEFAULT
     )
 
 
-def register_straddle_strategy_handlers(application: Application):
-    """Register straddle strategy handlers."""
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_strategy_menu_callback,
-        pattern="^menu_straddle_strategy$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_add_callback,
-        pattern="^straddle_add$"
-    ))
-    
-    # ✅ ADD THIS - Handle Cancel during add flow
-    application.add_handler(CallbackQueryHandler(
-        straddle_cancel_callback,
-        pattern="^straddle_cancel$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_asset_callback,
-        pattern="^straddle_asset_(btc|eth)$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_expiry_callback,
-        pattern="^straddle_expiry_"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_direction_callback,
-        pattern="^straddle_direction_(long|short)$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_view_callback,
-        pattern="^straddle_view$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_delete_list_callback,
-        pattern="^straddle_delete_list$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_delete_callback,
-        pattern="^straddle_delete_[a-f0-9]{24}$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_delete_confirm_callback,
-        pattern="^straddle_delete_confirm$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_skip_description_callback,
-        pattern="^straddle_skip_description$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        straddle_skip_target_callback,
-        pattern="^straddle_skip_target$"
-    ))
-    
-    logger.info("Straddle strategy handlers registered")
-
-
 @error_handler
 async def straddle_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle asset selection."""
@@ -781,31 +714,65 @@ async def save_straddle_preset(update: Update, context: ContextTypes.DEFAULT_TYP
 def register_straddle_strategy_handlers(application: Application):
     """Register straddle strategy handlers."""
     
+    # Menu handlers
     application.add_handler(CallbackQueryHandler(
         straddle_strategy_menu_callback,
         pattern="^menu_straddle_strategy$"
     ))
     
+    # Add strategy flow
     application.add_handler(CallbackQueryHandler(
         straddle_add_callback,
         pattern="^straddle_add$"
     ))
     
+    # Cancel handler
+    application.add_handler(CallbackQueryHandler(
+        straddle_cancel_callback,
+        pattern="^straddle_cancel$"
+    ))
+    
+    # Asset selection
     application.add_handler(CallbackQueryHandler(
         straddle_asset_callback,
         pattern="^straddle_asset_(btc|eth)$"
     ))
     
+    # Expiry selection
     application.add_handler(CallbackQueryHandler(
         straddle_expiry_callback,
         pattern="^straddle_expiry_"
     ))
     
+    # Direction selection
     application.add_handler(CallbackQueryHandler(
         straddle_direction_callback,
         pattern="^straddle_direction_(long|short)$"
     ))
-
+    
+    # Skip handlers
+    application.add_handler(CallbackQueryHandler(
+        straddle_skip_description_callback,
+        pattern="^straddle_skip_description$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        straddle_skip_target_callback,
+        pattern="^straddle_skip_target$"
+    ))
+    
+    # ✅ SL Monitor handlers (NEW - ADD THESE)
+    application.add_handler(CallbackQueryHandler(
+        handle_sl_yes_callback,
+        pattern="^straddle_sl_yes$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        handle_sl_no_callback,
+        pattern="^straddle_sl_no$"
+    ))
+    
+    # Edit/View/Delete handlers
     application.add_handler(CallbackQueryHandler(
         straddle_edit_list_callback,
         pattern="^straddle_edit_list$"
@@ -835,17 +802,5 @@ def register_straddle_strategy_handlers(application: Application):
         straddle_delete_confirm_callback,
         pattern="^straddle_delete_confirm$"
     ))
-
-    # ✅ ADD THESE TWO NEW HANDLERS
-    application.add_handler(CallbackQueryHandler(
-        handle_sl_yes_callback,
-        pattern="^straddle_sl_yes$"
-    ))
-    
-    application.add_handler(CallbackQueryHandler(
-        handle_sl_no_callback,
-        pattern="^straddle_sl_no$"
-    ))
     
     logger.info("Straddle strategy handlers registered")
-  
