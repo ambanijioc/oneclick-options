@@ -3,43 +3,68 @@ MOVE Strategy handlers package.
 Handles all MOVE strategy CRUD operations and callbacks.
 """
 
-from telegram.ext import CallbackQueryHandler, MessageHandler, filters, Application
+from telegram.ext import CallbackQueryHandler, Application
 from bot.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-# Import all callback handlers from create.py
+# ✅ FIXED - Added closing parentheses
 from .create import (
-    move_menu_callback,
-    move_asset_input,
-    move_description_input,
-    move_target_input,
+    move_add_callback,
+    move_skip_description_callback,
+    move_asset_callback,
+    move_direction_callback,
+    move_skip_target_callback,
+    move_cancel_callback,
+    move_confirm_save_callback,
+    move_expiry_callback,
 )
 
-# Import from other modules if they exist
+# ✅ Import view handlers if they exist
 try:
-    from .view import move_view_callback, move_detail_callback
-except ImportError:
-    logger.warning("⚠️ view.py not found")
+    from .view import (
+        move_view_callback,
+        move_detail_callback,
+    )
+except (ImportError, ModuleNotFoundError):
+    logger.warning("⚠️ view.py not found - view handlers disabled")
     move_view_callback = None
     move_detail_callback = None
 
+# ✅ Import edit handlers if they exist
 try:
-    from .edit import move_edit_callback
-except ImportError:
-    logger.warning("⚠️ edit.py not found")
-    move_edit_callback = None
+    from .edit import (
+        move_edit_list_callback,
+        move_edit_select_callback,
+        move_edit_field_callback,
+        move_edit_save_callback,
+        move_edit_cancel_callback,
+    )
+except (ImportError, ModuleNotFoundError):
+    logger.warning("⚠️ edit.py not found - edit handlers disabled")
+    move_edit_list_callback = None
+    move_edit_select_callback = None
+    move_edit_field_callback = None
+    move_edit_save_callback = None
+    move_edit_cancel_callback = None
 
+# ✅ Import delete handlers if they exist
 try:
-    from .delete import move_delete_callback
-except ImportError:
-    logger.warning("⚠️ delete.py not found")
-    move_delete_callback = None
+    from .delete import (
+        move_delete_list_callback,
+        move_delete_confirm_callback,
+        move_delete_cancel_callback,
+    )
+except (ImportError, ModuleNotFoundError):
+    logger.warning("⚠️ delete.py not found - delete handlers disabled")
+    move_delete_list_callback = None
+    move_delete_confirm_callback = None
+    move_delete_cancel_callback = None
 
 
 def register_move_strategy_handlers(application: Application):
     """
-    Register all MOVE strategy callback and message handlers.
+    Register all MOVE strategy callback handlers.
     
     Args:
         application: Telegram bot application instance
@@ -48,30 +73,55 @@ def register_move_strategy_handlers(application: Application):
     try:
         logger.info("🚀 Registering MOVE strategy handlers...")
         
-        # ✅ MENU CALLBACK
+        # ✅ Menu callback (from main_menu.py button)
         application.add_handler(CallbackQueryHandler(
-            move_menu_callback, 
+            move_add_callback, 
             pattern="^menu_move_strategy$"
         ))
         logger.info("  ✓ menu_move_strategy registered")
         
-        # ✅ MESSAGE HANDLERS FOR INPUT STATES
-        application.add_handler(MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            move_asset_input
+        # Create handlers
+        application.add_handler(CallbackQueryHandler(
+            move_add_callback, 
+            pattern="^move_add$"
         ))
         
-        application.add_handler(MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            move_description_input
+        application.add_handler(CallbackQueryHandler(
+            move_skip_description_callback, 
+            pattern="^move_skip_description$"
         ))
         
-        application.add_handler(MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            move_target_input
+        application.add_handler(CallbackQueryHandler(
+            move_asset_callback, 
+            pattern="^move_asset_"
         ))
         
-        # ✅ VIEW HANDLERS (if available)
+        application.add_handler(CallbackQueryHandler(
+            move_expiry_callback, 
+            pattern="^move_expiry_"
+        ))
+        
+        application.add_handler(CallbackQueryHandler(
+            move_direction_callback, 
+            pattern="^move_direction_"
+        ))
+        
+        application.add_handler(CallbackQueryHandler(
+            move_skip_target_callback, 
+            pattern="^move_skip_target$"
+        ))
+        
+        application.add_handler(CallbackQueryHandler(
+            move_cancel_callback, 
+            pattern="^move_cancel$"
+        ))
+        
+        application.add_handler(CallbackQueryHandler(
+            move_confirm_save_callback, 
+            pattern="^move_save$"
+        ))
+        
+        # View handlers (if available)
         if move_view_callback:
             application.add_handler(CallbackQueryHandler(
                 move_view_callback, 
@@ -84,18 +134,54 @@ def register_move_strategy_handlers(application: Application):
                 pattern="^move_detail_"
             ))
         
-        # ✅ EDIT HANDLER (if available)
-        if move_edit_callback:
+        # Edit handlers (if available)
+        if move_edit_list_callback:
             application.add_handler(CallbackQueryHandler(
-                move_edit_callback, 
-                pattern="^move_edit_"
+                move_edit_list_callback, 
+                pattern="^move_edit_list$"
             ))
         
-        # ✅ DELETE HANDLER (if available)
-        if move_delete_callback:
+        if move_edit_select_callback:
             application.add_handler(CallbackQueryHandler(
-                move_delete_callback, 
-                pattern="^move_delete_"
+                move_edit_select_callback, 
+                pattern="^move_edit_select_"
+            ))
+        
+        if move_edit_field_callback:
+            application.add_handler(CallbackQueryHandler(
+                move_edit_field_callback, 
+                pattern="^move_field_"
+            ))
+        
+        if move_edit_save_callback:
+            application.add_handler(CallbackQueryHandler(
+                move_edit_save_callback, 
+                pattern="^move_edit_save$"
+            ))
+        
+        if move_edit_cancel_callback:
+            application.add_handler(CallbackQueryHandler(
+                move_edit_cancel_callback, 
+                pattern="^move_edit_cancel$"
+            ))
+        
+        # Delete handlers (if available)
+        if move_delete_list_callback:
+            application.add_handler(CallbackQueryHandler(
+                move_delete_list_callback, 
+                pattern="^move_delete_list$"
+            ))
+        
+        if move_delete_confirm_callback:
+            application.add_handler(CallbackQueryHandler(
+                move_delete_confirm_callback, 
+                pattern="^move_delete_confirm_"
+            ))
+        
+        if move_delete_cancel_callback:
+            application.add_handler(CallbackQueryHandler(
+                move_delete_cancel_callback, 
+                pattern="^move_delete_cancel$"
             ))
         
         logger.info("✅ MOVE strategy handlers registered successfully!")
@@ -107,5 +193,5 @@ def register_move_strategy_handlers(application: Application):
 
 __all__ = [
     'register_move_strategy_handlers',
-    'move_menu_callback',
-]
+    'move_add_callback',
+            ]
