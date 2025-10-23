@@ -678,43 +678,84 @@ async def manual_preset_edit_confirm_callback(update: Update, context: ContextTy
 
 def register_manual_preset_handlers(application: Application):
     """Register manual trade preset handlers."""
-    # Main menu callback - FIXED PATTERN
+    # Main menu
     application.add_handler(CallbackQueryHandler(
         manual_preset_menu_callback,
-        pattern="^menu_manual_trade_presets$"  # ✅ FIXED: was "^menu_manual_preset$"
+        pattern="^menu_manual_trade_presets$"
     ))
     
-    # Add preset
+    # Add preset flow
     application.add_handler(CallbackQueryHandler(
         manual_preset_add_callback,
         pattern="^manual_preset_add$"
     ))
     
-    # API selection
     application.add_handler(CallbackQueryHandler(
         manual_preset_api_callback,
         pattern="^manual_preset_api_"
     ))
     
-    # Strategy selection
     application.add_handler(CallbackQueryHandler(
         manual_preset_strategy_callback,
         pattern="^manual_preset_strategy_"
     ))
     
     application.add_handler(CallbackQueryHandler(
-        manual_preset_edit_callback,
-        pattern="^manual_preset_edit_"
+        manual_preset_confirm_callback,
+        pattern="^manual_preset_confirm$"
+    ))
+    
+    # View presets
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_view_list_callback,
+        pattern="^manual_preset_view_list$"
     ))
     
     application.add_handler(CallbackQueryHandler(
-        manual_preset_delete_callback,
-        pattern="^manual_preset_delete_"
+        manual_preset_view_callback,
+        pattern="^manual_preset_view_\\d+"
+    ))
+    
+    # Edit presets - ORDER MATTERS!
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_list_callback,
+        pattern="^manual_preset_edit_list$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_api_callback,
+        pattern="^manual_preset_edit_api_"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_strategy_callback,
+        pattern="^manual_preset_edit_strategy_"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_confirm_callback,
+        pattern="^manual_preset_edit_confirm$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_edit_callback,
+        pattern="^manual_preset_edit_\\d+"  # ✅ FIXED: Only matches edit_{id}
+    ))
+    
+    # Delete presets
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_delete_list_callback,
+        pattern="^manual_preset_delete_list$"
     ))
     
     application.add_handler(CallbackQueryHandler(
         manual_preset_delete_confirm_callback,
-        pattern="^manual_preset_delete_confirm_"
+        pattern="^manual_preset_delete_confirm$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        manual_preset_delete_callback,
+        pattern="^manual_preset_delete_\\d+"  # ✅ FIXED: Only matches delete_{id}
     ))
     
     logger.info("Manual trade preset handlers registered")
