@@ -317,16 +317,15 @@ async def ask_sl_monitor_preference(update, context):
         [InlineKeyboardButton("🔙 Back", callback_data="straddle_create_cancel")]
     ]
     
-    await update.callback_query.edit_message_text(
+    await update.message.reply_text(
         "<b>🎯 SL-to-Cost Monitoring</b>\n\n"
         "<b>What it does:</b>\n"
         "• Monitors positions every 5 seconds\n"
-        "• When one leg closes (SL hit), moves other leg SL to breakeven\n"
-        "• Auto-stops when done\n\n"
-        "<b>⚠️ Resource Usage:</b> +10MB RAM per active strategy\n\n"
-        "Enable for this preset?",
-        parse_mode='HTML',
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        "• When one leg closes (hits target), automatically moves other leg's SL to entry price\n"
+        "• Protects your profit and prevents losses\n\n"
+        "<b>Should this be enabled for this strategy?</b>",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
     )
 
 
