@@ -29,6 +29,15 @@ from bot.keyboards.move_strategy_keyboards import (
 
 logger = setup_logger(__name__)
 
+# ✅ NEW KEYBOARD FUNCTIONS
+def get_description_skip_keyboard():
+    """Keyboard with Skip Description button."""
+    keyboard = [
+        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 @error_handler
 async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start MOVE strategy creation flow."""
@@ -58,6 +67,24 @@ async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
+# ✅ NEW - Show description prompt with skip button
+@error_handler
+async def show_description_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show description prompt after name is entered."""
+    user = update.effective_user
+    data = await state_manager.get_state_data(user.id)
+    
+    await state_manager.set_state(user.id, 'move_add_description')
+    
+    await update.message.reply_text(
+        f"📝 Add MOVE Strategy\n\n"
+        f"Step 2/7: Description\n\n"
+        f"Name: {data.get('name')}\n\n"
+        f"Enter a description for your strategy (or skip):",
+        reply_markup=get_description_skip_keyboard(),
+        parse_mode='HTML'
+    )
+
 @error_handler
 async def move_skip_description_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Skip description and move to asset selection."""
@@ -65,12 +92,14 @@ async def move_skip_description_callback(update: Update, context: ContextTypes.D
     await query.answer()
     user = query.from_user
     
+    # Set empty description
+    await state_manager.set_state_data(user.id, {'description': ''})
     await state_manager.set_state(user.id, 'move_add_asset')
     data = await state_manager.get_state_data(user.id)
     
     await query.edit_message_text(
         f"📝 Add MOVE Strategy\n\n"
-        f"Step 2/7: Asset Selection\n\n"
+        f"Step 3/7: Asset Selection\n\n"
         f"Name: {data.get('name')}\n\n"
         f"Select underlying asset:",
         reply_markup=get_asset_keyboard(),
@@ -94,7 +123,7 @@ async def move_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     await query.edit_message_text(
         f"📝 Add MOVE Strategy\n\n"
-        f"Step 3/7: Expiry Selection\n\n"
+        f"Step 4/7: Expiry Selection\n\n"
         f"Name: {data.get('name')}\n"
         f"Asset: {asset}\n\n"
         f"Select expiry type:",
@@ -119,7 +148,7 @@ async def move_expiry_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     
     await query.edit_message_text(
         f"📝 Add MOVE Strategy\n\n"
-        f"Step 4/7: Direction Selection\n\n"
+        f"Step 5/7: Direction Selection\n\n"
         f"Name: {data.get('name')}\n"
         f"Asset: {data.get('asset')}\n"
         f"Expiry: {expiry.capitalize()}\n\n"
@@ -147,7 +176,7 @@ async def move_direction_callback(update: Update, context: ContextTypes.DEFAULT_
     
     await query.edit_message_text(
         f"📝 Add MOVE Strategy\n\n"
-        f"Step 5/7: Strike Selection\n\n"
+        f"Step 6/7: Strike Selection\n\n"
         f"Name: {data.get('name')}\n"
         f"Asset: {data.get('asset')}\n"
         f"Expiry: {data.get('expiry').capitalize()}\n"
@@ -315,6 +344,7 @@ async def move_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 __all__ = [
     'move_add_callback',
+    'show_description_prompt',  # ✅ NEW
     'move_skip_description_callback',
     'move_asset_callback',
     'move_expiry_callback',
@@ -323,4 +353,4 @@ __all__ = [
     'move_confirm_save_callback',
     'move_skip_target_callback',
     'move_cancel_callback',
-      ]
+    ]
