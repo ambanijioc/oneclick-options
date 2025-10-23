@@ -576,22 +576,30 @@ class DeltaClient:
     
     async def get_spot_price(self, asset: str = "BTC") -> float:
         """
-        Get spot price for asset.
-        
+        Get spot price for asset using tickers endpoint.
+    
         Args:
             asset: Asset symbol (BTC or ETH)
-        
+    
         Returns:
             Spot price as float
         """
-        # Get index price
-        index_symbol = f".DEX{asset}INDEX"
-        response = await self.get_index_price(index_symbol)
+        try:
+            # Use tickers endpoint - works for spot price
+            symbol = f"{asset}USD"  # BTCUSD, ETHUSD
+            response = await self._request('GET', f'/v2/tickers/{symbol}', authenticated=False)
         
-        if response.get('success'):
-            return float(response.get('result', {}).get('price', 0))
+            if response and 'spot_price' in response:
+                return float(response['spot_price'])
         
-        return 0.0
+            # Fallback to mark_price if spot_price not available
+            if response and 'mark_price' in response:
+                return float(response['mark_price'])
+        
+            return 0.0
+        except Exception as e:
+            self.logger.error(f"Failed to get spot price for {asset}: {e}")
+            raise
     
     # ==================== Order History Endpoints ====================
     
