@@ -46,6 +46,7 @@ class StrategyPreset(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = Field(default=True, description="Whether preset is active")
+    enable_sl_monitor: bool = Field(default=False, description="Enable SL monitoring")  # ✅ ADD THIS
     
     class Config:
         populate_by_name = True
