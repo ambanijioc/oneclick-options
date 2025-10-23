@@ -305,7 +305,7 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         else:
             raise ValueError(f"Invalid expiry_type: {expiry_type}")
 
-        target_expiry = target_expiry_date.strftime('%y%m%d')
+        target_expiry = target_expiry_date.strftime('%d%m%y')
 
         logger.info(f"Expiry Type: {expiry_type.upper()} | Target: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
 
