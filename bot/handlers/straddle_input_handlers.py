@@ -314,7 +314,7 @@ async def ask_sl_monitor_preference(update, context):
             InlineKeyboardButton("✅ Enable SL-to-Cost", callback_data="straddle_sl_yes"),
             InlineKeyboardButton("❌ Disable", callback_data="straddle_sl_no")
         ],
-        [InlineKeyboardButton("🔙 Back", callback_data="straddle_create_cancel")]
+        [InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]
     ]
     
     # ✅ FIX: Use update.message.reply_text (NOT callback_query.edit_message_text)
