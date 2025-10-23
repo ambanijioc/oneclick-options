@@ -278,61 +278,18 @@ async def handle_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_
         # Get state data
         state_data = await state_manager.get_state_data(user.id)
         
-        # ✅ Convert strikes to dollar offset (BTC = 200, ETH = 50)
+        # ✅ Convert strikes to dollar offset (BTC = 200, ETH = 20)
         strike_increment = 200 if state_data['asset'] == 'BTC' else 20
         atm_offset = atm_strikes * strike_increment
         
-        # ✅ Create StrategyPresetCreate object
-        from database.models.strategy_preset import StrategyPresetCreate
-        from database.operations.strategy_ops import create_strategy_preset
-        from bot.handlers.straddle_strategy_handler import get_straddle_menu_keyboard
-       
-        preset_data = StrategyPresetCreate(
-            user_id=user.id,
-            strategy_type='straddle',
-            name=state_data['name'],
-            description=state_data.get('description', ''),
-            asset=state_data['asset'],
-            expiry_code=state_data['expiry_code'],
-            direction=state_data['direction'],
-            lot_size=state_data['lot_size'],
-            sl_trigger_pct=state_data['sl_trigger_pct'],
-            sl_limit_pct=state_data['sl_limit_pct'],
-            target_trigger_pct=state_data.get('target_trigger_pct', 0.0),
-            target_limit_pct=state_data.get('target_limit_pct', 0.0),
-            atm_offset=atm_offset
-        )
+        # ✅ STORE ATM offset in state (don't save preset yet!)
+        state_data['atm_offset'] = atm_offset
+        state_data['atm_strikes'] = atm_strikes  # Store for display later
+        await state_manager.set_state_data(user.id, state_data)
         
-        # Save to database
-        result = await create_strategy_preset(preset_data)
+        # ✅ NOW ask about SL monitoring preference
+        await ask_sl_monitor_preference(update, context)
         
-        if result:
-            target_text = ""
-            if state_data.get('target_trigger_pct', 0) > 0:
-                target_text = f"Target: <b>{state_data['target_trigger_pct']}% / {state_data['target_limit_pct']}%</b>\n"
-            
-            await update.message.reply_text(
-                f"<b>✅ Straddle Strategy Created</b>\n\n"
-                f"Name: <b>{state_data['name']}</b>\n"
-                f"Asset: <b>{state_data['asset']}</b>\n"
-                f"Expiry: <b>{state_data['expiry_code']}</b>\n"
-                f"Direction: <b>{state_data['direction'].title()}</b>\n"
-                f"Lot Size: <b>{state_data['lot_size']}</b>\n"
-                f"ATM Offset: <b>{atm_strikes:+d} strikes</b> ({atm_offset:+d} USD)\n"
-                f"Stop Loss: <b>{state_data['sl_trigger_pct']}% / {state_data['sl_limit_pct']}%</b>\n"
-                + target_text,
-                reply_markup=get_straddle_menu_keyboard(),
-                parse_mode='HTML'
-            )
-        else:
-            await update.message.reply_text(
-                "❌ Failed to create strategy.",
-                reply_markup=get_straddle_menu_keyboard()
-            )
-        
-        # Clear state
-        await state_manager.clear_state(user.id)
-    
     except ValueError:
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]]
         await update.message.reply_text(
@@ -344,7 +301,6 @@ async def handle_atm_offset_input(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='HTML'
         )
-
 
 # ADD AT THE END OF straddle_input_handlers.py
 
