@@ -221,4 +221,13 @@ def get_preset_edit_fields_keyboard():
     ]
     
     return InlineKeyboardMarkup(keyboard)
+
+def get_description_keyboard():
+    """Keyboard for description step with Skip button."""
+    keyboard = [
+        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+    
             
