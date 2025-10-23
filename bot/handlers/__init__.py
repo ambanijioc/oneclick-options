@@ -92,7 +92,7 @@ def register_all_handlers(application: Application):
         # ✅ MOVE STRATEGY HANDLERS - FIXED IMPORT PATH
         try:
             logger.info("🔍 Attempting to import MOVE strategy handlers...")
-            from bot.handlers.move.strategy import register_move_strategy_handlers  # ✅ ABSOLUTE PATH
+            from bot.handlers.move.strategy.create import register_move_strategy_handlers  # ✅ ABSOLUTE PATH
             logger.info("🔍 Import successful, registering handlers...")
             register_move_strategy_handlers(application)
             logger.info("✓ MOVE strategy handlers registered")
