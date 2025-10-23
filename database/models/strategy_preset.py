@@ -126,6 +126,8 @@ class StrategyPresetCreate(BaseModel):
     
     # Strangle-specific
     otm_selection: Optional[OTMSelection] = None
+
+    enable_sl_monitor: bool = Field(default=False, description="Enable SL monitoring")
     
     @field_validator('otm_selection')
     @classmethod
