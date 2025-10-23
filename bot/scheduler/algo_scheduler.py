@@ -236,9 +236,11 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
 
         # ✅ READ EXPIRY TYPE FROM STRATEGY PRESET
         if hasattr(strategy, 'expiry_type'):
-            expiry_type = strategy.expiry_type
+            expiry_type = strategy.expiry_type  # Pydantic model
+        elif isinstance(strategy, dict):
+            expiry_type = strategy.get('expiry_type', 'daily')  # Dict
         else:
-            expiry_type = strategy.get('expiry_type', 'daily')  # Default to daily
+            expiry_type = 'daily'  # Fallback
 
         # Get current time in IST
         ist = pytz.timezone('Asia/Kolkata')
