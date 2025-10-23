@@ -587,26 +587,30 @@ class DeltaClient:
         """
         try:
             symbol = f"{asset}USD"
+            print(f"✅ Fetching spot price for {symbol}")
             self.logger.info(f"Fetching spot price for {symbol}")
         
             response = await self._request('GET', f'/v2/tickers/{symbol}', authenticated=False)
         
+            print(f"✅ Ticker response: {response}")
+        
             self.logger.info(f"Ticker API response: {response}")  # ✅ ADD THIS!
         
-            if response and 'spot_price' in response:
-                price = float(response['spot_price'])
-                self.logger.info(f"✅ Spot price: {price}")
+            if result.get('spot_price'):
+                price = float(result['spot_price'])
+                print(f"✅ Spot price: {price}")
                 return price
         
-            if response and 'mark_price' in response:
-                price = float(response['mark_price'])
-                self.logger.info(f"✅ Mark price (fallback): {price}")
+            if result.get('mark_price'):
+                price = float(result['mark_price'])
+                print(f"✅ Mark price (fallback): {price}")
                 return price
         
             self.logger.error(f"❌ No price found in response: {response}")
             return 0.0
         
-        except Exception as e:
+        except Exception as 
+            print(f"❌ Exception: {e}")
             self.logger.error(f"❌ Exception fetching spot price: {e}", exc_info=True)
             raise
     
