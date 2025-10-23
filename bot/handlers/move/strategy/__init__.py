@@ -20,7 +20,7 @@ def register_move_strategy_handlers(application: Application):
         # Register handler
         application.add_handler(CallbackQueryHandler(
             move_add_callback, 
-            pattern="^menu_move_strategy$"
+            pattern="^move_menu$"
         ))
         
         logger.info("✅ MOVE strategy handlers registered successfully!")
