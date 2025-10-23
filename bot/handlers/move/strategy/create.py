@@ -2,6 +2,7 @@
 MOVE Strategy Creation Handler
 
 Handles the complete flow of creating a new MOVE strategy:
+- Shows main MOVE menu first
 - Name & description input
 - Asset selection (BTC/ETH)
 - Expiry selection (daily/weekly)
@@ -24,14 +25,16 @@ from bot.keyboards.move_strategy_keyboards import (
     get_direction_keyboard,
     get_confirmation_keyboard,
     get_skip_target_keyboard,
-    get_move_menu_keyboard
+    get_move_menu_keyboard,
+    get_move_strategy_menu_keyboard,  # ✅ NEW
+    get_description_skip_keyboard  # ✅ NEW
 )
 
 logger = setup_logger(__name__)
 
 @error_handler
 async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start MOVE strategy creation flow."""
+    """Show MOVE strategy menu - ADD/VIEW/EDIT/DELETE options."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -39,6 +42,22 @@ async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_user_authorization(user):
         await query.edit_message_text("❌ Unauthorized access.")
         return
+    
+    log_user_action(user.id, "Opened MOVE strategy menu")
+    
+    await query.edit_message_text(
+        "🎯 MOVE Strategy Management\n\n"
+        "Choose an action:",
+        reply_markup=get_move_strategy_menu_keyboard(),
+        parse_mode='HTML'
+    )
+
+@error_handler
+async def move_add_new_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start MOVE strategy creation flow."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
     
     log_user_action(user.id, "Started adding MOVE strategy")
     
@@ -337,7 +356,8 @@ async def move_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 __all__ = [
     'move_add_callback',
-    'show_description_prompt',  # ✅ NEW
+    'move_add_new_callback',  # ✅ NEW
+    'show_description_prompt',
     'move_skip_description_callback',
     'move_asset_callback',
     'move_expiry_callback',
@@ -346,4 +366,4 @@ __all__ = [
     'move_confirm_save_callback',
     'move_skip_target_callback',
     'move_cancel_callback',
-    ]
+]
