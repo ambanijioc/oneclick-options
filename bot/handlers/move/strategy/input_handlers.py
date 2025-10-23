@@ -9,7 +9,12 @@ from telegram.ext import ContextTypes
 from bot.utils.logger import setup_logger
 from bot.utils.state_manager import state_manager
 from bot.utils.error_handler import error_handler
-from bot.keyboards.move_strategy_keyboards import get_asset_keyboard
+from bot.keyboards.move_strategy_keyboards import (
+    get_asset_keyboard,
+    get_description_skip_keyboard,
+    get_skip_target_keyboard,
+    get_cancel_keyboard
+)
 
 logger = setup_logger(__name__)
 
