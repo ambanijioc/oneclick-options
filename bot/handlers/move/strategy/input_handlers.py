@@ -157,18 +157,6 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
     """Handle target trigger input."""
     user = update.effective_user
     
-    # Handle /skip command
-    if text.lower() == '/skip':
-        await state_manager.set_state_data(user.id, {
-            'target_trigger_pct': None,
-            'target_limit_pct': None
-        })
-        
-        # Show confirmation
-        from .create import show_move_confirmation
-        await show_move_confirmation(update, context)
-        return
-    
     try:
         target_trigger = float(text)
         if target_trigger < 0 or target_trigger > 1000:
