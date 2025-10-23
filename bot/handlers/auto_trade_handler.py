@@ -442,7 +442,7 @@ async def auto_trade_confirm_callback(update: Update, context: ContextTypes.DEFA
             parse_mode='HTML'
         )
        
-    log_user_action(user.id, "auto_trade_create", f"Created algo setup at {state_data['execution_time']}")
+        log_user_action(user.id, "auto_trade_create", f"Created algo setup at {state_data['execution_time']}")
     
     except Exception as e:
         logger.error(f"Failed to create algo setup: {e}", exc_info=True)
