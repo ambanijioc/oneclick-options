@@ -121,19 +121,34 @@ async def handle_move_sl_limit_input(update: Update, context: ContextTypes.DEFAU
     
     try:
         sl_limit = float(text)
-        if sl_limit < 0 or sl_limit > 100:
-            raise ValueError("Percentage must be between 0 and 100")
         
-        await state_manager.set_state_data(user.id, {'sl_limit_pct': sl_limit})
+        data = await state_manager.get_state_data(user.id)
+        sl_trigger = data.get('sl_trigger_percent', 0)
+        
+        if not (1 <= sl_limit <= 200):
+            raise ValueError("SL limit must be between 1% and 200%")
+        
+        if sl_limit < sl_trigger:
+            raise ValueError(f"SL limit ({sl_limit}%) must be >= SL trigger ({sl_trigger}%)")
+        
+        # Store SL limit
+        await state_manager.set_state_data(user.id, {'sl_limit_percent': sl_limit})
+        
+        logger.info(f"✅ MOVE SL limit stored: {sl_limit}%")
+        
+        # Move to target trigger state
         await state_manager.set_state(user.id, 'move_add_target_trigger')
         
+        # ✅ USE IMPORTED SKIP BUTTON
         await update.message.reply_text(
             f"<b>📝 Add MOVE Strategy</b>\n\n"
             f"<b>SL Limit set:</b> {sl_limit}%\n\n"
-            f"<b>Enter Target trigger percentage (optional):</b>",
-            reply_markup=get_skip_target_keyboard(),  # ✅ USE IMPORTED FUNCTION
+            f"<b>Enter Target trigger percentage (optional):</b>\n\n"
+            f"<i>💡 Or skip to set no profit target</i>",
+            reply_markup=get_skip_target_keyboard(),  # ✅ THIS SKIPS BOTH INPUTS
             parse_mode='HTML'
         )
+    
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}\nPlease enter a valid percentage.")
 
