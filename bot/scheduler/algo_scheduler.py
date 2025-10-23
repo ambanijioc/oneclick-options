@@ -497,6 +497,46 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         await update_algo_execution(setup_id, 'success', details)
         logger.info(f"Algo trade executed successfully for setup {setup_id}")
         
+        # ✅ NEW: Check if SL monitoring is enabled for this preset
+        enable_sl_monitor = False
+        if hasattr(preset, 'enable_sl_monitor'):
+            enable_sl_monitor = preset.enable_sl_monitor
+        elif isinstance(preset, dict):
+            enable_sl_monitor = preset.get('enable_sl_monitor', False)
+        
+        if enable_sl_monitor:
+            logger.info(f"✅ Starting SL monitor for automated trade (setup {setup_id})")
+            
+            # Generate unique strategy ID
+            strategy_id = f"{preset['strategy_type']}_{user_id}_{int(datetime.now().timestamp())}"
+            
+            # Get database instance from bot_application
+            db = bot_application.bot_data.get('db')
+            
+            if db:
+                try:
+                    # Start monitoring
+                    await start_strategy_monitor(
+                        strategy_id=strategy_id,
+                        user_id=user_id,
+                        api_id=preset['api_credential_id'],
+                        strategy_type=preset['strategy_type'],
+                        call_symbol=ce_symbol,
+                        put_symbol=pe_symbol,
+                        call_entry_price=ce_fill_price,
+                        put_entry_price=pe_fill_price,
+                        db=db
+                    )
+                    
+                    logger.info(f"🔍 SL-to-Cost monitor started for strategy {strategy_id}")
+                except Exception as monitor_error:
+                    logger.error(f"Failed to start SL monitor: {monitor_error}", exc_info=True)
+            else:
+                logger.warning("Database not available in bot_data, skipping SL monitor")
+        else:
+            logger.info(f"⏸️ SL monitoring disabled for setup {setup_id}")
+
+        
         # Build notification message
         notification_text = (
             f"✅ <b>Algo Trade Executed</b>\n\n"
