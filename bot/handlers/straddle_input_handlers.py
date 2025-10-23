@@ -393,6 +393,7 @@ async def handle_sl_monitor_no(update, context):
 async def save_straddle_preset(update, context):
     """Save the straddle preset with SL preference."""
     from database.operations.strategy_ops import create_strategy_preset
+    from datetime import datetime
     
     preset_data = {
         'user_id': update.callback_query.from_user.id,
@@ -408,20 +409,15 @@ async def save_straddle_preset(update, context):
         'created_at': datetime.now(),
         'updated_at': datetime.now()
     }
-    
-    # Save to database
-    result = await create_strategy_preset(preset_data)
 
-    if result:
-    await ask_sl_monitor_preference(update, context)
-    return
-    
+    result = await create_strategy_preset(preset_data)
     sl_status = "✅ Enabled" if preset_data['enable_sl_monitor'] else "❌ Disabled"
-    
-    await update.callback_query.edit_message_text(
-        f"✅ Preset saved!\n\n"
-        f"<b>Name:</b> {preset_data['strategy_name']}\n"
-        f"<b>SL Monitor:</b> {sl_status}",
-        parse_mode='HTML'
-    )
-    
+    if result:
+        await update.callback_query.edit_message_text(
+            f"✅ Preset saved!\n\n"
+            f"<b>Name:</b> {preset_data['strategy_name']}\n"
+            f"<b>SL Monitor:</b> {sl_status}",
+            parse_mode='HTML'
+        )
+    else:
+        await update.callback_query.edit_message_text("❌ Error saving preset.", parse_mode='HTML')
