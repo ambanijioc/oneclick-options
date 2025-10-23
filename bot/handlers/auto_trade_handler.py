@@ -425,16 +425,24 @@ async def auto_trade_confirm_callback(update: Update, context: ContextTypes.DEFA
                 'execution_time': state_data['execution_time']
             }
         )
-   
+    
+        # ✅ NEW: Check if preset has SL monitoring enabled
+        preset = await get_manual_trade_preset(state_data['manual_preset_id'])
+        enable_sl_monitor = safe_get_attr(preset, 'enable_sl_monitor', False)
+    
+        # Build confirmation message
+        sl_status = "✅ Enabled" if enable_sl_monitor else "❌ Disabled"
+    
         await query.edit_message_text(
             "<b>✅ Algo Setup Created!</b>\n\n"
             f"Trade will execute automatically at <b>{state_data['execution_time']} IST</b>.\n\n"
+            f"<b>SL-to-Cost Monitor:</b> {sl_status}\n\n"
             "You'll receive notifications before execution.",
             reply_markup=get_auto_trade_menu_keyboard(),
             parse_mode='HTML'
         )
-        
-        log_user_action(user.id, "auto_trade_create", f"Created algo setup at {state_data['execution_time']}")
+       
+    log_user_action(user.id, "auto_trade_create", f"Created algo setup at {state_data['execution_time']}")
     
     except Exception as e:
         logger.error(f"Failed to create algo setup: {e}", exc_info=True)
