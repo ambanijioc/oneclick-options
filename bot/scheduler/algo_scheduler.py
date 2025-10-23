@@ -230,28 +230,83 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         products_response = await client.get_products(contract_types='call_options,put_options')
         if not products_response.get('success'):
             raise Exception(f"Failed to fetch options: {products_response.get('error', {}).get('message')}")
-        
+
         products = products_response['result']
-        # ✅ DELTA INDIA: DAILY OPTIONS EXPIRY AT 5:30 PM IST
+
+        # ✅ READ EXPIRY TYPE FROM STRATEGY PRESET
+        if hasattr(strategy, 'expiry_type'):
+            expiry_type = strategy.expiry_type
+        else:
+            expiry_type = strategy.get('expiry_type', 'daily')  # Default to daily
+
         # Get current time in IST
         ist = pytz.timezone('Asia/Kolkata')
         now_ist = datetime.now(ist)
 
-        # Determine target expiry date
-        # If before 5:30 PM today, use today's expiry
-        # If after 5:30 PM, use tomorrow's expiry
-        if now_ist.hour < 17 or (now_ist.hour == 17 and now_ist.minute < 30):
-            # Before 5:30 PM - use today's expiry
-            target_expiry_date = now_ist.date()
+        # ✅ CALCULATE TARGET EXPIRY BASED ON STRATEGY'S EXPIRY_TYPE
+        if expiry_type == 'daily':
+            # Daily expiry logic
+            if now_ist.hour < 17 or (now_ist.hour == 17 and now_ist.minute < 30):
+                target_expiry_date = now_ist.date()
+            else:
+                target_expiry_date = now_ist.date() + timedelta(days=1)
+
+        elif expiry_type == 'weekly':
+            # Weekly expiry logic (Current week's Friday)
+            current_weekday = now_ist.weekday()  # Monday=0, Friday=4
+            if current_weekday < 4:  # Monday-Thursday
+                days_to_friday = 4 - current_weekday
+            elif current_weekday == 4:  # Friday
+                if now_ist.hour >= 17 and now_ist.minute >= 30:
+                    days_to_friday = 7  # After 5:30 PM, use next week
+                else:
+                    days_to_friday = 0  # Use today
+            else:  # Saturday/Sunday
+                days_to_friday = (7 - current_weekday + 4) % 7
+    
+            target_expiry_date = now_ist.date() + timedelta(days=days_to_friday)
+
+        elif expiry_type == 'monthly':
+            # Monthly expiry logic (Last Friday of month)
+            import calendar
+    
+            year = now_ist.year
+            month = now_ist.month
+    
+            # Get last day of month
+            last_day = calendar.monthrange(year, month)[1]
+            last_date = datetime(year, month, last_day, tzinfo=ist).date()
+    
+            # Find last Friday
+            while last_date.weekday() != 4:  # 4 = Friday
+                last_date -= timedelta(days=1)
+    
+            # If past this month's expiry, use next month
+            if now_ist.date() > last_date or (now_ist.date() == last_date and now_ist.hour >= 17 and now_ist.minute >= 30):
+                # Move to next month
+                if month == 12:
+                    next_month = 1
+                    next_year = year + 1
+                else:
+                    next_month = month + 1
+                    next_year = year
+        
+                last_day = calendar.monthrange(next_year, next_month)[1]
+                target_expiry_date = datetime(next_year, next_month, last_day, tzinfo=ist).date()
+        
+                while target_expiry_date.weekday() != 4:
+                    target_expiry_date -= timedelta(days=1)
+            else:
+                target_expiry_date = last_date
+
         else:
-            # After 5:30 PM - use tomorrow's expiry
-            target_expiry_date = now_ist.date() + timedelta(days=1)
+            raise ValueError(f"Invalid expiry_type: {expiry_type}")
 
         target_expiry = target_expiry_date.strftime('%y%m%d')
 
-        logger.info(f"Current time: {now_ist.strftime('%I:%M %p IST')} | Target expiry: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
+        logger.info(f"Expiry Type: {expiry_type.upper()} | Target: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
 
-        # Filter options by expiry and asset
+        # Filter options by expiry
         filtered_options = [
             p for p in products
             if asset in p.get('symbol', '') 
@@ -259,7 +314,7 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             and target_expiry in p.get('symbol', '')
         ]
 
-        # Fallback: if no options found, try tomorrow
+        # Fallback: if no options found, try next day
         if not filtered_options:
             logger.warning(f"No options found for expiry {target_expiry}, trying next day...")
             target_expiry_date = target_expiry_date + timedelta(days=1)
@@ -272,13 +327,12 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
                 and p.get('state') == 'live'
                 and target_expiry in p.get('symbol', '')
             ]
-            
+    
             if not filtered_options:
                 raise Exception(f"No options found for {asset} with expiry {target_expiry}")
 
         logger.info(f"Found {len(filtered_options)} live options for {asset} expiring {target_expiry}")
-
-        
+ 
         # Calculate strikes based on strategy type
         if preset['strategy_type'] == 'straddle':
             if hasattr(strategy, 'atm_offset'):
