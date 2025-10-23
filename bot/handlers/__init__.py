@@ -1,6 +1,6 @@
 """
 Bot command and callback handlers.
-UPDATED: 2025-10-19 11:14 PM IST
+UPDATED: 2025-10-23 10:25 AM IST
 """
 
 from telegram.ext import Application, MessageHandler, filters
@@ -16,7 +16,7 @@ def register_all_handlers(application: Application):
     Args:
         application: Bot application instance
     """
-    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.0")  # ← ADD THIS
+    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.0")
     try:
         logger.info("Registering all handlers...")
         
@@ -89,10 +89,10 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Strangle strategy handler not found: {e}")
         
-        # ✅ MOVE STRATEGY HANDLERS (WITH DEBUG LOGGING)
+        # ✅ MOVE STRATEGY HANDLERS - FIXED IMPORT PATH
         try:
-            logger.info("🔍 Attempting to import move_strategy_handler...")
-            from .move.strategy import register_move_strategy_handlers
+            logger.info("🔍 Attempting to import MOVE strategy handlers...")
+            from bot.handlers.move.strategy import register_move_strategy_handlers  # ✅ ABSOLUTE PATH
             logger.info("🔍 Import successful, registering handlers...")
             register_move_strategy_handlers(application)
             logger.info("✓ MOVE strategy handlers registered")
@@ -108,7 +108,7 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Move list handler not found: {e}")
         
-        # ✅ MOVE TRADE PRESET HANDLERS (NEW/UPDATED)
+        # ✅ MOVE TRADE PRESET HANDLERS
         try:
             from .move_trade_preset_handler import register_move_trade_preset_handlers
             register_move_trade_preset_handlers(application)
@@ -173,4 +173,3 @@ def register_all_handlers(application: Application):
 
 
 __all__ = ['register_all_handlers']
-            
