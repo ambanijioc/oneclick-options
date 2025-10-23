@@ -1,6 +1,6 @@
 """
 Bot command and callback handlers.
-UPDATED: 2025-10-23 10:25 AM IST
+UPDATED: 2025-10-24 01:00 AM IST
 """
 
 from telegram.ext import Application, MessageHandler, filters
@@ -16,7 +16,7 @@ def register_all_handlers(application: Application):
     Args:
         application: Bot application instance
     """
-    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.0")
+    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.1")
     try:
         logger.info("Registering all handlers...")
         
@@ -89,10 +89,10 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Strangle strategy handler not found: {e}")
         
-        # ✅ MOVE STRATEGY HANDLERS - FIXED IMPORT PATH
+        # ✅ MOVE STRATEGY HANDLERS
         try:
             logger.info("🔍 Attempting to import MOVE strategy handlers...")
-            from bot.handlers.move.strategy import register_move_strategy_handlers  # ✅ ABSOLUTE PATH
+            from bot.handlers.move.strategy import register_move_strategy_handlers
             logger.info("🔍 Import successful, registering handlers...")
             register_move_strategy_handlers(application)
             logger.info("✓ MOVE strategy handlers registered")
@@ -154,37 +154,49 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Move auto trade handler not found: {e}")
 
-        # ✅ SL MONITOR HANDLERS - ENHANCED ERROR LOGGING
+        # ✅✅✅ SL MONITOR HANDLERS - ENHANCED ERROR LOGGING ✅✅✅
+        logger.info("=" * 60)
+        logger.info("🔍 ATTEMPTING TO REGISTER SL MONITOR HANDLERS")
+        logger.info("=" * 60)
         try:
-            logger.info("🔍 Attempting to import SL monitor handlers...")
-            logger.info(f"📂 Looking for: bot/handlers/sl_monitor_handler.py")
-            
+            logger.info("Step 1: Importing sl_monitor_handler module...")
             from .sl_monitor_handler import register_sl_monitor_handlers
+            logger.info("✅ Step 1 SUCCESS: Module imported")
             
-            logger.info("✅ SL monitor handler imported successfully")
-            logger.info("🔧 Registering SL monitor handlers...")
-            
+            logger.info("Step 2: Calling register_sl_monitor_handlers()...")
             register_sl_monitor_handlers(application)
+            logger.info("✅ Step 2 SUCCESS: Function called")
             
-            logger.info("✓ SL monitor handlers registered successfully")
+            logger.info("=" * 60)
+            logger.info("✓✓✓ SL MONITOR HANDLERS REGISTERED SUCCESSFULLY ✓✓✓")
+            logger.info("=" * 60)
             
         except ImportError as e:
-            logger.error(f"❌ ImportError - SL monitor handler file not found!")
-            logger.error(f"   Error details: {e}")
-            logger.error(f"   Make sure bot/handlers/sl_monitor_handler.py exists")
-            logger.error("   Full traceback:", exc_info=True)
+            logger.error("=" * 60)
+            logger.error("❌❌❌ IMPORT ERROR - SL MONITOR FILE NOT FOUND ❌❌❌")
+            logger.error("=" * 60)
+            logger.error(f"Error: {e}")
+            logger.error("File should be at: bot/handlers/sl_monitor_handler.py")
+            logger.error("Full traceback:", exc_info=True)
+            logger.error("=" * 60)
             
         except AttributeError as e:
-            logger.error(f"❌ AttributeError - register_sl_monitor_handlers function not found!")
-            logger.error(f"   Error details: {e}")
-            logger.error(f"   Make sure the function exists in sl_monitor_handler.py")
-            logger.error("   Full traceback:", exc_info=True)
+            logger.error("=" * 60)
+            logger.error("❌❌❌ ATTRIBUTE ERROR - FUNCTION NOT FOUND ❌❌❌")
+            logger.error("=" * 60)
+            logger.error(f"Error: {e}")
+            logger.error("The file exists but register_sl_monitor_handlers function is missing")
+            logger.error("Full traceback:", exc_info=True)
+            logger.error("=" * 60)
             
         except Exception as e:
-            logger.error(f"❌ Unexpected error registering SL monitor handlers")
-            logger.error(f"   Error type: {type(e).__name__}")
-            logger.error(f"   Error message: {e}")
-            logger.error("   Full traceback:", exc_info=True)
+            logger.error("=" * 60)
+            logger.error("❌❌❌ UNEXPECTED ERROR ❌❌❌")
+            logger.error("=" * 60)
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error message: {e}")
+            logger.error("Full traceback:", exc_info=True)
+            logger.error("=" * 60)
         
         # Register message router LAST (lowest priority)
         from .message_router import route_message
