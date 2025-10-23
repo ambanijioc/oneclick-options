@@ -326,7 +326,8 @@ async def handle_move_edit_desc_input(update: Update, context: ContextTypes.DEFA
     logger.info(f"✅ MOVE edit description stored")
     
     # Trigger save
-    from .move_strategy_handler import save_move_edit
+    from bot.handlers.move.strategy.edit import save_move_edit
+
     await save_move_edit(update, context)
 
 
@@ -344,7 +345,8 @@ async def handle_move_edit_atm_offset_input(update: Update, context: ContextType
         
         logger.info(f"✅ MOVE edit ATM offset stored: {atm_offset}")
         
-        from .move_strategy_handler import save_move_edit
+        from bot.handlers.move.strategy.edit import save_move_edit
+
         await save_move_edit(update, context)
     
     except ValueError as e:
@@ -369,7 +371,8 @@ async def handle_move_edit_sl_trigger_input(update: Update, context: ContextType
         
         logger.info(f"✅ MOVE edit SL trigger stored: {sl_trigger}%")
         
-        from .move_strategy_handler import save_move_edit
+        from bot.handlers.move.strategy.edit import save_move_edit
+
         await save_move_edit(update, context)
     
     except ValueError as e:
@@ -394,7 +397,8 @@ async def handle_move_edit_sl_limit_input(update: Update, context: ContextTypes.
         
         logger.info(f"✅ MOVE edit SL limit stored: {sl_limit}%")
         
-        from .move_strategy_handler import save_move_edit
+        from bot.handlers.move.strategy.edit import save_move_edit
+
         await save_move_edit(update, context)
     
     except ValueError as e:
@@ -419,7 +423,8 @@ async def handle_move_edit_target_trigger_input(update: Update, context: Context
         
         logger.info(f"✅ MOVE edit target trigger stored: {target_trigger}%")
         
-        from .move_strategy_handler import save_move_edit
+        from bot.handlers.move.strategy.edit import save_move_edit
+
         await save_move_edit(update, context)
     
     except ValueError as e:
@@ -444,7 +449,8 @@ async def handle_move_edit_target_limit_input(update: Update, context: ContextTy
         
         logger.info(f"✅ MOVE edit target limit stored: {target_limit}%")
         
-        from .move_strategy_handler import save_move_edit
+        from bot.handlers.move.strategy.edit import save_move_edit
+
         await save_move_edit(update, context)
     
     except ValueError as e:
