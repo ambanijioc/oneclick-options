@@ -524,11 +524,7 @@ async def handle_sl_yes_callback(update: Update, context: ContextTypes.DEFAULT_T
     await query.answer()
     
     user = query.from_user
-    
-    # Store SL preference in context
     context.user_data['enable_sl_monitor'] = True
-    
-    # Now save the preset
     await save_straddle_preset(update, context)
 
 
@@ -539,11 +535,7 @@ async def handle_sl_no_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
     
     user = query.from_user
-    
-    # Store SL preference in context
     context.user_data['enable_sl_monitor'] = False
-    
-    # Now save the preset
     await save_straddle_preset(update, context)
 
 
@@ -602,9 +594,7 @@ async def save_straddle_preset(update: Update, context: ContextTypes.DEFAULT_TYP
                 parse_mode='HTML'
             )
         
-        # Clear state
         await state_manager.clear_state(user.id)
-        
         log_user_action(user.id, "straddle_save", f"Saved strategy: {preset.name}")
     else:
         error_message = "❌ Error saving preset."
@@ -613,144 +603,40 @@ async def save_straddle_preset(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             await update.message.reply_text(error_message, reply_markup=get_straddle_menu_keyboard())
 
-
-@error_handler
-async def handle_sl_yes_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """User chose to enable SL monitoring"""
-    query = update.callback_query
-    await query.answer()
-    
-    user = query.from_user
-    
-    # Store SL preference in context
-    context.user_data['enable_sl_monitor'] = True
-    
-    # Now save the preset
-    await save_straddle_preset(update, context)
-
-
-@error_handler
-async def handle_sl_no_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """User chose to disable SL monitoring"""
-    query = update.callback_query
-    await query.answer()
-    
-    user = query.from_user
-    
-    # Store SL preference in context
-    context.user_data['enable_sl_monitor'] = False
-    
-    # Now save the preset
-    await save_straddle_preset(update, context)
-
-
-@error_handler
-async def save_straddle_preset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Final save of the straddle preset with SL preference"""
-    from database.models.strategy_preset import StrategyPresetCreate
-    
-    query = update.callback_query if update.callback_query else None
-    user = update.effective_user
-    
-    # Get state data
-    state_data = await state_manager.get_state_data(user.id)
-    
-    # Build preset
-    preset = StrategyPresetCreate(
-        user_id=user.id,
-        strategy_type='straddle',
-        name=state_data.get('name', 'Straddle'),
-        description=state_data.get('description', ''),
-        asset=state_data['asset'],
-        expiry_code=state_data['expiry_code'],
-        direction=state_data['direction'],
-        lot_size=state_data['lot_size'],
-        sl_trigger_pct=state_data.get('sl_trigger_pct', 0.0),
-        sl_limit_pct=state_data.get('sl_limit_pct', 0.0),
-        target_trigger_pct=state_data.get('target_trigger_pct', 0.0),
-        target_limit_pct=state_data.get('target_limit_pct', 0.0),
-        atm_offset=state_data.get('atm_offset', 0),
-        enable_sl_monitor=context.user_data.get('enable_sl_monitor', False)
-    )
-    
-    result = await create_strategy_preset(preset)
-    
-    sl_status = "✅ Enabled" if preset.enable_sl_monitor else "❌ Disabled"
-    
-    if result:
-        success_message = (
-            f"✅ <b>Preset Saved!</b>\n\n"
-            f"<b>Name:</b> {preset.name}\n"
-            f"<b>Asset:</b> {preset.asset}\n"
-            f"<b>Direction:</b> {preset.direction.title()}\n"
-            f"<b>SL Monitor:</b> {sl_status}"
-        )
-        
-        if query:
-            await query.edit_message_text(
-                success_message,
-                reply_markup=get_straddle_menu_keyboard(),
-                parse_mode='HTML'
-            )
-        else:
-            await update.message.reply_text(
-                success_message,
-                reply_markup=get_straddle_menu_keyboard(),
-                parse_mode='HTML'
-            )
-        
-        # Clear state
-        await state_manager.clear_state(user.id)
-        
-        log_user_action(user.id, "straddle_save", f"Saved strategy: {preset.name}")
-    else:
-        error_message = "❌ Error saving preset."
-        if query:
-            await query.edit_message_text(error_message, reply_markup=get_straddle_menu_keyboard())
-        else:
-            await update.message.reply_text(error_message, reply_markup=get_straddle_menu_keyboard())
-            
 
 def register_straddle_strategy_handlers(application: Application):
     """Register straddle strategy handlers."""
     
-    # Menu handlers
     application.add_handler(CallbackQueryHandler(
         straddle_strategy_menu_callback,
         pattern="^menu_straddle_strategy$"
     ))
     
-    # Add strategy flow
     application.add_handler(CallbackQueryHandler(
         straddle_add_callback,
         pattern="^straddle_add$"
     ))
     
-    # Cancel handler
     application.add_handler(CallbackQueryHandler(
         straddle_cancel_callback,
         pattern="^straddle_cancel$"
     ))
     
-    # Asset selection
     application.add_handler(CallbackQueryHandler(
         straddle_asset_callback,
         pattern="^straddle_asset_(btc|eth)$"
     ))
     
-    # Expiry selection
     application.add_handler(CallbackQueryHandler(
         straddle_expiry_callback,
         pattern="^straddle_expiry_"
     ))
     
-    # Direction selection
     application.add_handler(CallbackQueryHandler(
         straddle_direction_callback,
         pattern="^straddle_direction_(long|short)$"
     ))
     
-    # Skip handlers
     application.add_handler(CallbackQueryHandler(
         straddle_skip_description_callback,
         pattern="^straddle_skip_description$"
@@ -761,7 +647,7 @@ def register_straddle_strategy_handlers(application: Application):
         pattern="^straddle_skip_target$"
     ))
     
-    # ✅ SL Monitor handlers (NEW - ADD THESE)
+    # SL Monitor handlers
     application.add_handler(CallbackQueryHandler(
         handle_sl_yes_callback,
         pattern="^straddle_sl_yes$"
@@ -804,3 +690,4 @@ def register_straddle_strategy_handlers(application: Application):
     ))
     
     logger.info("Straddle strategy handlers registered")
+    
