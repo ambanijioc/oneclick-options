@@ -411,6 +411,10 @@ async def save_straddle_preset(update, context):
     
     # Save to database
     result = await create_strategy_preset(preset_data)
+
+    if result:
+    await ask_sl_monitor_preference(update, context)
+    return
     
     sl_status = "✅ Enabled" if preset_data['enable_sl_monitor'] else "❌ Disabled"
     
