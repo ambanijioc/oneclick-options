@@ -157,7 +157,11 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state_str == 'straddle_add_target_limit':
             from .straddle_input_handlers import handle_straddle_target_limit_input
             await handle_straddle_target_limit_input(update, context, text)
-        
+
+        elif state_str == 'straddle_add_atm_offset':
+            from .straddle_input_handlers import handle_atm_offset_input
+            await handle_atm_offset_input(update, context, text)
+    
         # ==================== STRANGLE STRATEGY STATES ====================
         elif state_str == 'strangle_add_name':
             from .strangle_input_handlers import handle_strangle_name_input
