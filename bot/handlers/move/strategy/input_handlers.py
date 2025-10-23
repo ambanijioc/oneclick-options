@@ -26,11 +26,15 @@ async def handle_move_name_input(update: Update, context: ContextTypes.DEFAULT_T
     await state_manager.set_state_data(user.id, {'name': text})
     await state_manager.set_state(user.id, 'move_add_description')
     
+    # ✅ IMPORT KEYBOARD INSTEAD OF INLINE
     await update.message.reply_text(
-        f"✅ Name set: {text}\n\n"
-        f"Now enter a description (or /skip):"
+        f"<b>📝 Add MOVE Strategy</b>\n\n"
+        f"<b>Name:</b> {text}\n\n"
+        f"<b>Enter description</b> (optional):",
+        reply_markup=get_description_skip_keyboard(),
+        parse_mode='HTML'
     )
-
+    
 @error_handler
 async def handle_move_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle strategy description input."""
