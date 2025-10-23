@@ -14,7 +14,7 @@ def register_move_strategy_handlers(application: Application):
     try:
         logger.info("🚀 Registering MOVE strategy handlers...")
         
-        # Import callbacks
+        # Import CREATE callbacks (these exist)
         from .create import (
             move_add_callback,
             move_add_new_callback,
@@ -26,14 +26,11 @@ def register_move_strategy_handlers(application: Application):
             move_skip_target_callback,
             move_cancel_callback
         )
-        from .view import move_view_callback, move_view_strategy_callback
-        from .edit import move_edit_callback, move_save_edit_callback
-        from .delete import move_delete_callback, move_confirm_delete_callback
         
         # Register MENU handler (shows options)
         application.add_handler(CallbackQueryHandler(
             move_add_callback, 
-            pattern="^move_menu"
+            pattern="^move_menu$"
         ))
         
         # Register CREATE NEW handler (starts creation)
@@ -70,36 +67,6 @@ def register_move_strategy_handlers(application: Application):
         application.add_handler(CallbackQueryHandler(
             move_cancel_callback,
             pattern="^move_cancel$"
-        ))
-        
-        # Register VIEW handlers
-        application.add_handler(CallbackQueryHandler(
-            move_view_callback,
-            pattern="^move_view$"
-        ))
-        application.add_handler(CallbackQueryHandler(
-            move_view_strategy_callback,
-            pattern="^move_view_strategy_"
-        ))
-        
-        # Register EDIT handlers
-        application.add_handler(CallbackQueryHandler(
-            move_edit_callback,
-            pattern="^move_edit_"
-        ))
-        application.add_handler(CallbackQueryHandler(
-            move_save_edit_callback,
-            pattern="^move_save_edit_"
-        ))
-        
-        # Register DELETE handlers
-        application.add_handler(CallbackQueryHandler(
-            move_delete_callback,
-            pattern="^move_delete_"
-        ))
-        application.add_handler(CallbackQueryHandler(
-            move_confirm_delete_callback,
-            pattern="^move_confirm_delete_"
         ))
         
         logger.info("✅ MOVE strategy handlers registered successfully!")
