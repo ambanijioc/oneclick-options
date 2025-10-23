@@ -321,7 +321,7 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         if not filtered_options:
             logger.warning(f"No options found for expiry {target_expiry}, trying next day...")
             target_expiry_date = target_expiry_date + timedelta(days=1)
-            target_expiry = target_expiry_date.strftime('%y%m%d')
+            target_expiry = target_expiry_date.strftime('%d%m%y')
             logger.info(f"Using next day's expiry: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
     
             filtered_options = [
