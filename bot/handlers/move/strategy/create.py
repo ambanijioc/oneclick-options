@@ -1,16 +1,8 @@
 """
 MOVE Strategy Creation Handler
-
-Handles the complete flow of creating a new MOVE strategy:
-- Shows main MOVE menu first
-- Name & description input
-- Asset selection (BTC/ETH)
-- Expiry selection (daily/weekly)
-- Direction selection (long/short)
-- Strike & risk management setup
 """
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
@@ -26,15 +18,14 @@ from bot.keyboards.move_strategy_keyboards import (
     get_confirmation_keyboard,
     get_skip_target_keyboard,
     get_move_menu_keyboard,
-    get_move_strategy_menu_keyboard,  # ✅ NEW
-    get_description_skip_keyboard  # ✅ NEW
+    get_description_skip_keyboard
 )
 
 logger = setup_logger(__name__)
 
 @error_handler
 async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show MOVE strategy menu - ADD/VIEW/EDIT/DELETE options."""
+    """Show MOVE strategy menu (called by main menu button)."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -48,13 +39,13 @@ async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(
         "🎯 MOVE Strategy Management\n\n"
         "Choose an action:",
-        reply_markup=get_move_strategy_menu_keyboard(),
+        reply_markup=get_move_menu_keyboard(),
         parse_mode='HTML'
     )
 
 @error_handler
 async def move_add_new_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start MOVE strategy creation flow."""
+    """Start MOVE strategy creation flow (called by Add Strategy button)."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -77,7 +68,6 @@ async def move_add_new_callback(update: Update, context: ContextTypes.DEFAULT_TY
         parse_mode='HTML'
     )
 
-# ✅ NEW - Show description prompt with skip button
 @error_handler
 async def show_description_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show description prompt after name is entered."""
@@ -102,7 +92,6 @@ async def move_skip_description_callback(update: Update, context: ContextTypes.D
     await query.answer()
     user = query.from_user
     
-    # Set empty description
     await state_manager.set_state_data(user.id, {'description': ''})
     await state_manager.set_state(user.id, 'move_add_asset')
     data = await state_manager.get_state_data(user.id)
@@ -123,8 +112,7 @@ async def move_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer()
     user = query.from_user
     
-    asset = query.data.split('_')[2]  # move_asset_BTC -> BTC
-    
+    asset = query.data.split('_')[2]
     await state_manager.set_state_data(user.id, {'asset': asset})
     logger.info(f"✅ MOVE asset selected: {asset}")
     
@@ -143,13 +131,12 @@ async def move_asset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 @error_handler
 async def move_expiry_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle expiry selection (daily/weekly)."""
+    """Handle expiry selection."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    expiry = query.data.split('_')[2]  # move_expiry_daily -> daily
-    
+    expiry = query.data.split('_')[2]
     await state_manager.set_state_data(user.id, {'expiry': expiry})
     logger.info(f"✅ MOVE expiry selected: {expiry}")
     
@@ -163,21 +150,20 @@ async def move_expiry_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         f"Asset: {data.get('asset')}\n"
         f"Expiry: {expiry.capitalize()}\n\n"
         f"Select position direction:\n\n"
-        f"🟢 Long: Buy MOVE contract (profit from volatility)\n"
-        f"🔴 Short: Sell MOVE contract (profit from low volatility)",
+        f"🟢 Long: Buy MOVE contract\n"
+        f"🔴 Short: Sell MOVE contract",
         reply_markup=get_direction_keyboard(),
         parse_mode='HTML'
     )
 
 @error_handler
 async def move_direction_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle direction selection (long/short)."""
+    """Handle direction selection."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    direction = query.data.split('_')[2]  # move_direction_long -> long
-    
+    direction = query.data.split('_')[2]
     await state_manager.set_state_data(user.id, {'direction': direction})
     logger.info(f"✅ MOVE direction selected: {direction}")
     
@@ -191,22 +177,20 @@ async def move_direction_callback(update: Update, context: ContextTypes.DEFAULT_
         f"Asset: {data.get('asset')}\n"
         f"Expiry: {data.get('expiry').capitalize()}\n"
         f"Direction: {direction.capitalize()}\n\n"
-        f"Enter ATM offset (strike selection method):\n\n"
-        f"Examples:\n"
-        f"• 0 - Exact ATM\n"
-        f"• 1 - 1 strike above ATM\n"
-        f"• -1 - 1 strike below ATM\n\n"
+        f"Enter ATM offset:\n"
+        f"• 0 = ATM\n"
+        f"• 1 = 1 strike above\n"
+        f"• -1 = 1 strike below\n\n"
         f"Range: -10 to +10",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
 
 async def show_move_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show final confirmation before saving."""
+    """Show final confirmation."""
     user = update.effective_user
     data = await state_manager.get_state_data(user.id)
     
-    # Safe extraction
     name = data.get('name') or "Unnamed"
     description = data.get('description')
     asset = data.get('asset') or "N/A"
@@ -218,23 +202,15 @@ async def show_move_confirmation(update: Update, context: ContextTypes.DEFAULT_T
     target_trigger = data.get('target_trigger_percent')
     target_limit = data.get('target_limit_percent')
     
-    expiry_display = expiry.capitalize() if expiry else "N/A"
-    direction_display = direction.capitalize() if direction else "N/A"
-    
-    # Build confirmation message
-    text = (
-        f"✅ MOVE Strategy - Final Confirmation\n\n"
-        f"📋 Details:\n"
-        f"• Name: {name}\n"
-    )
+    text = f"✅ MOVE Strategy - Final Confirmation\n\n📋 Details:\n• Name: {name}\n"
     
     if description:
         text += f"• Description: {description}\n"
     
     text += (
         f"• Asset: {asset}\n"
-        f"• Expiry: {expiry_display}\n"
-        f"• Direction: {direction_display}\n"
+        f"• Expiry: {expiry.capitalize() if expiry else 'N/A'}\n"
+        f"• Direction: {direction.capitalize() if direction else 'N/A'}\n"
         f"• ATM Offset: {atm_offset}\n\n"
         f"📊 Risk Management:\n"
         f"• SL Trigger: {sl_trigger}%\n"
@@ -242,40 +218,26 @@ async def show_move_confirmation(update: Update, context: ContextTypes.DEFAULT_T
     )
     
     if target_trigger is not None:
-        text += (
-            f"• Target Trigger: {target_trigger}%\n"
-            f"• Target Limit: {target_limit}%\n"
-        )
+        text += f"• Target Trigger: {target_trigger}%\n• Target Limit: {target_limit}%\n"
     
     text += "\nSave this strategy?"
     
     keyboard = get_confirmation_keyboard()
     
-    # Handle both callback and message
     if update.callback_query:
-        await update.callback_query.edit_message_text(
-            text,
-            reply_markup=keyboard,
-            parse_mode='HTML'
-        )
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode='HTML')
     else:
-        await update.message.reply_text(
-            text,
-            reply_markup=keyboard,
-            parse_mode='HTML'
-        )
+        await update.message.reply_text(text, reply_markup=keyboard, parse_mode='HTML')
 
 @error_handler
 async def move_confirm_save_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Save the MOVE strategy to database."""
+    """Save the MOVE strategy."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
-    
     data = await state_manager.get_state_data(user.id)
     
     try:
-        # Build strategy data with correct field names
         strategy_data = {
             'strategy_name': data.get('name'),
             'description': data.get('description', ''),
@@ -292,20 +254,16 @@ async def move_confirm_save_callback(update: Update, context: ContextTypes.DEFAU
         result = await create_move_strategy(user.id, strategy_data)
         
         if not result:
-            raise Exception("Failed to save strategy to database")
+            raise Exception("Failed to save strategy")
         
         await state_manager.clear_state(user.id)
         log_user_action(user.id, f"Created MOVE strategy: {data.get('name')}")
         
-        direction = data.get('direction')
-        direction_display = direction.capitalize() if isinstance(direction, str) and direction else "N/A"
-        
         await query.edit_message_text(
             f"✅ MOVE Strategy Created!\n\n"
             f"Name: {data.get('name')}\n"
-            f"Asset: {data.get('asset')}\n"
-            f"Direction: {direction_display}\n\n"
-            f"Strategy has been saved successfully!",
+            f"Asset: {data.get('asset')}\n\n"
+            f"Strategy saved successfully!",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
         )
@@ -313,33 +271,29 @@ async def move_confirm_save_callback(update: Update, context: ContextTypes.DEFAU
     except Exception as e:
         logger.error(f"Error creating MOVE strategy: {e}", exc_info=True)
         await query.edit_message_text(
-            f"❌ Error creating strategy: {str(e)}\n\n"
-            f"Please try again.",
+            f"❌ Error: {str(e)}\n\nPlease try again.",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
         )
 
 @error_handler
 async def move_skip_target_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Skip target and proceed to save - Sets BOTH target values to None."""
+    """Skip target."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # ✅ SET BOTH TARGET VALUES TO NONE
     await state_manager.set_state_data(user.id, {
         'target_trigger_percent': None,
         'target_limit_percent': None
     })
     
-    logger.info("✅ User skipped target - both trigger and limit set to None")
-    
-    # Show confirmation directly
+    logger.info("✅ User skipped target")
     await show_move_confirmation(update, context)
 
 @error_handler
 async def move_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cancel MOVE strategy operation."""
+    """Cancel operation."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -348,15 +302,14 @@ async def move_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     log_user_action(user.id, "Cancelled MOVE strategy operation")
     
     await query.edit_message_text(
-        "❌ Operation Cancelled\n\n"
-        "MOVE strategy operation has been cancelled.",
+        "❌ Operation Cancelled",
         reply_markup=get_move_menu_keyboard(),
         parse_mode='HTML'
     )
 
 __all__ = [
     'move_add_callback',
-    'move_add_new_callback',  # ✅ NEW
+    'move_add_new_callback',
     'show_description_prompt',
     'move_skip_description_callback',
     'move_asset_callback',
@@ -366,4 +319,5 @@ __all__ = [
     'move_confirm_save_callback',
     'move_skip_target_callback',
     'move_cancel_callback',
-]
+                                     ]
+    
