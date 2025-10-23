@@ -119,7 +119,8 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
                 'product_id': product_id,
                 'size': size,
                 'side': target_side,
-                'order_type': 'stop_limit_order',
+                'order_type': 'limit_order',  # ✅ FIXED
+                'stop_order_type': 'take_profit_order',  # ✅ ADDED
                 'stop_price': round(target_trigger_price, 2),
                 'limit_price': round(target_limit_price, 2),
                 'time_in_force': 'gtc'
