@@ -5,6 +5,7 @@ Auto trade (Algo Trading) handler with countdown and live status.
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 from datetime import datetime
+from services.sl_monitor_service import start_strategy_monitor
 import pytz
 
 from bot.utils.logger import setup_logger, log_user_action
