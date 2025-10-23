@@ -154,12 +154,37 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Move auto trade handler not found: {e}")
 
+        # ✅ SL MONITOR HANDLERS - ENHANCED ERROR LOGGING
         try:
+            logger.info("🔍 Attempting to import SL monitor handlers...")
+            logger.info(f"📂 Looking for: bot/handlers/sl_monitor_handler.py")
+            
             from .sl_monitor_handler import register_sl_monitor_handlers
+            
+            logger.info("✅ SL monitor handler imported successfully")
+            logger.info("🔧 Registering SL monitor handlers...")
+            
             register_sl_monitor_handlers(application)
-            logger.info("✓ SL monitor handlers registered")
+            
+            logger.info("✓ SL monitor handlers registered successfully")
+            
         except ImportError as e:
-            logger.warning(f"SL monitor handler not found: {e}")
+            logger.error(f"❌ ImportError - SL monitor handler file not found!")
+            logger.error(f"   Error details: {e}")
+            logger.error(f"   Make sure bot/handlers/sl_monitor_handler.py exists")
+            logger.error("   Full traceback:", exc_info=True)
+            
+        except AttributeError as e:
+            logger.error(f"❌ AttributeError - register_sl_monitor_handlers function not found!")
+            logger.error(f"   Error details: {e}")
+            logger.error(f"   Make sure the function exists in sl_monitor_handler.py")
+            logger.error("   Full traceback:", exc_info=True)
+            
+        except Exception as e:
+            logger.error(f"❌ Unexpected error registering SL monitor handlers")
+            logger.error(f"   Error type: {type(e).__name__}")
+            logger.error(f"   Error message: {e}")
+            logger.error("   Full traceback:", exc_info=True)
         
         # Register message router LAST (lowest priority)
         from .message_router import route_message
