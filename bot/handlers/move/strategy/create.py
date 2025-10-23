@@ -29,15 +29,6 @@ from bot.keyboards.move_strategy_keyboards import (
 
 logger = setup_logger(__name__)
 
-# ✅ NEW KEYBOARD FUNCTIONS
-def get_description_skip_keyboard():
-    """Keyboard with Skip Description button."""
-    keyboard = [
-        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
 @error_handler
 async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start MOVE strategy creation flow."""
