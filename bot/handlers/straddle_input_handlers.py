@@ -345,4 +345,79 @@ async def handle_straddle_atm_offset_input(update: Update, context: ContextTypes
             parse_mode='HTML'
         )
 
+
+# ADD AT THE END OF straddle_input_handlers.py
+
+async def ask_sl_monitor_preference(update, context):
+    """
+    Ask if SL monitoring should be enabled.
+    Step comes AFTER entering all strategy details.
+    """
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Enable SL-to-Cost", callback_data="straddle_sl_yes"),
+            InlineKeyboardButton("❌ Disable", callback_data="straddle_sl_no")
+        ],
+        [InlineKeyboardButton("🔙 Back", callback_data="straddle_create_cancel")]
+    ]
+    
+    await update.callback_query.edit_message_text(
+        "<b>🎯 SL-to-Cost Monitoring</b>\n\n"
+        "<b>What it does:</b>\n"
+        "• Monitors positions every 5 seconds\n"
+        "• When one leg closes (SL hit), moves other leg SL to breakeven\n"
+        "• Auto-stops when done\n\n"
+        "<b>⚠️ Resource Usage:</b> +10MB RAM per active strategy\n\n"
+        "Enable for this preset?",
+        parse_mode='HTML',
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+async def handle_sl_monitor_yes(update, context):
+    """User enabled SL monitoring."""
+    context.user_data['enable_sl_monitor'] = True
+    
+    # Continue to save preset
+    await save_straddle_preset(update, context)
+
+
+async def handle_sl_monitor_no(update, context):
+    """User disabled SL monitoring."""
+    context.user_data['enable_sl_monitor'] = False
+    
+    # Continue to save preset
+    await save_straddle_preset(update, context)
+
+
+async def save_straddle_preset(update, context):
+    """Save the straddle preset with SL preference."""
+    from database.operations.strategy_ops import create_strategy_preset
+    
+    preset_data = {
+        'user_id': update.callback_query.from_user.id,
+        'strategy_name': context.user_data.get('strategy_name'),
+        'strategy_type': 'straddle',
+        'symbol': context.user_data.get('symbol'),
+        'entry_time': context.user_data.get('entry_time'),
+        # ... other fields from your current implementation ...
+        
+        # ✅ NEW FIELD
+        'enable_sl_monitor': context.user_data.get('enable_sl_monitor', False),
+        
+        'created_at': datetime.now(),
+        'updated_at': datetime.now()
+    }
+    
+    # Save to database
+    result = await create_strategy_preset(preset_data)
+    
+    sl_status = "✅ Enabled" if preset_data['enable_sl_monitor'] else "❌ Disabled"
+    
+    await update.callback_query.edit_message_text(
+        f"✅ Preset saved!\n\n"
+        f"<b>Name:</b> {preset_data['strategy_name']}\n"
+        f"<b>SL Monitor:</b> {sl_status}",
+        parse_mode='HTML'
+    )
     
