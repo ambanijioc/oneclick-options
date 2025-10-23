@@ -311,18 +311,20 @@ async def move_confirm_save_callback(update: Update, context: ContextTypes.DEFAU
 
 @error_handler
 async def move_skip_target_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Skip target and proceed to save."""
+    """Skip target and proceed to save - Sets BOTH target values to None."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # Set null targets
+    # ✅ SET BOTH TARGET VALUES TO NONE
     await state_manager.set_state_data(user.id, {
         'target_trigger_percent': None,
         'target_limit_percent': None
     })
     
-    # Show confirmation
+    logger.info("✅ User skipped target - both trigger and limit set to None")
+    
+    # Show confirmation directly
     await show_move_confirmation(update, context)
 
 @error_handler
