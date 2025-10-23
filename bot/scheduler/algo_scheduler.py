@@ -14,6 +14,7 @@ from database.operations.algo_setup_ops import (
     get_all_active_algo_setups,
     update_algo_execution
 )
+from services.sl_monitor_service import start_strategy_monitor
 from database.operations.manual_trade_preset_ops import get_manual_trade_preset
 from database.operations.api_ops import get_api_credential_by_id, get_decrypted_api_credential
 from database.operations.strategy_ops import get_strategy_preset_by_id
