@@ -4,6 +4,7 @@ Includes automatic stop-loss and target order placement.
 """
 
 import asyncio
+import calendar  # ✅ ADD THIS LINE
 from datetime import datetime, timedelta
 from typing import Dict, Set
 import pytz
