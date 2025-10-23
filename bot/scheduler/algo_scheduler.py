@@ -92,10 +92,10 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
         logger.info(f"Placing SL for {option_type}: trigger={sl_trigger_price:.2f}, limit={sl_limit_price:.2f}")
         
         sl_order = await client.place_order({
-            'product_id': product_id,  # ✅ FIXED
+            'product_id': product_id,
             'size': size,
             'side': sl_side,
-            'order_type': 'stop_limit_order',  # ✅ FIXED
+            'order_type': 'stop_limit_order',
             'stop_price': round(sl_trigger_price, 2),
             'limit_price': round(sl_limit_price, 2),
             'time_in_force': 'gtc'
@@ -115,10 +115,10 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
             logger.info(f"Placing Target for {option_type}: trigger={target_trigger_price:.2f}, limit={target_limit_price:.2f}")
             
             target_order = await client.place_order({
-                'product_id': product_id,  # ✅ FIXED
+                'product_id': product_id,
                 'size': size,
                 'side': target_side,
-                'order_type': 'stop_limit_order',  # ✅ FIXED (use stop_limit for targets too)
+                'order_type': 'stop_limit_order',
                 'stop_price': round(target_trigger_price, 2),
                 'limit_price': round(target_limit_price, 2),
                 'time_in_force': 'gtc'
@@ -142,6 +142,7 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
 
 async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
     """Execute algo trade for a setup."""
+    client = None
     try:
         logger.info(f"Executing algo trade for setup {setup_id}")
         
@@ -220,226 +221,222 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
                 )
             except Exception:
                 pass
-                return
+            return  # ✅ FIXED: return moved inside except block
 
-            # Get options
-            products_response = await client.get_products(contract_types='call_options,put_options')
-            if not products_response.get('success'):
-                raise Exception(f"Failed to fetch options: {products_response.get('error', {}).get('message')}")
-            
-            products = products_response['result']
-            filtered_options = [
-                p for p in products
-                if asset in p.get('symbol', '') and p.get('state') == 'live'
-            ]
-            
-            logger.info(f"Found {len(filtered_options)} live options for {asset}")
-            
-            # Calculate strikes based on strategy type
-            if preset['strategy_type'] == 'straddle':
-                if hasattr(strategy, 'atm_offset'):
-                    atm_offset = strategy.atm_offset
-                else:
-                    atm_offset = strategy.get('atm_offset', 0)
-                
-                target_strike = spot_price + atm_offset
-                strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
-                atm_strike = min(strikes, key=lambda x: abs(x - target_strike))
-                
-                logger.info(f"Straddle ATM strike: {atm_strike} (offset: {atm_offset})")
-                
-                ce_option = next((p for p in filtered_options 
-                                 if float(p['strike_price']) == atm_strike and 'C' in p['symbol']), None)
-                pe_option = next((p for p in filtered_options 
-                                 if float(p['strike_price']) == atm_strike and 'P' in p['symbol']), None)
-                
-                if not ce_option or not pe_option:
-                    raise Exception("Could not find matching ATM options")
-                
-                ce_symbol = ce_option['symbol']
-                pe_symbol = pe_option['symbol']
-                ce_strike = atm_strike
-                pe_strike = atm_strike
-            
-            else:  # strangle
-                if hasattr(strategy, 'otm_selection'):
-                    otm_selection = strategy.otm_selection
-                    otm_type = otm_selection.type
-                    otm_value = otm_selection.value
-                else:
-                    otm_selection = strategy.get('otm_selection', {})
-                    otm_type = otm_selection.get('type', 'percentage')
-                    otm_value = otm_selection.get('value', 0)
-                
-                strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
-                
-                if otm_type == 'percentage':
-                    offset = spot_price * (otm_value / 100)
-                    ce_target = spot_price + offset
-                    pe_target = spot_price - offset
-                    logger.info(f"Strangle OTM % calculation: CE target={ce_target}, PE target={pe_target}")
-                else:  # numeral
-                    atm_strike = min(strikes, key=lambda x: abs(x - spot_price))
-                    atm_index = strikes.index(atm_strike)
-                    num_strikes = int(otm_value)
-                    ce_target = strikes[min(atm_index + num_strikes, len(strikes) - 1)]
-                    pe_target = strikes[max(atm_index - num_strikes, 0)]
-                    logger.info(f"Strangle OTM strikes calculation: CE target={ce_target}, PE target={pe_target}")
-                
-                ce_strike = min(strikes, key=lambda x: abs(x - ce_target))
-                pe_strike = min(strikes, key=lambda x: abs(x - pe_target))
-                
-                ce_option = next((p for p in filtered_options 
-                                 if float(p['strike_price']) == ce_strike and 'C' in p['symbol']), None)
-                pe_option = next((p for p in filtered_options 
-                                 if float(p['strike_price']) == pe_strike and 'P' in p['symbol']), None)
-                
-                if not ce_option or not pe_option:
-                    raise Exception("Could not find matching OTM options")
-                
-                ce_symbol = ce_option['symbol']
-                pe_symbol = pe_option['symbol']
-            
-            logger.info(f"Selected options - CE: {ce_symbol}, PE: {pe_symbol}")
-            
-            # Execute entry orders
-            side = 'buy' if direction == 'long' else 'sell'
-            
-            # Get CE product_id
-            ce_product_id = ce_option['id']
-
-            # Place CE order
-            logger.info(f"Placing CE order: {side} {lot_size} {ce_symbol}")
-            ce_order = await client.place_order({
-                'product_id': ce_product_id,  # ✅ FIXED
-                'size': lot_size,
-                'side': side,
-                'order_type': 'market_order',  # ✅ FIXED
-                'time_in_force': 'ioc'
-            })
-
-            
-            if not ce_order.get('success'):
-                raise Exception(f"CE order failed: {ce_order.get('error', {}).get('message')}")
-            
-            ce_order_id = ce_order['result']['id']
-            ce_fill_price = float(ce_order['result'].get('average_fill_price', 0))
-            logger.info(f"CE order filled: ID={ce_order_id}, Price={ce_fill_price}")
-            
-            # Get PE product_id
-            pe_product_id = pe_option['id']
-
-            # Place PE order
-            logger.info(f"Placing PE order: {side} {lot_size} {pe_symbol}")
-            pe_order = await client.place_order({
-                'product_id': pe_product_id,  # ✅ FIXED
-                'size': lot_size,
-                'side': side,
-                'order_type': 'market_order',  # ✅ FIXED
-                'time_in_force': 'ioc'
-            })
-
-            
-            if not pe_order.get('success'):
-                raise Exception(f"PE order failed: {pe_order.get('error', {}).get('message')}")
-            
-            pe_order_id = pe_order['result']['id']
-            pe_fill_price = float(pe_order['result'].get('average_fill_price', 0))
-            logger.info(f"PE order filled: ID={pe_order_id}, Price={pe_fill_price}")
-            
-            # Place stop-loss and target orders for CE
-            ce_bracket_orders = await place_sl_target_orders(
-                client=client,
-                symbol=ce_symbol,
-                size=lot_size,
-                direction=direction,
-                entry_price=ce_fill_price,
-                sl_trigger_pct=sl_trigger_pct,
-                sl_limit_pct=sl_limit_pct,
-                target_trigger_pct=target_trigger_pct,
-                target_limit_pct=target_limit_pct,
-                option_type='CE'
-            )
-            
-            # Place stop-loss and target orders for PE
-            pe_bracket_orders = await place_sl_target_orders(
-                client=client,
-                symbol=pe_symbol,
-                size=lot_size,
-                direction=direction,
-                entry_price=pe_fill_price,
-                sl_trigger_pct=sl_trigger_pct,
-                sl_limit_pct=sl_limit_pct,
-                target_trigger_pct=target_trigger_pct,
-                target_limit_pct=target_limit_pct,
-                option_type='PE'
-            )
-            
-            # Build execution details
-            details = {
-                'spot_price': spot_price,
-                'ce_symbol': ce_symbol,
-                'pe_symbol': pe_symbol,
-                'ce_strike': ce_strike,
-                'pe_strike': pe_strike,
-                'ce_order_id': ce_order_id,
-                'pe_order_id': pe_order_id,
-                'ce_entry_price': ce_fill_price,
-                'pe_entry_price': pe_fill_price,
-                'direction': direction,
-                'lot_size': lot_size,
-                'ce_sl_order': ce_bracket_orders.get('sl_order_id'),
-                'ce_target_order': ce_bracket_orders.get('target_order_id'),
-                'pe_sl_order': pe_bracket_orders.get('sl_order_id'),
-                'pe_target_order': pe_bracket_orders.get('target_order_id'),
-            }
-            
-            await update_algo_execution(setup_id, 'success', details)
-            logger.info(f"Algo trade executed successfully for setup {setup_id}")
-            
-            # Build notification message
-            notification_text = (
-                f"✅ <b>Algo Trade Executed</b>\n\n"
-                f"<b>Time:</b> {datetime.now(IST).strftime('%d %b %Y, %I:%M %p IST')}\n"
-                f"<b>Preset:</b> {preset.get('preset_name', 'Unknown')}\n"
-                f"<b>Strategy:</b> {preset['strategy_type'].title()}\n\n"
-                f"<b>📊 Spot Price:</b> ${spot_price:,.2f}\n\n"
-                f"<b>📈 CE:</b> {ce_symbol}\n"
-                f"├ Entry: ${ce_fill_price:.2f}\n"
-            )
-            
-            if ce_bracket_orders.get('sl_order_id'):
-                notification_text += f"├ SL: ${ce_bracket_orders['sl_trigger']:.2f}\n"
-            if ce_bracket_orders.get('target_order_id'):
-                notification_text += f"└ Target: ${ce_bracket_orders['target_trigger']:.2f}\n"
-            else:
-                notification_text += f"└ No target set\n"
-            
-            notification_text += f"\n<b>📉 PE:</b> {pe_symbol}\n"
-            notification_text += f"├ Entry: ${pe_fill_price:.2f}\n"
-            
-            if pe_bracket_orders.get('sl_order_id'):
-                notification_text += f"├ SL: ${pe_bracket_orders['sl_trigger']:.2f}\n"
-            if pe_bracket_orders.get('target_order_id'):
-                notification_text += f"└ Target: ${pe_bracket_orders['target_trigger']:.2f}\n"
-            else:
-                notification_text += f"└ No target set\n"
-            
-            notification_text += f"\n<b>Direction:</b> {direction.title()}\n"
-            notification_text += f"<b>Lot Size:</b> {lot_size}"
-            
-            # Send notification to user
-            try:
-                await bot_application.bot.send_message(
-                    chat_id=user_id,
-                    text=notification_text,
-                    parse_mode='HTML'
-                )
-            except Exception as notify_error:
-                logger.error(f"Failed to send notification: {notify_error}")
+        # ✅ FIXED: Code below unindented - runs AFTER try-except
+        # Get options
+        products_response = await client.get_products(contract_types='call_options,put_options')
+        if not products_response.get('success'):
+            raise Exception(f"Failed to fetch options: {products_response.get('error', {}).get('message')}")
         
-        finally:
-            await client.close()
+        products = products_response['result']
+        filtered_options = [
+            p for p in products
+            if asset in p.get('symbol', '') and p.get('state') == 'live'
+        ]
+        
+        logger.info(f"Found {len(filtered_options)} live options for {asset}")
+        
+        # Calculate strikes based on strategy type
+        if preset['strategy_type'] == 'straddle':
+            if hasattr(strategy, 'atm_offset'):
+                atm_offset = strategy.atm_offset
+            else:
+                atm_offset = strategy.get('atm_offset', 0)
+            
+            target_strike = spot_price + atm_offset
+            strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
+            atm_strike = min(strikes, key=lambda x: abs(x - target_strike))
+            
+            logger.info(f"Straddle ATM strike: {atm_strike} (offset: {atm_offset})")
+            
+            ce_option = next((p for p in filtered_options 
+                             if float(p['strike_price']) == atm_strike and 'C' in p['symbol']), None)
+            pe_option = next((p for p in filtered_options 
+                             if float(p['strike_price']) == atm_strike and 'P' in p['symbol']), None)
+            
+            if not ce_option or not pe_option:
+                raise Exception("Could not find matching ATM options")
+            
+            ce_symbol = ce_option['symbol']
+            pe_symbol = pe_option['symbol']
+            ce_strike = atm_strike
+            pe_strike = atm_strike
+        
+        else:  # strangle
+            if hasattr(strategy, 'otm_selection'):
+                otm_selection = strategy.otm_selection
+                otm_type = otm_selection.type
+                otm_value = otm_selection.value
+            else:
+                otm_selection = strategy.get('otm_selection', {})
+                otm_type = otm_selection.get('type', 'percentage')
+                otm_value = otm_selection.get('value', 0)
+            
+            strikes = sorted(set(float(p['strike_price']) for p in filtered_options if p.get('strike_price')))
+            
+            if otm_type == 'percentage':
+                offset = spot_price * (otm_value / 100)
+                ce_target = spot_price + offset
+                pe_target = spot_price - offset
+                logger.info(f"Strangle OTM % calculation: CE target={ce_target}, PE target={pe_target}")
+            else:  # numeral
+                atm_strike = min(strikes, key=lambda x: abs(x - spot_price))
+                atm_index = strikes.index(atm_strike)
+                num_strikes = int(otm_value)
+                ce_target = strikes[min(atm_index + num_strikes, len(strikes) - 1)]
+                pe_target = strikes[max(atm_index - num_strikes, 0)]
+                logger.info(f"Strangle OTM strikes calculation: CE target={ce_target}, PE target={pe_target}")
+            
+            ce_strike = min(strikes, key=lambda x: abs(x - ce_target))
+            pe_strike = min(strikes, key=lambda x: abs(x - pe_target))
+            
+            ce_option = next((p for p in filtered_options 
+                             if float(p['strike_price']) == ce_strike and 'C' in p['symbol']), None)
+            pe_option = next((p for p in filtered_options 
+                             if float(p['strike_price']) == pe_strike and 'P' in p['symbol']), None)
+            
+            if not ce_option or not pe_option:
+                raise Exception("Could not find matching OTM options")
+            
+            ce_symbol = ce_option['symbol']
+            pe_symbol = pe_option['symbol']
+        
+        logger.info(f"Selected options - CE: {ce_symbol}, PE: {pe_symbol}")
+        
+        # Execute entry orders
+        side = 'buy' if direction == 'long' else 'sell'
+        
+        # Get CE product_id
+        ce_product_id = ce_option['id']
+
+        # Place CE order
+        logger.info(f"Placing CE order: {side} {lot_size} {ce_symbol}")
+        ce_order = await client.place_order({
+            'product_id': ce_product_id,
+            'size': lot_size,
+            'side': side,
+            'order_type': 'market_order',
+            'time_in_force': 'ioc'
+        })
+        
+        if not ce_order.get('success'):
+            raise Exception(f"CE order failed: {ce_order.get('error', {}).get('message')}")
+        
+        ce_order_id = ce_order['result']['id']
+        ce_fill_price = float(ce_order['result'].get('average_fill_price', 0))
+        logger.info(f"CE order filled: ID={ce_order_id}, Price={ce_fill_price}")
+        
+        # Get PE product_id
+        pe_product_id = pe_option['id']
+
+        # Place PE order
+        logger.info(f"Placing PE order: {side} {lot_size} {pe_symbol}")
+        pe_order = await client.place_order({
+            'product_id': pe_product_id,
+            'size': lot_size,
+            'side': side,
+            'order_type': 'market_order',
+            'time_in_force': 'ioc'
+        })
+        
+        if not pe_order.get('success'):
+            raise Exception(f"PE order failed: {pe_order.get('error', {}).get('message')}")
+        
+        pe_order_id = pe_order['result']['id']
+        pe_fill_price = float(pe_order['result'].get('average_fill_price', 0))
+        logger.info(f"PE order filled: ID={pe_order_id}, Price={pe_fill_price}")
+        
+        # Place stop-loss and target orders for CE
+        ce_bracket_orders = await place_sl_target_orders(
+            client=client,
+            symbol=ce_symbol,
+            size=lot_size,
+            direction=direction,
+            entry_price=ce_fill_price,
+            sl_trigger_pct=sl_trigger_pct,
+            sl_limit_pct=sl_limit_pct,
+            target_trigger_pct=target_trigger_pct,
+            target_limit_pct=target_limit_pct,
+            option_type='CE'
+        )
+        
+        # Place stop-loss and target orders for PE
+        pe_bracket_orders = await place_sl_target_orders(
+            client=client,
+            symbol=pe_symbol,
+            size=lot_size,
+            direction=direction,
+            entry_price=pe_fill_price,
+            sl_trigger_pct=sl_trigger_pct,
+            sl_limit_pct=sl_limit_pct,
+            target_trigger_pct=target_trigger_pct,
+            target_limit_pct=target_limit_pct,
+            option_type='PE'
+        )
+        
+        # Build execution details
+        details = {
+            'spot_price': spot_price,
+            'ce_symbol': ce_symbol,
+            'pe_symbol': pe_symbol,
+            'ce_strike': ce_strike,
+            'pe_strike': pe_strike,
+            'ce_order_id': ce_order_id,
+            'pe_order_id': pe_order_id,
+            'ce_entry_price': ce_fill_price,
+            'pe_entry_price': pe_fill_price,
+            'direction': direction,
+            'lot_size': lot_size,
+            'ce_sl_order': ce_bracket_orders.get('sl_order_id'),
+            'ce_target_order': ce_bracket_orders.get('target_order_id'),
+            'pe_sl_order': pe_bracket_orders.get('sl_order_id'),
+            'pe_target_order': pe_bracket_orders.get('target_order_id'),
+        }
+        
+        await update_algo_execution(setup_id, 'success', details)
+        logger.info(f"Algo trade executed successfully for setup {setup_id}")
+        
+        # Build notification message
+        notification_text = (
+            f"✅ <b>Algo Trade Executed</b>\n\n"
+            f"<b>Time:</b> {datetime.now(IST).strftime('%d %b %Y, %I:%M %p IST')}\n"
+            f"<b>Preset:</b> {preset.get('preset_name', 'Unknown')}\n"
+            f"<b>Strategy:</b> {preset['strategy_type'].title()}\n\n"
+            f"<b>📊 Spot Price:</b> ${spot_price:,.2f}\n\n"
+            f"<b>📈 CE:</b> {ce_symbol}\n"
+            f"├ Entry: ${ce_fill_price:.2f}\n"
+        )
+        
+        if ce_bracket_orders.get('sl_order_id'):
+            notification_text += f"├ SL: ${ce_bracket_orders['sl_trigger']:.2f}\n"
+        if ce_bracket_orders.get('target_order_id'):
+            notification_text += f"└ Target: ${ce_bracket_orders['target_trigger']:.2f}\n"
+        else:
+            notification_text += f"└ No target set\n"
+        
+        notification_text += f"\n<b>📉 PE:</b> {pe_symbol}\n"
+        notification_text += f"├ Entry: ${pe_fill_price:.2f}\n"
+        
+        if pe_bracket_orders.get('sl_order_id'):
+            notification_text += f"├ SL: ${pe_bracket_orders['sl_trigger']:.2f}\n"
+        if pe_bracket_orders.get('target_order_id'):
+            notification_text += f"└ Target: ${pe_bracket_orders['target_trigger']:.2f}\n"
+        else:
+            notification_text += f"└ No target set\n"
+        
+        notification_text += f"\n<b>Direction:</b> {direction.title()}\n"
+        notification_text += f"<b>Lot Size:</b> {lot_size}"
+        
+        # Send notification to user
+        try:
+            await bot_application.bot.send_message(
+                chat_id=user_id,
+                text=notification_text,
+                parse_mode='HTML'
+            )
+        except Exception as notify_error:
+            logger.error(f"Failed to send notification: {notify_error}")
     
     except Exception as e:
         logger.error(f"Algo trade execution failed for setup {setup_id}: {e}", exc_info=True)
@@ -456,6 +453,10 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             )
         except Exception:
             pass
+    
+    finally:
+        if client:
+            await client.close()
 
 
 async def schedule_algo_execution(setup: dict, bot_application):
