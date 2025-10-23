@@ -585,20 +585,28 @@ class DeltaClient:
             Spot price as float
         """
         try:
-            # Use tickers endpoint - works for spot price
-            symbol = f"{asset}USD"  # BTCUSD, ETHUSD
+            symbol = f"{asset}USD"
+            self.logger.info(f"Fetching spot price for {symbol}")
+        
             response = await self._request('GET', f'/v2/tickers/{symbol}', authenticated=False)
         
+            self.logger.info(f"Ticker API response: {response}")  # ✅ ADD THIS!
+        
             if response and 'spot_price' in response:
-                return float(response['spot_price'])
+                price = float(response['spot_price'])
+                self.logger.info(f"✅ Spot price: {price}")
+                return price
         
-            # Fallback to mark_price if spot_price not available
             if response and 'mark_price' in response:
-                return float(response['mark_price'])
+                price = float(response['mark_price'])
+                self.logger.info(f"✅ Mark price (fallback): {price}")
+                return price
         
+            self.logger.error(f"❌ No price found in response: {response}")
             return 0.0
+        
         except Exception as e:
-            self.logger.error(f"Failed to get spot price for {asset}: {e}")
+            self.logger.error(f"❌ Exception fetching spot price: {e}", exc_info=True)
             raise
     
     # ==================== Order History Endpoints ====================
