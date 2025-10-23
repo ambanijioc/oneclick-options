@@ -222,16 +222,6 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
                 pass
             return
 
-            # Safely extract spot_price
-            result = ticker_response.get('result', {})
-            if not result or 'spot_price' not in result:
-                logger.error(f"❌ Invalid ticker response: {ticker_response}")
-                await update_algo_execution(setup_id, 'failed', {'error': 'Invalid ticker data'})
-                return
-
-            spot_price = float(result['spot_price'])
-            logger.info(f"Spot price for {asset}: {spot_price}")
-            
             # Get options
             products_response = await client.get_products(contract_types='call_options,put_options')
             if not products_response.get('success'):
