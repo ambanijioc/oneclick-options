@@ -205,10 +205,30 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         try:
             # Get spot price
             ticker_response = await client.get_ticker(asset)
-            if not ticker_response.get('success'):
-                raise Exception(f"Failed to fetch spot price: {ticker_response.get('error', {}).get('message')}")
-            
-            spot_price = float(ticker_response['result']['spot_price'])
+            if not ticker_response or not ticker_response.get('success'):
+                error_msg = ticker_response.get('error', {}).get('message', 'Unknown error') if ticker_response else 'No response from exchange'
+                logger.error(f"❌ Failed to fetch spot price: {error_msg}")
+                await update_algo_execution(setup_id, 'failed', {'error': f'Failed to get spot price: {error_msg}'})
+    
+                # Send error notification
+                try:
+                    await bot_application.bot.send_message(
+                        chat_id=user_id,
+                        text=f"❌ <b>Algo Trade Failed</b>\n\n<b>Time:</b> {datetime.now(IST).strftime('%I:%M %p IST')}\n<b>Error:</b> Unable to fetch market price from exchange",
+                        parse_mode='HTML'
+                    )
+                except Exception:
+                    pass
+                return
+
+            # Safely extract spot_price
+            result = ticker_response.get('result', {})
+            if not result or 'spot_price' not in result:
+                logger.error(f"❌ Invalid ticker response: {ticker_response}")
+                await update_algo_execution(setup_id, 'failed', {'error': 'Invalid ticker data'})
+                return
+
+            spot_price = float(result['spot_price'])
             logger.info(f"Spot price for {asset}: {spot_price}")
             
             # Get options
