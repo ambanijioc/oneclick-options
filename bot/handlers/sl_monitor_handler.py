@@ -1,12 +1,13 @@
 """
 SL Monitor Handler - Track and manage SL-to-Cost monitoring
+CREATED: 2025-10-24
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 from bot.utils.error_handler import error_handler
 from bot.utils.logger import log_user_action, setup_logger
-from database.operations.strategy_preset import get_all_strategy_presets
+from database.operations.strategy_preset import get_all_strategy_presets, get_strategy_preset_by_id
 
 logger = setup_logger(__name__)
 
@@ -18,6 +19,8 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
     await query.answer()
     user = query.from_user
     
+    logger.info(f"User {user.id} accessed SL Monitor menu")
+    
     try:
         # Get all strategy presets with SL monitoring enabled
         all_presets = await get_all_strategy_presets(user.id)
@@ -25,19 +28,20 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
         # Filter for presets with SL monitoring enabled
         monitored_presets = [
             preset for preset in all_presets 
-            if preset.get('enable_sl_monitor', False) and preset.get('is_active', True)
+            if preset.get('enable_sl_monitor', False)
         ]
         
         if not monitored_presets:
             keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main")]]
             await query.edit_message_text(
                 "📊 <b>SL Monitor</b>\n\n"
-                "❌ No active strategies with SL monitoring enabled.\n\n"
+                "❌ No strategies with SL monitoring enabled.\n\n"
                 "💡 <b>Tip:</b> Enable SL monitoring when creating straddle/strangle strategies "
                 "to automatically move your stop loss to cost when you hit 100% profit.",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='HTML'
             )
+            log_user_action(user.id, "sl_monitor_empty", "No monitored strategies")
             return
         
         # Build message with all monitored strategies
@@ -51,12 +55,10 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
             strategy_type = preset.get('strategy_type', 'unknown').title()
             name = preset.get('name', 'Unnamed')
             asset = preset.get('asset', 'BTC')
-            direction = preset.get('direction', 'long').upper()
             
             message += f"{idx}. <b>{name}</b>\n"
             message += f"   📍 Type: {strategy_type}\n"
             message += f"   🪙 Asset: {asset}\n"
-            message += f"   📈 Direction: {direction}\n"
             message += f"   ✅ SL Monitor: <code>ACTIVE</code>\n\n"
             
             # Add button to view details
@@ -95,13 +97,15 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
     """Show detailed view of a specific SL monitor."""
     query = update.callback_query
     await query.answer()
+    user = query.from_user
     
     try:
         # Extract preset ID from callback data
         preset_id = query.data.replace("sl_monitor_detail_", "")
         
+        logger.info(f"User {user.id} viewing SL monitor details for preset {preset_id}")
+        
         # Get preset details
-        from database.operations.strategy_preset import get_strategy_preset_by_id
         preset = await get_strategy_preset_by_id(preset_id)
         
         if not preset:
@@ -117,13 +121,12 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
         message += f"<b>Strategy Details:</b>\n"
         message += f"• Type: {preset['strategy_type'].title()}\n"
         message += f"• Asset: {preset['asset']}\n"
-        message += f"• Direction: {preset['direction'].upper()}\n"
-        message += f"• Expiry: {preset['expiry_code']}\n"
-        message += f"• Lot Size: {preset['lot_size']}\n\n"
+        message += f"• Expiry: {preset.get('expiry_code', 'N/A')}\n"
+        message += f"• Lot Size: {preset.get('lot_size', 'N/A')}\n\n"
         
         message += f"<b>Stop Loss Settings:</b>\n"
-        message += f"• Trigger: {preset['sl_trigger_pct']}%\n"
-        message += f"• Limit: {preset['sl_limit_pct']}%\n\n"
+        message += f"• Trigger: {preset.get('sl_trigger_pct', 'N/A')}%\n"
+        message += f"• Limit: {preset.get('sl_limit_pct', 'N/A')}%\n\n"
         
         message += f"<b>SL Monitor:</b>\n"
         message += f"• Status: <code>{'✅ ACTIVE' if preset.get('enable_sl_monitor', False) else '❌ INACTIVE'}</code>\n"
@@ -159,4 +162,4 @@ def register_sl_monitor_handlers(application):
     application.add_handler(CallbackQueryHandler(sl_monitor_menu_callback, pattern="^menu_sl_monitors$"))
     application.add_handler(CallbackQueryHandler(sl_monitor_detail_callback, pattern="^sl_monitor_detail_"))
     logger.info("✓ SL monitor handlers registered")
-            
+        
