@@ -33,7 +33,7 @@ def register_move_strategy_handlers(application: Application):
         # Register MENU handler (shows options)
         application.add_handler(CallbackQueryHandler(
             move_add_callback, 
-            pattern="^move_menu$"
+            pattern="^move_menu"
         ))
         
         # Register CREATE NEW handler (starts creation)
