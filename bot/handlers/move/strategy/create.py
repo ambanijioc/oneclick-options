@@ -35,6 +35,10 @@ async def move_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     log_user_action(user.id, "Opened MOVE strategy menu")
+
+    # ✅ Fetch strategies to get count
+    strategies = await get_move_strategies(user.id)
+    strategy_count = len(strategies) if strategies else 0
     
     await query.edit_message_text(
         "🎯 MOVE Strategy Management\n\n"
