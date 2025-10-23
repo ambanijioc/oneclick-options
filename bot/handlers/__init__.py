@@ -92,7 +92,7 @@ def register_all_handlers(application: Application):
         # ✅ MOVE STRATEGY HANDLERS (WITH DEBUG LOGGING)
         try:
             logger.info("🔍 Attempting to import move_strategy_handler...")
-            from .move_strategy_handler import register_move_strategy_handlers
+            from .move.strategy import register_move_strategy_handlers
             logger.info("🔍 Import successful, registering handlers...")
             register_move_strategy_handlers(application)
             logger.info("✓ MOVE strategy handlers registered")
