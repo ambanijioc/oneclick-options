@@ -33,6 +33,7 @@ class DeltaClient:
         api_secret: str,
         base_url: Optional[str] = None
     ):
+        self.logger = setup_logger(__name__)  # ✅ ADD THIS
         """
         Initialize Delta Exchange client.
         
