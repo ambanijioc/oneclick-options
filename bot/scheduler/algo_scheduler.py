@@ -231,9 +231,21 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             raise Exception(f"Failed to fetch options: {products_response.get('error', {}).get('message')}")
         
         products = products_response['result']
+        # Get current week's Friday expiry
+        today = datetime.now()
+        days_until_friday = (4 - today.weekday()) % 7
+        if days_until_friday == 0 and today.hour >= 15:  # After 3 PM on Friday, use next week
+            days_until_friday = 7
+        target_expiry_date = today + timedelta(days=days_until_friday)
+        target_expiry = target_expiry_date.strftime('%y%m%d')  # Format: 231025
+
+        logger.info(f"Target expiry: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
+
         filtered_options = [
             p for p in products
-            if asset in p.get('symbol', '') and p.get('state') == 'live'
+            if asset in p.get('symbol', '') 
+            and p.get('state') == 'live'
+            and target_expiry in p.get('symbol', '')  # ✅ FILTER BY EXPIRY!
         ]
         
         logger.info(f"Found {len(filtered_options)} live options for {asset}")
