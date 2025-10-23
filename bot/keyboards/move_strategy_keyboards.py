@@ -229,5 +229,14 @@ def get_description_keyboard():
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+def get_description_skip_keyboard():
+    """Keyboard with Skip Description button."""
+    keyboard = [
+        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+    
     
             
