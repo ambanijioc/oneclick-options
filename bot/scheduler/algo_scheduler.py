@@ -220,7 +220,7 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
                 )
             except Exception:
                 pass
-            return
+                return
 
             # Get options
             products_response = await client.get_products(contract_types='call_options,put_options')
