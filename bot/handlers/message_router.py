@@ -234,7 +234,17 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state_str == 'move_auto_edit_time':
             from .move_auto_trade_handler import handle_move_auto_edit_time_input
             await handle_move_auto_edit_time_input(update, context, text)
-        
+
+        # ==================== STRADDLE/STRANGLE SL MONITOR STATES ====================
+
+        elif state_str == 'straddle_sl_monitor_confirm' or state_str == 'strangle_sl_monitor_confirm':
+            # This state doesn't need text input - it's handled by callbacks
+            logger.info(f"State {state_str} is callback-based, skipping text handler")
+            await update.message.reply_text(
+                "Please use the buttons to confirm your choice.",
+                parse_mode='HTML'
+            )
+
         else:
             logger.warning(f"Unhandled conversation state: {state_str}")
             await update.message.reply_text(
