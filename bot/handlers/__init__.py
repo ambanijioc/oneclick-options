@@ -153,6 +153,13 @@ def register_all_handlers(application: Application):
             logger.info("✓ MOVE auto trade handlers registered")
         except ImportError as e:
             logger.warning(f"Move auto trade handler not found: {e}")
+
+        try:
+            from .sl_monitor_handler import register_sl_monitor_handlers
+            register_sl_monitor_handlers(application)
+            logger.info("✓ SL monitor handlers registered")
+        except ImportError as e:
+            logger.warning(f"SL monitor handler not found: {e}")
         
         # Register message router LAST (lowest priority)
         from .message_router import route_message
