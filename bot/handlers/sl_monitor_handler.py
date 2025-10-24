@@ -192,4 +192,77 @@ def register_sl_monitor_handlers(application: Application):
         pattern="^sl_monitor_detail_"
     ))
     logger.info("✓ SL monitor handlers registered")
+
+
+# UPDATED FUNCTION IN sl_monitor_handler.py
+
+async def view_sl_monitors(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Display all strategies with SL monitoring"""
+    query = update.callback_query
+    user_id = update.effective_user.id
+    
+    # Get all strategies with SL monitoring enabled
+    presets = await get_strategy_presets_by_type(user_id, "straddle")
+    presets += await get_strategy_presets_by_type(user_id, "strangle")
+    
+    # Filter enabled monitors
+    enabled_monitors = [p for p in presets if p.get('enable_sl_monitor')]
+    
+    if not enabled_monitors:
+        await query.edit_message_text("No active SL monitors found.")
+        return
+    
+    message = "📊 **SL Monitor - Active Strategies**\n\n"
+    
+    for preset in enabled_monitors:
+        name = preset.get('name', 'Unnamed')
+        trigger_profit = preset.get('sl_trigger_profit_percent', 100)
         
+        # ✅ NEW: Check leg protection status
+        leg_protection_active = preset.get('leg_protection_activated', False)
+        enable_leg_protection = preset.get('enable_leg_protection', False)
+        
+        message += "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        message += f"🎯 **{name}**\n\n"
+        message += f"💡 Status: {'✅ ACTIVE' if preset.get('enable_sl_monitor') else '❌ INACTIVE'}\n"
+        message += f"• Trigger Point: {trigger_profit}% Profit\n"
+        message += "• Action: Move SL to cost (breakeven)\n\n"
+        
+        # ✅ NEW: Show leg protection status
+        if enable_leg_protection:
+            if leg_protection_active:
+                legs = preset.get('legs', [])
+                closed_leg = next((l for l in legs if l.get('status') == 'closed'), None)
+                active_leg = next((l for l in legs if l.get('status') == 'active'), None)
+                
+                message += "🛡️ **Leg Protection: ACTIVE**\n"
+                if closed_leg:
+                    leg_type = closed_leg.get('type', 'Unknown').upper()
+                    message += f"   ⚠️ {leg_type} leg closed at SL\n"
+                if active_leg:
+                    leg_type = active_leg.get('type', 'Unknown').upper()
+                    new_sl = active_leg.get('stop_loss_price', 0)
+                    message += f"   ✅ {leg_type} leg protected at ₹{new_sl}\n"
+                
+                activated_at = preset.get('leg_protection_activated_at')
+                if activated_at:
+                    time_str = activated_at.strftime("%I:%M %p")
+                    message += f"   🕐 Activated: {time_str} IST\n"
+            else:
+                message += "🛡️ **Leg Protection: ENABLED**\n"
+                message += "   Waiting for trigger...\n"
+        else:
+            message += "🛡️ **Leg Protection: OFF**\n"
+        
+        message += "\n"
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 Back", callback_data="sl_monitor_menu")]
+    ]
+    
+    await query.edit_message_text(
+        message,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
+    
