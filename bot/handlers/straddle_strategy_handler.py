@@ -754,6 +754,8 @@ async def handle_straddle_sl_yes_callback(update: Update, context: ContextTypes.
     await query.answer()
     user = query.from_user
     
+    logger.info(f"🟢 SL Monitor YES clicked by user {user.id}")
+    
     # Store preference
     context.user_data['enable_sl_monitor'] = True
     
@@ -763,6 +765,8 @@ async def handle_straddle_sl_yes_callback(update: Update, context: ContextTypes.
     from datetime import datetime
     
     state_data = await state_manager.get_state_data(user.id)
+    
+    logger.info(f"📋 State data for user {user.id}: {state_data}")
     
     preset_data = StrategyPresetCreate(
         user_id=user.id,
@@ -783,21 +787,32 @@ async def handle_straddle_sl_yes_callback(update: Update, context: ContextTypes.
         updated_at=datetime.now()
     )
     
+    logger.info(f"💾 Saving preset with SL Monitor: {preset_data.enable_sl_monitor}")
+    
     result = await create_strategy_preset(preset_data)
     
     if result:
+        logger.info(f"✅ Preset saved successfully for user {user.id} with SL Monitor: {result.enable_sl_monitor}")
+        
         await query.edit_message_text(
             f"✅ <b>Strategy Saved!</b>\n\n"
             f"<b>Name:</b> {preset_data.name}\n"
             f"<b>Asset:</b> {preset_data.asset}\n"
+            f"<b>Direction:</b> {preset_data.direction.title()}\n"
             f"<b>SL Monitor:</b> ✅ Enabled",
+            reply_markup=get_straddle_menu_keyboard(),  # ✅ BACK BUTTON
             parse_mode='HTML'
         )
         await state_manager.clear_state(user.id)
         context.user_data.clear()
         log_user_action(user.id, "straddle_save", f"Saved: {preset_data.name} (SL Monitor: ON)")
     else:
-        await query.edit_message_text("❌ Error saving strategy.", parse_mode='HTML')
+        logger.error(f"❌ Failed to save preset for user {user.id}")
+        await query.edit_message_text(
+            "❌ Error saving strategy.",
+            reply_markup=get_straddle_menu_keyboard(),  # ✅ BACK BUTTON
+            parse_mode='HTML'
+        )
 
 
 @error_handler
@@ -806,6 +821,8 @@ async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.D
     query = update.callback_query
     await query.answer()
     user = query.from_user
+    
+    logger.info(f"🔴 SL Monitor NO clicked by user {user.id}")
     
     # Store preference
     context.user_data['enable_sl_monitor'] = False
@@ -816,6 +833,8 @@ async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.D
     from datetime import datetime
     
     state_data = await state_manager.get_state_data(user.id)
+    
+    logger.info(f"📋 State data for user {user.id}: {state_data}")
     
     preset_data = StrategyPresetCreate(
         user_id=user.id,
@@ -836,21 +855,32 @@ async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.D
         updated_at=datetime.now()
     )
     
+    logger.info(f"💾 Saving preset with SL Monitor: {preset_data.enable_sl_monitor}")
+    
     result = await create_strategy_preset(preset_data)
     
     if result:
+        logger.info(f"✅ Preset saved successfully for user {user.id} with SL Monitor: {result.enable_sl_monitor}")
+        
         await query.edit_message_text(
             f"✅ <b>Strategy Saved!</b>\n\n"
             f"<b>Name:</b> {preset_data.name}\n"
             f"<b>Asset:</b> {preset_data.asset}\n"
+            f"<b>Direction:</b> {preset_data.direction.title()}\n"
             f"<b>SL Monitor:</b> ❌ Disabled",
+            reply_markup=get_straddle_menu_keyboard(),  # ✅ BACK BUTTON
             parse_mode='HTML'
         )
         await state_manager.clear_state(user.id)
         context.user_data.clear()
         log_user_action(user.id, "straddle_save", f"Saved: {preset_data.name} (SL Monitor: OFF)")
     else:
-        await query.edit_message_text("❌ Error saving strategy.", parse_mode='HTML')
+        logger.error(f"❌ Failed to save preset for user {user.id}")
+        await query.edit_message_text(
+            "❌ Error saving strategy.",
+            reply_markup=get_straddle_menu_keyboard(),  # ✅ BACK BUTTON
+            parse_mode='HTML'
+        )
 
 
 def register_straddle_strategy_handlers(application: Application):
