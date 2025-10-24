@@ -19,6 +19,7 @@ from database.operations.strategy_ops import (
 from bot.handlers.straddle_input_handlers import (
     handle_straddle_sl_yes_callback,
     handle_straddle_sl_no_callback
+)
 
 logger = setup_logger(__name__)
 #state_manager = StateManager()
