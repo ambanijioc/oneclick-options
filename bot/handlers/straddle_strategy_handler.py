@@ -792,12 +792,12 @@ def register_straddle_strategy_handlers(application: Application):
     
     # SL Monitor handlers
     application.add_handler(CallbackQueryHandler(
-        handle_sl_yes_callback,
+        handle_straddle_sl_yes_callback,
         pattern="^straddle_sl_yes$"
     ))
     
     application.add_handler(CallbackQueryHandler(
-        handle_sl_no_callback,
+        handle_straddle_sl_no_callback,
         pattern="^straddle_sl_no$"
     ))
     
