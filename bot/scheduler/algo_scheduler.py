@@ -1,10 +1,11 @@
 """
 Algo trading scheduler with IST timezone support.
 Includes automatic stop-loss and target order placement.
+✅ INCLUDES LEG PROTECTION FEATURE
 """
 
 import asyncio
-import calendar  # ✅ ADD THIS LINE
+import calendar
 from datetime import datetime, timedelta
 from typing import Dict, Set
 import pytz
@@ -14,7 +15,6 @@ from database.operations.algo_setup_ops import (
     get_all_active_algo_setups,
     update_algo_execution
 )
-from services.sl_monitor_service import start_strategy_monitor
 from database.operations.manual_trade_preset_ops import get_manual_trade_preset
 from database.operations.api_ops import get_api_credential_by_id, get_decrypted_api_credential
 from database.operations.strategy_ops import get_strategy_preset_by_id
@@ -121,8 +121,8 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
                 'product_id': product_id,
                 'size': size,
                 'side': target_side,
-                'order_type': 'limit_order',  # ✅ FIXED
-                'stop_order_type': 'take_profit_order',  # ✅ ADDED
+                'order_type': 'limit_order',
+                'stop_order_type': 'take_profit_order',
                 'stop_price': round(target_trigger_price, 2),
                 'limit_price': round(target_limit_price, 2),
                 'time_in_force': 'gtc'
@@ -225,9 +225,8 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
                 )
             except Exception:
                 pass
-            return  # ✅ FIXED: return moved inside except block
+            return
 
-        # ✅ FIXED: Code below unindented - runs AFTER try-except
         # Get options
         products_response = await client.get_products(contract_types='call_options,put_options')
         if not products_response.get('success'):
@@ -235,59 +234,49 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
 
         products = products_response['result']
 
-        # ✅ READ EXPIRY TYPE FROM STRATEGY PRESET
+        # READ EXPIRY TYPE FROM STRATEGY PRESET
         if hasattr(strategy, 'expiry_type'):
-            expiry_type = strategy.expiry_type  # Pydantic model
+            expiry_type = strategy.expiry_type
         elif isinstance(strategy, dict):
-            expiry_type = strategy.get('expiry_type', 'daily')  # Dict
+            expiry_type = strategy.get('expiry_type', 'daily')
         else:
-            expiry_type = 'daily'  # Fallback
+            expiry_type = 'daily'
 
         # Get current time in IST
         ist = pytz.timezone('Asia/Kolkata')
         now_ist = datetime.now(ist)
 
-        # ✅ CALCULATE TARGET EXPIRY BASED ON STRATEGY'S EXPIRY_TYPE
+        # CALCULATE TARGET EXPIRY BASED ON STRATEGY'S EXPIRY_TYPE
         if expiry_type == 'daily':
-            # Daily expiry logic
             if now_ist.hour < 17 or (now_ist.hour == 17 and now_ist.minute < 30):
                 target_expiry_date = now_ist.date()
             else:
                 target_expiry_date = now_ist.date() + timedelta(days=1)
 
         elif expiry_type == 'weekly':
-            # Weekly expiry logic (Current week's Friday)
-            current_weekday = now_ist.weekday()  # Monday=0, Friday=4
-            if current_weekday < 4:  # Monday-Thursday
+            current_weekday = now_ist.weekday()
+            if current_weekday < 4:
                 days_to_friday = 4 - current_weekday
-            elif current_weekday == 4:  # Friday
+            elif current_weekday == 4:
                 if now_ist.hour >= 17 and now_ist.minute >= 30:
-                    days_to_friday = 7  # After 5:30 PM, use next week
+                    days_to_friday = 7
                 else:
-                    days_to_friday = 0  # Use today
-            else:  # Saturday/Sunday
+                    days_to_friday = 0
+            else:
                 days_to_friday = (7 - current_weekday + 4) % 7
     
             target_expiry_date = now_ist.date() + timedelta(days=days_to_friday)
 
         elif expiry_type == 'monthly':
-            # Monthly expiry logic (Last Friday of month)
-            import calendar
-    
             year = now_ist.year
             month = now_ist.month
-    
-            # Get last day of month
             last_day = calendar.monthrange(year, month)[1]
             last_date = datetime(year, month, last_day, tzinfo=ist).date()
     
-            # Find last Friday
-            while last_date.weekday() != 4:  # 4 = Friday
+            while last_date.weekday() != 4:
                 last_date -= timedelta(days=1)
     
-            # If past this month's expiry, use next month
             if now_ist.date() > last_date or (now_ist.date() == last_date and now_ist.hour >= 17 and now_ist.minute >= 30):
-                # Move to next month
                 if month == 12:
                     next_month = 1
                     next_year = year + 1
@@ -307,7 +296,6 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             raise ValueError(f"Invalid expiry_type: {expiry_type}")
 
         target_expiry = target_expiry_date.strftime('%d%m%y')
-
         logger.info(f"Expiry Type: {expiry_type.upper()} | Target: {target_expiry} ({target_expiry_date.strftime('%d %b %Y')})")
 
         # Filter options by expiry
@@ -318,7 +306,6 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             and target_expiry in p.get('symbol', '')
         ]
 
-        # Fallback: if no options found, try next day
         if not filtered_options:
             logger.warning(f"No options found for expiry {target_expiry}, trying next day...")
             target_expiry_date = target_expiry_date + timedelta(days=1)
@@ -497,45 +484,51 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         await update_algo_execution(setup_id, 'success', details)
         logger.info(f"Algo trade executed successfully for setup {setup_id}")
         
-        # ✅ NEW: Check if SL monitoring is enabled for this preset
-        enable_sl_monitor = False
-        if hasattr(preset, 'enable_sl_monitor'):
-            enable_sl_monitor = preset.enable_sl_monitor
-        elif isinstance(preset, dict):
-            enable_sl_monitor = preset.get('enable_sl_monitor', False)
+        # ============================================================
+        # ✅ START LEG PROTECTION MONITORING FOR AUTO TRADE
+        # ============================================================
         
-        if enable_sl_monitor:
-            logger.info(f"✅ Starting SL monitor for automated trade (setup {setup_id})")
+        enable_leg_protection = False
+        if hasattr(preset, 'enable_sl_monitor'):  # Using old field name
+            enable_leg_protection = preset.enable_sl_monitor
+        elif isinstance(preset, dict):
+            enable_leg_protection = preset.get('enable_sl_monitor', False)
+        
+        if enable_leg_protection:
+            logger.info(f"🛡️ Starting leg protection monitor for auto trade (setup {setup_id})")
             
-            # Generate unique strategy ID
-            strategy_id = f"{preset['strategy_type']}_{user_id}_{int(datetime.now().timestamp())}"
+            # Store strategy details for monitoring
+            strategy_details = {
+                'setup_id': setup_id,
+                'user_id': user_id,
+                'api_id': preset['api_credential_id'],
+                'strategy_type': preset['strategy_type'],
+                'ce_symbol': ce_symbol,
+                'pe_symbol': pe_symbol,
+                'ce_entry_price': ce_fill_price,
+                'pe_entry_price': pe_fill_price,
+                'ce_order_id': ce_order_id,
+                'pe_order_id': pe_order_id,
+                'ce_sl_order_id': ce_bracket_orders.get('sl_order_id'),
+                'pe_sl_order_id': pe_bracket_orders.get('sl_order_id'),
+                'direction': direction,
+                'lot_size': lot_size,
+                'leg_protection_enabled': True,
+                'leg_protection_activated': False
+            }
             
-            # Get database instance from bot_application
-            db = bot_application.bot_data.get('db')
+            # Start monitoring task
+            asyncio.create_task(
+                monitor_leg_protection(strategy_details, bot_application)
+            )
             
-            if db:
-                try:
-                    # Start monitoring
-                    await start_strategy_monitor(
-                        strategy_id=strategy_id,
-                        user_id=user_id,
-                        api_id=preset['api_credential_id'],
-                        strategy_type=preset['strategy_type'],
-                        call_symbol=ce_symbol,
-                        put_symbol=pe_symbol,
-                        call_entry_price=ce_fill_price,
-                        put_entry_price=pe_fill_price,
-                        db=db
-                    )
-                    
-                    logger.info(f"🔍 SL-to-Cost monitor started for strategy {strategy_id}")
-                except Exception as monitor_error:
-                    logger.error(f"Failed to start SL monitor: {monitor_error}", exc_info=True)
-            else:
-                logger.warning("Database not available in bot_data, skipping SL monitor")
+            logger.info(f"✅ Leg protection monitor started for {ce_symbol}/{pe_symbol}")
         else:
-            logger.info(f"⏸️ SL monitoring disabled for setup {setup_id}")
-
+            logger.info(f"⏸️ Leg protection disabled for setup {setup_id}")
+        
+        # ============================================================
+        # END LEG PROTECTION SETUP
+        # ============================================================
         
         # Build notification message
         notification_text = (
@@ -599,6 +592,194 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             await client.close()
 
 
+# ============================================================
+# ✅ LEG PROTECTION MONITORING FUNCTIONS
+# ============================================================
+
+async def monitor_leg_protection(strategy: Dict, bot_application):
+    """
+    Monitor strategy legs and protect remaining leg when one closes.
+    Checks every 30 seconds for closed positions.
+    """
+    client = None
+    try:
+        logger.info(f"🔍 Starting leg protection monitor for {strategy['ce_symbol']}/{strategy['pe_symbol']}")
+        
+        # Get API credentials
+        from database.operations.api_ops import get_decrypted_api_credential
+        credentials = await get_decrypted_api_credential(strategy['api_id'])
+        
+        if not credentials:
+            logger.error("Failed to get API credentials for monitoring")
+            return
+        
+        api_key, api_secret = credentials
+        from delta.client import DeltaClient
+        client = DeltaClient(api_key, api_secret)
+        
+        # Monitor for up to 24 hours (2880 checks at 30sec intervals)
+        for _ in range(2880):
+            await asyncio.sleep(30)  # Check every 30 seconds
+            
+            # Skip if already protected
+            if strategy.get('leg_protection_activated'):
+                logger.info("Leg protection already activated, stopping monitor")
+                break
+            
+            try:
+                # Get current positions
+                positions = await client.get_positions()
+                
+                if not positions.get('success'):
+                    continue
+                
+                positions_data = positions['result']
+                
+                # Find CE and PE positions
+                ce_position = next((p for p in positions_data 
+                                  if strategy['ce_symbol'] in p.get('product', {}).get('symbol', '')), None)
+                pe_position = next((p for p in positions_data 
+                                  if strategy['pe_symbol'] in p.get('product', {}).get('symbol', '')), None)
+                
+                # Check if positions exist
+                ce_size = int(ce_position.get('size', 0)) if ce_position else 0
+                pe_size = int(pe_position.get('size', 0)) if pe_position else 0
+                
+                # Check if ONE leg is closed
+                ce_closed = ce_size == 0
+                pe_closed = pe_size == 0
+                
+                # ONE leg closed, other still open → PROTECT!
+                if ce_closed and not pe_closed:
+                    logger.info(f"🛡️ CE leg closed, protecting PE leg")
+                    await protect_remaining_leg(
+                        client=client,
+                        strategy=strategy,
+                        remaining_symbol=strategy['pe_symbol'],
+                        remaining_entry_price=strategy['pe_entry_price'],
+                        remaining_sl_order_id=strategy.get('pe_sl_order_id'),
+                        closed_leg='CE',
+                        bot_application=bot_application
+                    )
+                    strategy['leg_protection_activated'] = True
+                    break
+                
+                elif pe_closed and not ce_closed:
+                    logger.info(f"🛡️ PE leg closed, protecting CE leg")
+                    await protect_remaining_leg(
+                        client=client,
+                        strategy=strategy,
+                        remaining_symbol=strategy['ce_symbol'],
+                        remaining_entry_price=strategy['ce_entry_price'],
+                        remaining_sl_order_id=strategy.get('ce_sl_order_id'),
+                        closed_leg='PE',
+                        bot_application=bot_application
+                    )
+                    strategy['leg_protection_activated'] = True
+                    break
+                
+                # Both legs still open - continue monitoring
+                elif not ce_closed and not pe_closed:
+                    continue
+                
+                # Both legs closed - stop monitoring
+                else:
+                    logger.info("Both legs closed, stopping monitor")
+                    break
+                    
+            except Exception as e:
+                logger.error(f"Error checking leg status: {e}")
+                continue
+        
+        logger.info("Leg protection monitoring ended")
+        
+    except Exception as e:
+        logger.error(f"Error in leg protection monitor: {e}", exc_info=True)
+    finally:
+        if client:
+            await client.close()
+
+
+async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str, 
+                                remaining_entry_price: float, remaining_sl_order_id: str,
+                                closed_leg: str, bot_application):
+    """
+    Move remaining leg's SL to breakeven (entry price).
+    """
+    try:
+        logger.info(f"🛡️ Protecting remaining leg: {remaining_symbol}")
+        
+        # Cancel existing SL order
+        if remaining_sl_order_id:
+            try:
+                cancel_result = await client.cancel_order(remaining_sl_order_id)
+                if cancel_result.get('success'):
+                    logger.info(f"✅ Cancelled old SL order: {remaining_sl_order_id}")
+                else:
+                    logger.warning(f"Failed to cancel SL: {cancel_result.get('error')}")
+            except Exception as e:
+                logger.error(f"Error cancelling SL: {e}")
+        
+        # Get product details
+        products_response = await client.get_products(contract_types='call_options,put_options')
+        if not products_response.get('success'):
+            raise Exception("Failed to fetch products")
+        
+        product = next((p for p in products_response['result'] 
+                       if p['symbol'] == remaining_symbol), None)
+        
+        if not product:
+            raise Exception(f"Product not found: {remaining_symbol}")
+        
+        # Place new SL at breakeven (entry price)
+        direction = strategy.get('direction', 'long')
+        side = 'sell' if direction == 'long' else 'buy'
+        
+        new_sl_order = await client.place_order({
+            'product_id': product['id'],
+            'size': strategy.get('lot_size', 1),
+            'side': side,
+            'order_type': 'limit_order',
+            'stop_order_type': 'stop_loss_order',
+            'stop_price': round(remaining_entry_price, 2),
+            'limit_price': round(remaining_entry_price * 0.98, 2),  # 2% below for execution
+            'time_in_force': 'gtc'
+        })
+        
+        if new_sl_order.get('success'):
+            new_sl_id = new_sl_order['result']['id']
+            logger.info(f"✅ New breakeven SL placed: {new_sl_id} at ${remaining_entry_price:.2f}")
+            
+            # Send notification
+            remaining_leg = 'CE' if closed_leg == 'PE' else 'PE'
+            message = (
+                f"🛡️ **Leg Protection Activated!**\n\n"
+                f"🔄 **{closed_leg} leg closed**\n"
+                f"🛡️ **{remaining_leg} leg protected**\n\n"
+                f"💰 **New SL:** ${remaining_entry_price:.2f} (Breakeven)\n\n"
+                f"✅ You're now protected from further losses!"
+            )
+            
+            try:
+                await bot_application.bot.send_message(
+                    chat_id=strategy['user_id'],
+                    text=message,
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Failed to send notification: {e}")
+            
+        else:
+            logger.error(f"Failed to place new SL: {new_sl_order.get('error')}")
+        
+    except Exception as e:
+        logger.error(f"Error protecting remaining leg: {e}", exc_info=True)
+
+# ============================================================
+# END OF LEG PROTECTION FUNCTIONS
+# ============================================================
+
+
 async def schedule_algo_execution(setup: dict, bot_application):
     """Schedule algo execution 5 minutes before target time."""
     setup_id = setup['id']
@@ -639,120 +820,6 @@ async def schedule_algo_execution(setup: dict, bot_application):
         logger.info(f"Executing trade for setup {setup_id} at {datetime.now(IST).strftime('%I:%M %p IST')}")
         await execute_algo_trade(setup_id, setup['user_id'], bot_application)
 
-
-# ============================================================
-# ✅ NEW: LEG PROTECTION FEATURE
-# ============================================================
-
-async def _check_strategy_legs(strategy: Dict):
-    """
-    Check if ONE leg is closed and protect the other
-    WITH PRIORITY: SL Monitor > Leg Protection
-    """
-    try:
-        strategy_id = str(strategy["_id"])
-        
-        # ========================================
-        # ✅ PRIORITY CHECK: SL Monitor Active?
-        # ========================================
-        if strategy.get('sl_monitor_activated'):
-            logger.info(f"⏸️ {strategy_id}: SL Monitor active - skipping leg protection")
-            return
-        
-        # ========================================
-        # ✅ CHECK IF LEG PROTECTION IS ENABLED
-        # ========================================
-        if not strategy.get("enable_leg_protection", False):
-            return  # Feature not enabled
-        
-        # ========================================
-        # ✅ CHECK IF ALREADY ACTIVATED
-        # ========================================
-        if strategy.get("leg_protection_activated", False):
-            return  # Already protecting
-        
-        # ========================================
-        # ✅ CHECK LEG STATUS
-        # ========================================
-        legs = strategy.get("legs", [])
-        
-        if len(legs) != 2:
-            return  # Not a straddle/strangle
-        
-        leg1_closed = legs[0].get("status") == "closed"
-        leg2_closed = legs[1].get("status") == "closed"
-        
-        # Only ONE leg should be closed
-        if leg1_closed and not leg2_closed:
-            await _protect_remaining_leg(strategy, legs[1], 1)
-        elif leg2_closed and not leg1_closed:
-            await _protect_remaining_leg(strategy, legs[0], 0)
-            
-    except Exception as e:
-        logger.error(f"Error checking strategy legs: {e}")
-
-
-async def _protect_remaining_leg(strategy: Dict, remaining_leg: Dict, leg_index: int):
-    """
-    Move the remaining leg's SL to breakeven (entry price)
-    """
-    try:
-        strategy_id = str(strategy["_id"])
-        entry_price = remaining_leg.get("entry_price", 0)
-        current_sl = remaining_leg.get("stop_loss_price", 0)
-        leg_type = remaining_leg.get("type", "").upper()
-        
-        # Don't move if already at or better than breakeven
-        if current_sl >= entry_price:
-            logger.info(f"⏸️ {strategy_id}: Leg {leg_index} SL already at/above breakeven")
-            return
-        
-        # ========================================
-        # ✅ MOVE SL TO BREAKEVEN
-        # ========================================
-        logger.info(f"🛡️ {strategy_id}: Activating leg protection for {leg_type} leg")
-        logger.info(f"   Old SL: ${current_sl} → New SL: ${entry_price} (breakeven)")
-        
-        # Update database
-        from database.operations.strategy_preset import update_strategy_preset
-        
-        update_data = {
-            f"legs.{leg_index}.stop_loss_price": entry_price,
-            f"legs.{leg_index}.sl_protected": True,
-            "leg_protection_activated": True,
-            "leg_protection_activated_at": datetime.utcnow()
-        }
-        
-        await update_strategy_preset(
-            strategy["user_id"],
-            strategy_id,
-            update_data
-        )
-        
-        # ========================================
-        # ✅ SEND NOTIFICATION
-        # ========================================
-        closed_leg = "PUT" if leg_type == "CALL" else "CALL"
-        
-        message = (
-            f"🛡️ **Leg Protection Activated!**\n\n"
-            f"📊 **Strategy:** {strategy.get('name', 'Unnamed')}\n"
-            f"🔄 **Action:** {closed_leg} leg closed - protecting {leg_type} leg\n\n"
-            f"💰 **Old SL:** ${current_sl:.2f}\n"
-            f"💰 **New SL:** ${entry_price:.2f} (Breakeven)\n\n"
-            f"✅ You're now protected from further losses!"
-        )
-        
-        # Note: bot instance needs to be passed - will be added below
-        logger.info(f"✅ {strategy_id}: Leg protection activated successfully")
-        
-    except Exception as e:
-        logger.error(f"Error protecting remaining leg: {e}")
-
-
-# ============================================================
-# END OF LEG PROTECTION FEATURE
-# ============================================================
 
 async def start_algo_scheduler(bot_application):
     """Start the algo scheduler."""
