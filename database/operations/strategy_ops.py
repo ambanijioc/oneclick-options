@@ -49,7 +49,8 @@ async def create_strategy_preset(data: StrategyPresetCreate) -> str:
                 sl_limit_pct=data.sl_limit_pct,
                 target_trigger_pct=data.target_trigger_pct,
                 target_limit_pct=data.target_limit_pct,
-                atm_offset=data.atm_offset or 0
+                atm_offset=data.atm_offset or 0,
+                enable_sl_monitor=data.enable_sl_monitor  # ✅ ADD THIS
             )
         else:  # strangle
             if not data.otm_selection:
@@ -67,7 +68,8 @@ async def create_strategy_preset(data: StrategyPresetCreate) -> str:
                 sl_limit_pct=data.sl_limit_pct,
                 target_trigger_pct=data.target_trigger_pct,
                 target_limit_pct=data.target_limit_pct,
-                otm_selection=data.otm_selection
+                otm_selection=data.otm_selection,
+                enable_sl_monitor=data.enable_sl_monitor  # ✅ ADD THIS
             )
         
         # Insert to database
