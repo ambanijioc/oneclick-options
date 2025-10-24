@@ -1,5 +1,5 @@
 """
-MOVE Strategy Input Handlers
+MOVE Strategy Input Handlers - FIXED LOT SIZE FLOW
 Handles all text input for MOVE strategy creation and editing.
 """
 
@@ -26,7 +26,6 @@ async def handle_move_name_input(update: Update, context: ContextTypes.DEFAULT_T
     await state_manager.set_state_data(user.id, {'name': text})
     await state_manager.set_state(user.id, 'move_add_description')
     
-    # ✅ IMPORT KEYBOARD INSTEAD OF INLINE
     await update.message.reply_text(
         f"<b>📝 Add MOVE Strategy</b>\n\n"
         f"<b>Name:</b> {text}\n\n"
@@ -65,11 +64,13 @@ async def handle_move_atm_offset_input(update: Update, context: ContextTypes.DEF
         atm_offset = float(text)
         
         await state_manager.set_state_data(user.id, {'atm_offset': atm_offset})
-        await state_manager.set_state(user.id, 'move_add_sl_trigger')
+        
+        # ✅ FIX: Go to LOT SIZE instead of SL trigger
+        await state_manager.set_state(user.id, 'move_add_lot_size')
         
         await update.message.reply_text(
             f"✅ ATM offset set: {atm_offset}\n\n"
-            f"Enter Stop Loss trigger percentage:"
+            f"📦 Enter lot size (e.g., 1, 2, 5):"
         )
     except ValueError:
         await update.message.reply_text("❌ Invalid number. Please try again.")
@@ -85,11 +86,13 @@ async def handle_move_lot_size_input(update: Update, context: ContextTypes.DEFAU
             raise ValueError("Lot size must be between 1 and 100")
         
         await state_manager.set_state_data(user.id, {'lot_size': lot_size})
-        await state_manager.set_state(user.id, 'move_add_otm_value')
+        
+        # ✅ FIX: Go to SL TRIGGER, NOT OTM value!
+        await state_manager.set_state(user.id, 'move_add_sl_trigger')
         
         await update.message.reply_text(
             f"✅ Lot size set: {lot_size}\n\n"
-            f"Enter OTM offset value:"
+            f"📉 Enter Stop Loss trigger percentage (e.g., 30 for 30%):"
         )
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}\nPlease enter a valid number.")
@@ -101,8 +104,8 @@ async def handle_move_sl_trigger_input(update: Update, context: ContextTypes.DEF
     
     try:
         sl_trigger = float(text)
-        if sl_trigger < 0 or sl_trigger > 100:
-            raise ValueError("Percentage must be between 0 and 100")
+        if sl_trigger < 0 or sl_trigger > 200:
+            raise ValueError("Percentage must be between 0 and 200")
         
         # ✅ FIX: Use _percent suffix consistently!
         await state_manager.set_state_data(user.id, {'sl_trigger_percent': sl_trigger})
@@ -110,7 +113,7 @@ async def handle_move_sl_trigger_input(update: Update, context: ContextTypes.DEF
         
         await update.message.reply_text(
             f"✅ SL Trigger set: {sl_trigger}%\n\n"
-            f"Enter Stop Loss limit percentage:"
+            f"📉 Enter Stop Loss limit percentage (e.g., 35 for 35%):"
         )
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}\nPlease enter a valid percentage.")
@@ -169,7 +172,7 @@ async def handle_move_target_trigger_input(update: Update, context: ContextTypes
         
         await update.message.reply_text(
             f"✅ Target Trigger set: {target_trigger}%\n\n"
-            f"Enter Target limit percentage:"
+            f"📈 Enter Target limit percentage (e.g., -25 for -25%):"
         )
     except ValueError as e:
         await update.message.reply_text(f"❌ {str(e)}\nPlease enter a valid percentage.")
@@ -197,25 +200,45 @@ async def handle_move_target_limit_input(update: Update, context: ContextTypes.D
 @error_handler
 async def handle_move_edit_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle edit name input."""
-    # Implementation similar to create
-    pass
+    user = update.effective_user
+    await state_manager.set_state_data(user.id, {'edit_name': text})
+    
+    from .edit import save_move_edit
+    await save_move_edit(update, context)
 
 @error_handler
 async def handle_move_edit_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle edit description input."""
-    pass
+    user = update.effective_user
+    await state_manager.set_state_data(user.id, {'edit_description': text})
+    
+    from .edit import save_move_edit
+    await save_move_edit(update, context)
 
 @error_handler
 async def handle_move_edit_lot_size_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Handle edit lot size input."""
-    pass
+    user = update.effective_user
+    
+    try:
+        lot_size = int(text)
+        if lot_size < 1 or lot_size > 100:
+            raise ValueError("Lot size must be between 1 and 100")
+        
+        await state_manager.set_state_data(user.id, {'edit_lot_size': lot_size})
+        
+        from .edit import save_move_edit
+        await save_move_edit(update, context)
+        
+    except ValueError as e:
+        await update.message.reply_text(f"❌ {str(e)}\nPlease enter a valid number.")
 
 __all__ = [
-'handle_move_name_input',              # Step 1: Name
-    'handle_move_description_input',       # Step 2: Description
-    'handle_move_lot_size_input',          # Step 6: Lot Size ✅ KEEP
-    'handle_move_atm_offset_input',        # Step 7: ATM Offset ✅ KEEP
-    # 'handle_move_otm_value_input',       # ❌ DELETE - Not used in MOVE
+    'handle_move_name_input',              # Step 1: Name
+    'handle_move_description_input',       # Step 2: Description  
+    # Asset, Expiry, Direction callbacks handled in create.py
+    'handle_move_atm_offset_input',        # Step 6: ATM Offset
+    'handle_move_lot_size_input',          # Step 7: Lot Size ✅ FIXED FLOW
     'handle_move_sl_trigger_input',        # Step 8: SL Trigger
     'handle_move_sl_limit_input',          # Step 9: SL Limit  
     'handle_move_target_trigger_input',    # Step 10: Target Trigger
