@@ -7,7 +7,9 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 from bot.utils.error_handler import error_handler
 from bot.utils.logger import setup_logger
-from database.operations.strategy_ops import get_all_strategy_presets, get_strategy_preset_by_id
+
+# ✅ CORRECT IMPORTS - Use existing database operations
+from database.connection import get_database
 from bson import ObjectId
 
 logger = setup_logger(__name__)
@@ -23,17 +25,28 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
     logger.info(f"User {user.id} accessed SL Monitor menu")
     
     try:
-        # ✅ USE PYDANTIC MODEL OPERATIONS
-        all_strategies = await get_all_strategy_presets(user.id)
+        # ✅ Query database directly
+        db = get_database()
         
-        # Filter for strategies with SL monitoring enabled
-        monitored_strategies = [
-            strategy for strategy in all_strategies 
-            if strategy.enable_sl_monitor  # ✅ Pydantic attribute, not dictionary
-        ]
+        # Get all strategies with SL monitoring enabled
+        straddle_cursor = db.strategy_presets.find({
+            'user_id': user.id,
+            'strategy_type': 'straddle',
+            'enable_sl_monitor': True
+        })
+        strangle_cursor = db.strategy_presets.find({
+            'user_id': user.id,
+            'strategy_type': 'strangle',
+            'enable_sl_monitor': True
+        })
+        
+        straddle_strategies = await straddle_cursor.to_list(length=100)
+        strangle_strategies = await strangle_cursor.to_list(length=100)
+        
+        monitored_strategies = straddle_strategies + strangle_strategies
         
         if not monitored_strategies:
-            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main_menu")]]
+            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main")]]
             await query.edit_message_text(
                 "📊 <b>SL Monitor</b>\n\n"
                 "❌ No strategies with SL monitoring enabled.\n\n"
@@ -56,9 +69,9 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
         
         keyboard = []
         for idx, strategy in enumerate(monitored_strategies, 1):
-            strategy_type = strategy.strategy_type.title()  # ✅ Pydantic attribute
-            name = strategy.name  # ✅ Pydantic attribute
-            asset = strategy.asset  # ✅ Pydantic attribute
+            strategy_type = strategy.get('strategy_type', 'unknown').title()
+            name = strategy.get('name', 'Unnamed')
+            asset = strategy.get('asset', 'N/A')
             
             message += f"{idx}. <b>{name}</b>\n"
             message += f"   📍 Type: {strategy_type}\n"
@@ -69,7 +82,7 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
             keyboard.append([
                 InlineKeyboardButton(
                     f"📊 {name[:30]}", 
-                    callback_data=f"sl_monitor_detail_{str(strategy.id)}"  # ✅ str(strategy.id)
+                    callback_data=f"sl_monitor_detail_{str(strategy['_id'])}"
                 )
             ])
         
@@ -77,7 +90,7 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
         message += "When your strategy hits <b>100% profit</b>, the stop loss will automatically "
         message += "move to your entry price (cost), locking in breakeven and protecting your gains."
         
-        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main_menu")])
+        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main")])
         
         await query.edit_message_text(
             message,
@@ -89,7 +102,7 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
         
     except Exception as e:
         logger.error(f"Error in sl_monitor_menu_callback: {e}", exc_info=True)
-        keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main")]]
         await query.edit_message_text(
             "❌ Error loading SL monitors. Please try again later.",
             reply_markup=InlineKeyboardMarkup(keyboard)
@@ -109,8 +122,9 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
         
         logger.info(f"User {user.id} viewing SL monitor details for strategy {strategy_id}")
         
-        # ✅ USE PYDANTIC MODEL OPERATIONS
-        strategy = await get_strategy_preset_by_id(strategy_id)
+        # ✅ Query database directly
+        db = get_database()
+        strategy = await db.strategy_presets.find_one({'_id': ObjectId(strategy_id)})
         
         if not strategy:
             keyboard = [[InlineKeyboardButton("🔙 Back to Monitors", callback_data="menu_sl_monitor")]]
@@ -120,26 +134,26 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
             )
             return
         
-        # Build detailed message using Pydantic attributes
-        message = f"📊 <b>{strategy.name}</b>\n\n"
+        # Build detailed message
+        message = f"📊 <b>{strategy.get('name', 'Unnamed')}</b>\n\n"
         message += f"<b>Strategy Details:</b>\n"
-        message += f"• Type: {strategy.strategy_type.title()}\n"
-        message += f"• Asset: {strategy.asset}\n"
-        message += f"• Expiry: {strategy.expiry_code}\n"
-        message += f"• Direction: {strategy.direction.title()}\n"
-        message += f"• Lot Size: {strategy.lot_size}\n\n"
+        message += f"• Type: {strategy.get('strategy_type', 'N/A').title()}\n"
+        message += f"• Asset: {strategy.get('asset', 'N/A')}\n"
+        message += f"• Expiry: {strategy.get('expiry_code', 'N/A')}\n"
+        message += f"• Direction: {strategy.get('direction', 'N/A').title()}\n"
+        message += f"• Lot Size: {strategy.get('lot_size', 0)}\n\n"
         
         message += f"<b>Stop Loss Settings:</b>\n"
-        message += f"• Trigger: {strategy.sl_trigger_pct:.1f}%\n"
-        message += f"• Limit: {strategy.sl_limit_pct:.1f}%\n\n"
+        message += f"• Trigger: {strategy.get('sl_trigger_pct', 0):.1f}%\n"
+        message += f"• Limit: {strategy.get('sl_limit_pct', 0):.1f}%\n\n"
         
-        if strategy.target_trigger_pct > 0:
+        if strategy.get('target_trigger_pct', 0) > 0:
             message += f"<b>Target Settings:</b>\n"
-            message += f"• Trigger: {strategy.target_trigger_pct:.1f}%\n"
-            message += f"• Limit: {strategy.target_limit_pct:.1f}%\n\n"
+            message += f"• Trigger: {strategy.get('target_trigger_pct', 0):.1f}%\n"
+            message += f"• Limit: {strategy.get('target_limit_pct', 0):.1f}%\n\n"
         
         message += f"<b>SL Monitor:</b>\n"
-        message += f"• Status: <code>{'✅ ACTIVE' if strategy.enable_sl_monitor else '❌ INACTIVE'}</code>\n"
+        message += f"• Status: <code>{'✅ ACTIVE' if strategy.get('enable_sl_monitor') else '❌ INACTIVE'}</code>\n"
         message += f"• Trigger Point: <b>100% Profit</b>\n"
         message += f"• Action: Move SL to cost (breakeven)\n\n"
         
@@ -149,7 +163,7 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
         
         keyboard = [
             [InlineKeyboardButton("🔙 Back to Monitors", callback_data="menu_sl_monitor")],
-            [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_main_menu")]
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="menu_main")]
         ]
         
         await query.edit_message_text(
@@ -169,7 +183,6 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
 
 def register_sl_monitor_handlers(application: Application):
     """Register SL monitor handlers."""
-    # ✅ SINGULAR "menu_sl_monitor" to match main menu button
     application.add_handler(CallbackQueryHandler(
         sl_monitor_menu_callback, 
         pattern="^menu_sl_monitor$"
