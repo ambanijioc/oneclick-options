@@ -376,3 +376,142 @@ async def save_straddle_preset(update, context):
         )
     else:
         await update.callback_query.edit_message_text("❌ Error saving preset.", parse_mode='HTML')
+
+
+# ADD AT THE END OF straddle_input_handlers.py
+
+async def ask_sl_monitor_preference(update, context):
+    """
+    Ask if SL monitoring should be enabled.
+    Step comes AFTER entering all strategy details.
+    """
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Enable SL-to-Cost", callback_data="straddle_sl_yes"),
+            InlineKeyboardButton("❌ Disable", callback_data="straddle_sl_no")
+        ],
+        [InlineKeyboardButton("🔙 Cancel", callback_data="straddle_cancel")]
+    ]
+    
+    await update.message.reply_text(
+        "📊 <b>SL-to-Cost Monitoring</b>\n\n"
+        "<b>What it does:</b>\n"
+        "• Monitors positions every 5 seconds\n"
+        "• When one leg closes (SL hit), moves other leg SL to breakeven\n"
+        "• Auto-stops when done\n\n"
+        "<b>Resource Usage:</b> ~10MB RAM per active strategy\n\n"
+        "Enable for this preset?",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+# Callback handlers for SL monitor preference
+async def handle_straddle_sl_yes_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle SL monitor YES selection."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
+    # Set enable_sl_monitor = True
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['enable_sl_monitor'] = True
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # NOW save the preset to database
+    await save_straddle_preset(update, context)
+
+
+async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle SL monitor NO selection."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
+    # Set enable_sl_monitor = False
+    state_data = await state_manager.get_state_data(user.id)
+    state_data['enable_sl_monitor'] = False
+    await state_manager.set_state_data(user.id, state_data)
+    
+    # NOW save the preset to database
+    await save_straddle_preset(update, context)
+
+
+async def save_straddle_preset(update, context):
+    """Save straddle preset to database after all inputs collected."""
+    user = update.effective_user if update.callback_query else update.message.from_user
+    
+    # Get state data
+    state_data = await state_manager.get_state_data(user.id)
+    
+    # Build preset data
+    preset_data = {
+        "user_id": user.id,
+        "name": state_data['name'],
+        "description": state_data.get('description', ''),
+        "strategy_type": "straddle",
+        "asset": state_data['asset'],
+        "expiry_code": state_data['expiry'],
+        "direction": state_data['direction'],
+        "lot_size": state_data['lot_size'],
+        "sl_trigger_pct": state_data['sl_trigger_pct'],
+        "sl_limit_pct": state_data['sl_limit_pct'],
+        "target_trigger_pct": state_data.get('target_trigger_pct', 0),
+        "target_limit_pct": state_data.get('target_limit_pct', 0),
+        "atm_offset": state_data['atm_offset'],
+        "enable_sl_monitor": state_data.get('enable_sl_monitor', False),  # ✅ THIS IS THE KEY!
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    # Save to database
+    result = await create_strategy_preset(preset_data)
+    
+    if result:
+        # Format target text
+        target_text = ""
+        if state_data.get('target_trigger_pct', 0) > 0:
+            target_text = f"Target: <b>{state_data['target_trigger_pct']}/{state_data['target_limit_pct']}%</b>\n"
+        
+        # Format ATM offset display
+        atm_strikes = state_data.get('atm_strikes', 0)
+        atm_strikes_display = f"{atm_strikes:+d} strikes" if atm_strikes != 0 else "ATM"
+        
+        # Success message
+        message = (
+            "✅ <b>Preset Saved!</b>\n\n"
+            f"Name: <b>{state_data['name']}</b>\n"
+            f"Asset: <b>{state_data['asset']}</b>\n"
+            f"Direction: <b>{state_data['direction'].title()}</b>\n"
+            f"SL Monitor: {'✅ <b>Enabled</b>' if state_data.get('enable_sl_monitor', False) else '❌ Disabled'}\n"
+        )
+        
+        # Use query or message depending on update type
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                message,
+                reply_markup=get_straddle_menu_keyboard(),
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                message,
+                reply_markup=get_straddle_menu_keyboard(),
+                parse_mode='HTML'
+            )
+    else:
+        error_msg = "❌ Failed to create strategy."
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                error_msg,
+                reply_markup=get_straddle_menu_keyboard()
+            )
+        else:
+            await update.message.reply_text(
+                error_msg,
+                reply_markup=get_straddle_menu_keyboard()
+            )
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
