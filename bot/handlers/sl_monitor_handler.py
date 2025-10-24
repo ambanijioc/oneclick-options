@@ -4,10 +4,11 @@ CREATED: 2025-10-24
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler
+from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 from bot.utils.error_handler import error_handler
-from bot.utils.logger import log_user_action, setup_logger
-from database.operations.strategy_preset import get_all_strategy_presets, get_strategy_preset_by_id
+from bot.utils.logger import setup_logger
+from database.mongodb import strategy_presets_collection  # ✅ FIXED - Direct MongoDB access
+from bson import ObjectId
 
 logger = setup_logger(__name__)
 
@@ -22,8 +23,8 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
     logger.info(f"User {user.id} accessed SL Monitor menu")
     
     try:
-        # Get all strategy presets with SL monitoring enabled
-        all_presets = await get_all_strategy_presets(user.id)
+        # ✅ FIXED: Get all strategy presets directly from MongoDB
+        all_presets = list(strategy_presets_collection.find({"user_id": user.id}))
         
         # Filter for presets with SL monitoring enabled
         monitored_presets = [
@@ -36,18 +37,21 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_text(
                 "📊 <b>SL Monitor</b>\n\n"
                 "❌ No strategies with SL monitoring enabled.\n\n"
-                "💡 <b>Tip:</b> Enable SL monitoring when creating straddle/strangle strategies "
-                "to automatically move your stop loss to cost when you hit 100% profit.",
+                "💡 <b>How to enable:</b>\n"
+                "1. Go to Straddle/Strangle Strategy\n"
+                "2. Create or edit a strategy\n"
+                "3. When asked \"Enable SL Monitoring?\", select ✅ Yes\n\n"
+                "<i>SL Monitoring automatically moves your stop loss to cost "
+                "when you hit 100% profit!</i>",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='HTML'
             )
-            log_user_action(user.id, "sl_monitor_empty", "No monitored strategies")
             return
         
         # Build message with all monitored strategies
         message = "📊 <b>SL Monitor - Active Strategies</b>\n\n"
-        message += f"You have <b>{len(monitored_presets)}</b> strateg"
-        message += "ies" if len(monitored_presets) > 1 else "y"
+        message += f"You have <b>{len(monitored_presets)}</b> "
+        message += "strateg" + ("ies" if len(monitored_presets) > 1 else "y")
         message += " with SL monitoring enabled:\n\n"
         
         keyboard = []
@@ -81,8 +85,6 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
             parse_mode='HTML'
         )
         
-        log_user_action(user.id, "sl_monitor_view", f"Viewed {len(monitored_presets)} monitored strategies")
-        
     except Exception as e:
         logger.error(f"Error in sl_monitor_menu_callback: {e}", exc_info=True)
         keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="menu_main")]]
@@ -105,8 +107,8 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
         
         logger.info(f"User {user.id} viewing SL monitor details for preset {preset_id}")
         
-        # Get preset details
-        preset = await get_strategy_preset_by_id(preset_id)
+        # ✅ FIXED: Get preset directly from MongoDB
+        preset = strategy_presets_collection.find_one({"_id": ObjectId(preset_id)})
         
         if not preset:
             keyboard = [[InlineKeyboardButton("🔙 Back to Monitors", callback_data="menu_sl_monitors")]]
@@ -157,9 +159,9 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
         )
 
 
-def register_sl_monitor_handlers(application):
+def register_sl_monitor_handlers(application: Application):
     """Register SL monitor handlers."""
     application.add_handler(CallbackQueryHandler(sl_monitor_menu_callback, pattern="^menu_sl_monitors$"))
     application.add_handler(CallbackQueryHandler(sl_monitor_detail_callback, pattern="^sl_monitor_detail_"))
     logger.info("✓ SL monitor handlers registered")
-        
+                         
