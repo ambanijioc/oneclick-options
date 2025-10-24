@@ -136,20 +136,10 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
                                 closed_leg: str, bot_application):
     """
     Move remaining leg's SL to breakeven (entry price).
+    STRATEGY: Place new SL first, THEN cancel old one for maximum safety.
     """
     try:
         logger.info(f"🛡️ Protecting remaining leg: {remaining_symbol}")
-        
-        # Cancel existing SL order
-        if remaining_sl_order_id:
-            try:
-                cancel_result = await client.cancel_order(remaining_sl_order_id)
-                if cancel_result.get('success'):
-                    logger.info(f"✅ Cancelled old SL order: {remaining_sl_order_id}")
-                else:
-                    logger.warning(f"Failed to cancel SL: {cancel_result.get('error')}")
-            except Exception as e:
-                logger.error(f"Error cancelling SL: {e}")
         
         # Determine order side
         direction = strategy.get('direction', 'long')
@@ -163,9 +153,11 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
             # Selling - limit slightly below stop
             limit_price = round(remaining_entry_price * 0.98, 2)
         
-        # Place new SL at breakeven
+        # ✅ STEP 1: Place NEW breakeven SL FIRST (safety first!)
+        logger.info(f"📍 Step 1: Placing new breakeven SL at ${remaining_entry_price:.2f}")
+        
         new_sl_order = await client.place_order({
-            'product_symbol': remaining_symbol,  # ✅ FIXED: use product_symbol, not product_id
+            'product_symbol': remaining_symbol,
             'size': strategy.get('lot_size', 1),
             'side': side,
             'order_type': 'limit_order',
@@ -175,34 +167,49 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
             'reduce_only': True
         })
         
-        if new_sl_order.get('success'):
-            new_sl_id = new_sl_order['result']['id']
-            logger.info(f"✅ New breakeven SL placed: {new_sl_id} at ${remaining_entry_price:.2f}")
-            
-            # Send notification
-            remaining_leg = 'CE' if closed_leg == 'PE' else 'PE'
-            message = (
-                f"🛡️ **Leg Protection Activated!**\n\n"
-                f"🔄 **{closed_leg} leg closed**\n"
-                f"🛡️ **{remaining_leg} leg protected**\n\n"
-                f"💰 **New SL:** ${remaining_entry_price:.2f} (Breakeven)\n"
-                f"📊 **Symbol:** {remaining_symbol}\n\n"
-                f"✅ You're now protected from further losses!"
-            )
-            
-            try:
-                await bot_application.bot.send_message(
-                    chat_id=strategy['user_id'],
-                    text=message,
-                    parse_mode="Markdown"
-                )
-                logger.info(f"✅ Notification sent to user {strategy['user_id']}")
-            except Exception as e:
-                logger.error(f"Failed to send notification: {e}")
-            
-        else:
+        if not new_sl_order.get('success'):
             error_msg = new_sl_order.get('error', {}).get('message', 'Unknown error')
-            logger.error(f"Failed to place new SL: {error_msg}")
+            logger.error(f"❌ Failed to place new SL: {error_msg}")
+            return
+        
+        new_sl_id = new_sl_order['result']['id']
+        logger.info(f"✅ New breakeven SL placed: {new_sl_id} at ${remaining_entry_price:.2f}")
+        
+        # ✅ STEP 2: Now that we're protected, cancel OLD SL
+        logger.info(f"📍 Step 2: Cancelling old SL: {remaining_sl_order_id}")
+        
+        if remaining_sl_order_id:
+            try:
+                cancel_result = await client.cancel_order(remaining_sl_order_id)
+                if cancel_result.get('success'):
+                    logger.info(f"✅ Old SL cancelled: {remaining_sl_order_id}")
+                else:
+                    logger.info(f"ℹ️ Old SL already executed/closed: {remaining_sl_order_id}")
+            except Exception as e:
+                logger.info(f"ℹ️ Old SL already executed: {e}")
+        
+        # ✅ STEP 3: Send notification
+        remaining_leg = 'CE' if closed_leg == 'PE' else 'PE'
+        message = (
+            f"🛡️ **Leg Protection Activated!**\n\n"
+            f"🔄 **{closed_leg} leg closed**\n"
+            f"🛡️ **{remaining_leg} leg protected**\n\n"
+            f"💰 **New SL:** ${remaining_entry_price:.2f} (Breakeven)\n"
+            f"📊 **Symbol:** {remaining_symbol}\n"
+            f"🆔 **New SL Order:** {new_sl_id}\n\n"
+            f"✅ You're now protected from further losses!"
+        )
+        
+        try:
+            await bot_application.bot.send_message(
+                chat_id=strategy['user_id'],
+                text=message,
+                parse_mode="Markdown"
+            )
+            logger.info(f"✅ Notification sent to user {strategy['user_id']}")
+        except Exception as e:
+            logger.error(f"Failed to send notification: {e}")
         
     except Exception as e:
         logger.error(f"Error protecting remaining leg: {e}", exc_info=True)
+        
