@@ -662,3 +662,348 @@ async def save_straddle_preset(query_or_update, context):
     # Clear state
     await state_manager.clear_state(user.id)
     
+
+# ============================================================================
+# EDIT INPUT HANDLERS
+# ============================================================================
+
+async def handle_straddle_edit_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle editing strategy name."""
+    user = update.effective_user
+    
+    if len(text) < 3 or len(text) > 50:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        await update.message.reply_text(
+            "❌ Name must be between 3 and 50 characters.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+    
+    # Get strategy ID from state
+    state_data = await state_manager.get_state_data(user.id)
+    strategy_id = state_data.get('edit_strategy_id')
+    
+    if not strategy_id:
+        await update.message.reply_text("❌ Strategy not found. Please try again.")
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Get existing strategy
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    if not strategy:
+        await update.message.reply_text("❌ Strategy not found.")
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Update name
+    from database.models.strategy_preset import StrategyPresetUpdate
+    update_data = StrategyPresetUpdate(name=text)
+    success = await update_strategy_preset(strategy_id, update_data)
+    
+    if success:
+        await update.message.reply_text(
+            f"✅ <b>Name Updated!</b>\n\n"
+            f"Old: <b>{strategy.name}</b>\n"
+            f"New: <b>{text}</b>",
+            parse_mode='HTML'
+        )
+        log_user_action(user.id, "straddle_edit_name_complete", f"Updated name to: {text}")
+    else:
+        await update.message.reply_text("❌ Failed to update name.")
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
+    # Show updated strategy menu
+    await show_strategy_edit_menu(update, strategy_id)
+
+
+async def handle_straddle_edit_desc_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle editing strategy description."""
+    user = update.effective_user
+    
+    if len(text) > 200:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        await update.message.reply_text(
+            "❌ Description must be 200 characters or less.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+    
+    # Get strategy ID from state
+    state_data = await state_manager.get_state_data(user.id)
+    strategy_id = state_data.get('edit_strategy_id')
+    
+    if not strategy_id:
+        await update.message.reply_text("❌ Strategy not found. Please try again.")
+        await state_manager.clear_state(user.id)
+        return
+    
+    # Update description
+    from database.models.strategy_preset import StrategyPresetUpdate
+    update_data = StrategyPresetUpdate(description=text)
+    success = await update_strategy_preset(strategy_id, update_data)
+    
+    if success:
+        await update.message.reply_text(
+            f"✅ <b>Description Updated!</b>\n\n"
+            f"New description: <i>{text}</i>",
+            parse_mode='HTML'
+        )
+        log_user_action(user.id, "straddle_edit_desc_complete", f"Updated description")
+    else:
+        await update.message.reply_text("❌ Failed to update description.")
+    
+    # Clear state
+    await state_manager.clear_state(user.id)
+    
+    # Show updated strategy menu
+    await show_strategy_edit_menu(update, strategy_id)
+
+
+async def handle_straddle_edit_sl_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle editing SL trigger percentage."""
+    user = update.effective_user
+    
+    try:
+        sl_trigger = float(text)
+        if sl_trigger < 0 or sl_trigger > 100:
+            raise ValueError("Percentage must be between 0 and 100")
+        
+        # Store SL trigger
+        state_data = await state_manager.get_state_data(user.id)
+        state_data['sl_trigger_pct'] = sl_trigger
+        await state_manager.set_state_data(user.id, state_data)
+        
+        # Ask for stop loss limit percentage
+        await state_manager.set_state(user.id, 'straddle_edit_sl_limit_input')
+        
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        
+        await update.message.reply_text(
+            f"<b>✏️ Edit Stop Loss Limit</b>\n\n"
+            f"SL Trigger: <b>{sl_trigger:.1f}%</b>\n\n"
+            f"Enter stop loss limit percentage:\n\n"
+            f"Example: <code>51</code> (for 51% loss)",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        
+    except ValueError:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        await update.message.reply_text(
+            "❌ Invalid percentage. Please enter a number between 0 and 100.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+
+async def handle_straddle_edit_sl_limit_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle editing SL limit percentage."""
+    user = update.effective_user
+    
+    try:
+        sl_limit = float(text)
+        if sl_limit < 0 or sl_limit > 100:
+            raise ValueError("Percentage must be between 0 and 100")
+        
+        # Get state data
+        state_data = await state_manager.get_state_data(user.id)
+        sl_trigger = state_data.get('sl_trigger_pct')
+        strategy_id = state_data.get('edit_strategy_id')
+        
+        if not strategy_id:
+            await update.message.reply_text("❌ Strategy not found.")
+            await state_manager.clear_state(user.id)
+            return
+        
+        # Update SL in database
+        from database.models.strategy_preset import StrategyPresetUpdate
+        update_data = StrategyPresetUpdate(
+            sl_trigger_pct=sl_trigger,
+            sl_limit_pct=sl_limit
+        )
+        success = await update_strategy_preset(strategy_id, update_data)
+        
+        if success:
+            await update.message.reply_text(
+                f"✅ <b>Stop Loss Updated!</b>\n\n"
+                f"SL Trigger: <b>{sl_trigger:.1f}%</b>\n"
+                f"SL Limit: <b>{sl_limit:.1f}%</b>",
+                parse_mode='HTML'
+            )
+            log_user_action(user.id, "straddle_edit_sl_complete", f"Updated SL to {sl_trigger}/{sl_limit}")
+        else:
+            await update.message.reply_text("❌ Failed to update stop loss.")
+        
+        # Clear state
+        await state_manager.clear_state(user.id)
+        
+        # Show updated strategy menu
+        await show_strategy_edit_menu(update, strategy_id)
+        
+    except ValueError:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        await update.message.reply_text(
+            "❌ Invalid percentage. Please enter a number between 0 and 100.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+
+async def handle_straddle_edit_target_trigger_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle editing target trigger percentage."""
+    user = update.effective_user
+    
+    try:
+        target_trigger = float(text)
+        if target_trigger < 0 or target_trigger > 1000:
+            raise ValueError("Percentage must be between 0 and 1000")
+        
+        # If target is 0, disable it and save
+        if target_trigger == 0:
+            state_data = await state_manager.get_state_data(user.id)
+            strategy_id = state_data.get('edit_strategy_id')
+            
+            if not strategy_id:
+                await update.message.reply_text("❌ Strategy not found.")
+                await state_manager.clear_state(user.id)
+                return
+            
+            # Update target to 0 (disabled)
+            from database.models.strategy_preset import StrategyPresetUpdate
+            update_data = StrategyPresetUpdate(
+                target_trigger_pct=0.0,
+                target_limit_pct=0.0
+            )
+            success = await update_strategy_preset(strategy_id, update_data)
+            
+            if success:
+                await update.message.reply_text(
+                    "✅ <b>Target Disabled</b>\n\n"
+                    "Target has been set to 0.",
+                    parse_mode='HTML'
+                )
+                log_user_action(user.id, "straddle_edit_target_complete", "Disabled target")
+            else:
+                await update.message.reply_text("❌ Failed to update target.")
+            
+            await state_manager.clear_state(user.id)
+            await show_strategy_edit_menu(update, strategy_id)
+            return
+        
+        # Store target trigger and ask for limit
+        state_data = await state_manager.get_state_data(user.id)
+        state_data['target_trigger_pct'] = target_trigger
+        await state_manager.set_state_data(user.id, state_data)
+        
+        await state_manager.set_state(user.id, 'straddle_edit_target_limit_input')
+        
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        
+        await update.message.reply_text(
+            f"<b>✏️ Edit Target Limit</b>\n\n"
+            f"Target Trigger: <b>{target_trigger:.1f}%</b>\n\n"
+            f"Enter target limit percentage:\n\n"
+            f"Example: <code>99</code> (for 99% profit)",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+        
+    except ValueError:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        await update.message.reply_text(
+            "❌ Invalid percentage. Please enter a number between 0 and 1000.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+
+async def handle_straddle_edit_target_limit_input(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Handle editing target limit percentage."""
+    user = update.effective_user
+    
+    try:
+        target_limit = float(text)
+        if target_limit < 0 or target_limit > 1000:
+            raise ValueError("Percentage must be between 0 and 1000")
+        
+        # Get state data
+        state_data = await state_manager.get_state_data(user.id)
+        target_trigger = state_data.get('target_trigger_pct')
+        strategy_id = state_data.get('edit_strategy_id')
+        
+        if not strategy_id:
+            await update.message.reply_text("❌ Strategy not found.")
+            await state_manager.clear_state(user.id)
+            return
+        
+        # Update target in database
+        from database.models.strategy_preset import StrategyPresetUpdate
+        update_data = StrategyPresetUpdate(
+            target_trigger_pct=target_trigger,
+            target_limit_pct=target_limit
+        )
+        success = await update_strategy_preset(strategy_id, update_data)
+        
+        if success:
+            await update.message.reply_text(
+                f"✅ <b>Target Updated!</b>\n\n"
+                f"Target Trigger: <b>{target_trigger:.1f}%</b>\n"
+                f"Target Limit: <b>{target_limit:.1f}%</b>",
+                parse_mode='HTML'
+            )
+            log_user_action(user.id, "straddle_edit_target_complete", f"Updated target to {target_trigger}/{target_limit}")
+        else:
+            await update.message.reply_text("❌ Failed to update target.")
+        
+        # Clear state
+        await state_manager.clear_state(user.id)
+        
+        # Show updated strategy menu
+        await show_strategy_edit_menu(update, strategy_id)
+        
+    except ValueError:
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="menu_straddle_strategy")]]
+        await update.message.reply_text(
+            "❌ Invalid percentage. Please enter a number between 0 and 1000.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+
+# Helper function to show strategy edit menu after updates
+async def show_strategy_edit_menu(update: Update, strategy_id: str):
+    """Show the strategy edit menu with updated information."""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from database.operations.strategy_ops import get_strategy_preset_by_id
+    
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    
+    if not strategy:
+        await update.message.reply_text("❌ Strategy not found")
+        return
+    
+    target_text = ""
+    if strategy.target_trigger_pct > 0:
+        target_text = f"Target: {strategy.target_trigger_pct:.1f}% / {strategy.target_limit_pct:.1f}%\n"
+    
+    keyboard = [
+        [InlineKeyboardButton("📝 Edit Name", callback_data=f"straddle_edit_name_{strategy_id}")],
+        [InlineKeyboardButton("📝 Edit Description", callback_data=f"straddle_edit_desc_{strategy_id}")],
+        [InlineKeyboardButton("📝 Edit SL %", callback_data=f"straddle_edit_sl_{strategy_id}")],
+        [InlineKeyboardButton("📝 Edit Target %", callback_data=f"straddle_edit_target_{strategy_id}")],
+        [InlineKeyboardButton("🔙 Back", callback_data="straddle_edit_list")]
+    ]
+    
+    await update.message.reply_text(
+        f"<b>✏️ Edit Strategy</b>\n\n"
+        f"<b>Current Settings:</b>\n\n"
+        f"Name: <b>{strategy.name}</b>\n"
+        f"Description: <i>{strategy.description or 'None'}</i>\n"
+        f"Asset: {strategy.asset} | Expiry: {strategy.expiry_code}\n"
+        f"Direction: {strategy.direction.title()} | Lots: {strategy.lot_size}\n"
+        f"ATM Offset: {strategy.atm_offset:+d}\n"
+        f"SL: {strategy.sl_trigger_pct:.1f}% / {strategy.sl_limit_pct:.1f}%\n"
+        + target_text +
+        "\nSelect what you want to edit:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+        )
+    
