@@ -1270,13 +1270,4 @@ def register_strangle_strategy_handlers(application: Application):
         pattern="^strangle_edit_otm_type_(percentage|numeral)_[a-f0-9]{24}$"
     ))
 
-    application.add_handler(CallbackQueryHandler(
-        handle_straddle_sl_yes_callback, 
-        pattern="^straddle_sl_yes$"
-    ))
-    application.add_handler(CallbackQueryHandler(
-        handle_straddle_sl_no_callback, 
-        pattern="^straddle_sl_no$"
-    ))
-  
     logger.info("Strangle strategy handlers registered")
