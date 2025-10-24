@@ -699,6 +699,56 @@ async def manual_trade_execute_callback(update: Update, context: ContextTypes.DE
                 "manual_trade_execute", 
                 f"Executed - SL: {len(sl_orders_placed)}, Target: {len(target_orders_placed)}"
             )
+
+                        # ============================================================
+            # ✅ START LEG PROTECTION FOR MANUAL TRADE
+            # ============================================================
+            
+            # Check if leg protection is enabled
+            enable_leg_protection = safe_get_attr(strategy, 'enable_sl_monitor', False)
+            
+            if enable_leg_protection and (strategy_type == 'straddle' or strategy_type == 'strangle'):
+                logger.info(f"🛡️ Starting leg protection for manual {strategy_type} trade")
+                
+                # Import the shared service
+                from services.leg_protection_service import start_leg_protection_monitor
+                
+                # Get SL order IDs from the placed orders
+                ce_sl_order_id = None
+                pe_sl_order_id = None
+                
+                # Extract order IDs from sl_orders_placed list
+                for sl_order in sl_orders_placed:
+                    if 'CE SL:' in sl_order:
+                        ce_sl_order_id = sl_order.split(': ')[1]
+                    elif 'PE SL:' in sl_order:
+                        pe_sl_order_id = sl_order.split(': ')[1]
+                
+                # Prepare strategy details for monitoring
+                strategy_details = {
+                    'user_id': user.id,
+                    'api_id': api_credential_id,
+                    'strategy_type': strategy_type,
+                    'ce_symbol': pending_trade['ce_symbol'],
+                    'pe_symbol': pending_trade['pe_symbol'],
+                    'ce_entry_price': ce_avg_fill_price,
+                    'pe_entry_price': pe_avg_fill_price,
+                    'ce_sl_order_id': ce_sl_order_id,
+                    'pe_sl_order_id': pe_sl_order_id,
+                    'direction': pending_trade['direction'],
+                    'lot_size': pending_trade['lot_size']
+                }
+                
+                # Start monitoring task using shared service
+                asyncio.create_task(
+                    start_leg_protection_monitor(strategy_details, context.application)
+                )
+                
+                logger.info(f"✅ Leg protection monitor started for {pending_trade['ce_symbol']}/{pending_trade['pe_symbol']}")
+            else:
+                if strategy_type in ['straddle', 'strangle']:
+                    logger.info(f"⏸️ Leg protection disabled for manual {strategy_type} trade")
+                    
         
         finally:
             await client.close()
