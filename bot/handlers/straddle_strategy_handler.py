@@ -604,6 +604,10 @@ async def save_straddle_preset(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text(error_message, reply_markup=get_straddle_menu_keyboard())
 
 
+# ============================================================================
+# EDIT FIELD HANDLERS
+# ============================================================================
+
 @error_handler
 async def straddle_edit_name_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start editing strategy name."""
@@ -613,6 +617,13 @@ async def straddle_edit_name_callback(update: Update, context: ContextTypes.DEFA
     user = query.from_user
     strategy_id = query.data.split('_')[-1]
     
+    # Get strategy to show current name
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    
+    if not strategy:
+        await query.edit_message_text("❌ Strategy not found")
+        return
+    
     # Set state
     await state_manager.set_state(user.id, 'straddle_edit_name_input')
     await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
@@ -620,11 +631,14 @@ async def straddle_edit_name_callback(update: Update, context: ContextTypes.DEFA
     keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
     
     await query.edit_message_text(
-        "<b>✏️ Edit Strategy Name</b>\n\n"
-        "Enter new name for this strategy:",
+        f"<b>✏️ Edit Strategy Name</b>\n\n"
+        f"Current name: <b>{strategy.name}</b>\n\n"
+        f"Enter new name for this strategy:",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
+    
+    log_user_action(user.id, "straddle_edit_name", f"Editing name for strategy {strategy_id}")
 
 
 @error_handler
@@ -636,28 +650,47 @@ async def straddle_edit_desc_callback(update: Update, context: ContextTypes.DEFA
     user = query.from_user
     strategy_id = query.data.split('_')[-1]
     
+    # Get strategy to show current description
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    
+    if not strategy:
+        await query.edit_message_text("❌ Strategy not found")
+        return
+    
     # Set state
     await state_manager.set_state(user.id, 'straddle_edit_desc_input')
     await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
     
+    current_desc = strategy.description or "None"
+    
     keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
     
     await query.edit_message_text(
-        "<b>✏️ Edit Description</b>\n\n"
-        "Enter new description:",
+        f"<b>✏️ Edit Description</b>\n\n"
+        f"Current description: <i>{current_desc}</i>\n\n"
+        f"Enter new description:",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
+    
+    log_user_action(user.id, "straddle_edit_desc", f"Editing description for strategy {strategy_id}")
 
 
 @error_handler
 async def straddle_edit_sl_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start editing SL."""
+    """Start editing SL percentages."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     strategy_id = query.data.split('_')[-1]
+    
+    # Get strategy to show current SL
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    
+    if not strategy:
+        await query.edit_message_text("❌ Strategy not found")
+        return
     
     # Set state
     await state_manager.set_state(user.id, 'straddle_edit_sl_trigger_input')
@@ -666,37 +699,52 @@ async def straddle_edit_sl_callback(update: Update, context: ContextTypes.DEFAUL
     keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
     
     await query.edit_message_text(
-        "<b>✏️ Edit Stop Loss Trigger</b>\n\n"
-        "Enter new SL trigger percentage:\n\n"
-        "Example: <code>50</code> (for 50% loss)",
+        f"<b>✏️ Edit Stop Loss</b>\n\n"
+        f"Current SL: <b>{strategy.sl_trigger_pct:.1f}%</b> trigger / <b>{strategy.sl_limit_pct:.1f}%</b> limit\n\n"
+        f"Enter new SL trigger percentage:\n\n"
+        f"Example: <code>50</code> (for 50% loss)",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
+    
+    log_user_action(user.id, "straddle_edit_sl", f"Editing SL for strategy {strategy_id}")
 
 
 @error_handler
 async def straddle_edit_target_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start editing target."""
+    """Start editing target percentages."""
     query = update.callback_query
     await query.answer()
     
     user = query.from_user
     strategy_id = query.data.split('_')[-1]
     
+    # Get strategy to show current target
+    strategy = await get_strategy_preset_by_id(strategy_id)
+    
+    if not strategy:
+        await query.edit_message_text("❌ Strategy not found")
+        return
+    
     # Set state
     await state_manager.set_state(user.id, 'straddle_edit_target_trigger_input')
     await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
     
+    current_target = f"{strategy.target_trigger_pct:.1f}% trigger / {strategy.target_limit_pct:.1f}% limit" if strategy.target_trigger_pct > 0 else "Not set"
+    
     keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
     
     await query.edit_message_text(
-        "<b>✏️ Edit Target Trigger</b>\n\n"
-        "Enter new target trigger percentage:\n\n"
-        "Example: <code>100</code> (for 100% profit)\n"
-        "Or <code>0</code> to disable",
+        f"<b>✏️ Edit Target</b>\n\n"
+        f"Current target: <b>{current_target}</b>\n\n"
+        f"Enter new target trigger percentage:\n\n"
+        f"Example: <code>100</code> (for 100% profit)\n"
+        f"Or <code>0</code> to disable target",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
+    
+    log_user_action(user.id, "straddle_edit_target", f"Editing target for strategy {strategy_id}")
 
 
 def register_straddle_strategy_handlers(application: Application):
@@ -763,10 +811,8 @@ def register_straddle_strategy_handlers(application: Application):
         straddle_edit_callback,
         pattern="^straddle_edit_[a-f0-9]{24}$"
     ))
-
-    # Add these BEFORE the SL Monitor handlers section:
     
-    # Edit field handlers
+    # 🆕 NEW: Edit field handlers
     application.add_handler(CallbackQueryHandler(
         straddle_edit_name_callback,
         pattern="^straddle_edit_name_[a-f0-9]{24}$"
