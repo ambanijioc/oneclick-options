@@ -484,46 +484,6 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
         await update_algo_execution(setup_id, 'success', details)
         logger.info(f"Algo trade executed successfully for setup {setup_id}")
         
-        # ============================================================
-        # ✅ START LEG PROTECTION (USING SHARED SERVICE)
-        # ============================================================
-        
-        enable_leg_protection = False
-        if hasattr(preset, 'enable_sl_monitor'):
-            enable_leg_protection = preset.enable_sl_monitor
-        elif isinstance(preset, dict):
-            enable_leg_protection = preset.get('enable_sl_monitor', False)
-        
-        if enable_leg_protection:
-            logger.info(f"🛡️ Starting leg protection monitor for auto trade (setup {setup_id})")
-            
-            # Prepare strategy details for monitoring
-            strategy_details = {
-                'user_id': user_id,
-                'api_id': preset['api_credential_id'],
-                'strategy_type': preset['strategy_type'],
-                'ce_symbol': ce_symbol,
-                'pe_symbol': pe_symbol,
-                'ce_entry_price': ce_fill_price,
-                'pe_entry_price': pe_fill_price,
-                'ce_sl_order_id': ce_bracket_orders.get('sl_order_id'),
-                'pe_sl_order_id': pe_bracket_orders.get('sl_order_id'),
-                'direction': direction,
-                'lot_size': lot_size
-            }
-            
-            # Start monitoring task using shared service
-            asyncio.create_task(
-                start_leg_protection_monitor(strategy_details, bot_application)
-            )
-            
-            logger.info(f"✅ Leg protection monitor started for {ce_symbol}/{pe_symbol}")
-        else:
-            logger.info(f"⏸️ Leg protection disabled for setup {setup_id}")
-        # ============================================================
-        # END LEG PROTECTION SETUP
-        # ============================================================
-        
         # Build notification message
         notification_text = (
             f"✅ <b>Algo Trade Executed</b>\n\n"
