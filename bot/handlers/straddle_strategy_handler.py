@@ -604,6 +604,101 @@ async def save_straddle_preset(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text(error_message, reply_markup=get_straddle_menu_keyboard())
 
 
+@error_handler
+async def straddle_edit_name_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing strategy name."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    strategy_id = query.data.split('_')[-1]
+    
+    # Set state
+    await state_manager.set_state(user.id, 'straddle_edit_name_input')
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Strategy Name</b>\n\n"
+        "Enter new name for this strategy:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def straddle_edit_desc_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing description."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    strategy_id = query.data.split('_')[-1]
+    
+    # Set state
+    await state_manager.set_state(user.id, 'straddle_edit_desc_input')
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Description</b>\n\n"
+        "Enter new description:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def straddle_edit_sl_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing SL."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    strategy_id = query.data.split('_')[-1]
+    
+    # Set state
+    await state_manager.set_state(user.id, 'straddle_edit_sl_trigger_input')
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Stop Loss Trigger</b>\n\n"
+        "Enter new SL trigger percentage:\n\n"
+        "Example: <code>50</code> (for 50% loss)",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def straddle_edit_target_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start editing target."""
+    query = update.callback_query
+    await query.answer()
+    
+    user = query.from_user
+    strategy_id = query.data.split('_')[-1]
+    
+    # Set state
+    await state_manager.set_state(user.id, 'straddle_edit_target_trigger_input')
+    await state_manager.set_state_data(user.id, {'edit_strategy_id': strategy_id})
+    
+    keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"straddle_edit_{strategy_id}")]]
+    
+    await query.edit_message_text(
+        "<b>✏️ Edit Target Trigger</b>\n\n"
+        "Enter new target trigger percentage:\n\n"
+        "Example: <code>100</code> (for 100% profit)\n"
+        "Or <code>0</code> to disable",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+
 def register_straddle_strategy_handlers(application: Application):
     """Register straddle strategy handlers."""
     
@@ -667,6 +762,29 @@ def register_straddle_strategy_handlers(application: Application):
     application.add_handler(CallbackQueryHandler(
         straddle_edit_callback,
         pattern="^straddle_edit_[a-f0-9]{24}$"
+    ))
+
+    # Add these BEFORE the SL Monitor handlers section:
+    
+    # Edit field handlers
+    application.add_handler(CallbackQueryHandler(
+        straddle_edit_name_callback,
+        pattern="^straddle_edit_name_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        straddle_edit_desc_callback,
+        pattern="^straddle_edit_desc_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        straddle_edit_sl_callback,
+        pattern="^straddle_edit_sl_[a-f0-9]{24}$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(
+        straddle_edit_target_callback,
+        pattern="^straddle_edit_target_[a-f0-9]{24}$"
     ))
     
     application.add_handler(CallbackQueryHandler(
