@@ -1,7 +1,6 @@
 """
-Leg Protection Service
-Monitors straddle/strangle strategies and protects remaining leg when one closes.
-Shared by both auto and manual trades.
+Leg Protection Service - FIXED VERSION
+Cancels old SL order with BOTH product_id and order_id
 """
 
 import asyncio
@@ -14,21 +13,6 @@ logger = setup_logger(__name__)
 async def start_leg_protection_monitor(strategy_details: Dict, bot_application):
     """
     Start monitoring a strategy for leg protection.
-    
-    Args:
-        strategy_details: Dictionary containing:
-            - user_id: User's Telegram ID
-            - api_id: API credential ID
-            - ce_symbol: CE option symbol
-            - pe_symbol: PE option symbol
-            - ce_entry_price: CE entry price
-            - pe_entry_price: PE entry price
-            - ce_sl_order_id: CE stop-loss order ID (optional)
-            - pe_sl_order_id: PE stop-loss order ID (optional)
-            - direction: 'long' or 'short'
-            - lot_size: Lot size
-            - strategy_type: 'straddle' or 'strangle'
-        bot_application: Telegram bot application instance
     """
     client = None
     try:
@@ -136,10 +120,23 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
                                 closed_leg: str, bot_application):
     """
     Move remaining leg's SL to breakeven (entry price).
-    STRATEGY: Place new SL first, THEN cancel old one for maximum safety.
+    STRATEGY: Place new SL first, THEN cancel old one with proper parameters.
     """
     try:
         logger.info(f"🛡️ Protecting remaining leg: {remaining_symbol}")
+        
+        # ✅ FIX 1: Get product_id for the remaining symbol FIRST
+        logger.info(f"📍 Fetching product details for {remaining_symbol}")
+        
+        # Get product by symbol to extract product_id
+        product_response = await client.get_product(remaining_symbol)
+        
+        if not product_response.get('success'):
+            logger.error(f"❌ Failed to get product for {remaining_symbol}")
+            return
+        
+        product_id = product_response['result']['id']
+        logger.info(f"✅ Product ID: {product_id}")
         
         # Determine order side
         direction = strategy.get('direction', 'long')
@@ -157,7 +154,7 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
         logger.info(f"📍 Step 1: Placing new breakeven SL at ${remaining_entry_price:.2f}")
         
         new_sl_order = await client.place_order({
-            'product_symbol': remaining_symbol,
+            'product_id': product_id,  # ✅ Use product_id
             'size': strategy.get('lot_size', 1),
             'side': side,
             'order_type': 'limit_order',
@@ -175,18 +172,24 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
         new_sl_id = new_sl_order['result']['id']
         logger.info(f"✅ New breakeven SL placed: {new_sl_id} at ${remaining_entry_price:.2f}")
         
-        # ✅ STEP 2: Now that we're protected, cancel OLD SL
+        # ✅ STEP 2: Now cancel OLD SL with BOTH product_id AND order_id
         logger.info(f"📍 Step 2: Cancelling old SL: {remaining_sl_order_id}")
         
         if remaining_sl_order_id:
             try:
-                cancel_result = await client.cancel_order(remaining_sl_order_id)
+                # ✅ FIX 2: Pass BOTH product_id and id
+                cancel_result = await client.delete_order(
+                    product_id=product_id,  # ✅ REQUIRED!
+                    id=remaining_sl_order_id  # ✅ Order ID
+                )
+                
                 if cancel_result.get('success'):
                     logger.info(f"✅ Old SL cancelled: {remaining_sl_order_id}")
                 else:
-                    logger.info(f"ℹ️ Old SL already executed/closed: {remaining_sl_order_id}")
+                    error_msg = cancel_result.get('error', {}).get('message', 'Unknown error')
+                    logger.warning(f"⚠️ Old SL cancellation failed: {error_msg}")
             except Exception as e:
-                logger.info(f"ℹ️ Old SL already executed: {e}")
+                logger.warning(f"⚠️ Could not cancel old SL: {e}")
         
         # ✅ STEP 3: Send notification
         remaining_leg = 'CE' if closed_leg == 'PE' else 'PE'
@@ -196,7 +199,8 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
             f"🛡️ **{remaining_leg} leg protected**\n\n"
             f"💰 **New SL:** ${remaining_entry_price:.2f} (Breakeven)\n"
             f"📊 **Symbol:** {remaining_symbol}\n"
-            f"🆔 **New SL Order:** {new_sl_id}\n\n"
+            f"🆔 **New SL Order:** `{new_sl_id}`\n"
+            f"🗑️ **Old SL Cancelled:** `{remaining_sl_order_id}`\n\n"
             f"✅ You're now protected from further losses!"
         )
         
