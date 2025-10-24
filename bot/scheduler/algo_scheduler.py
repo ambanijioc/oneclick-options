@@ -572,6 +572,7 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             # Build strategy data for monitor
             monitor_data = {
                 'user_id': user_id,
+                'api_id': preset['api_credential_id'],  # ✅ ADD THIS
                 'strategy_type': preset['strategy_type'],
                 'direction': direction,
                 'lot_size': lot_size,
