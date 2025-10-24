@@ -136,15 +136,6 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
                                 closed_leg: str, bot_application):
     """
     Move remaining leg's SL to breakeven (entry price).
-    
-    Args:
-        client: Delta API client
-        strategy: Strategy details dictionary
-        remaining_symbol: Symbol of remaining open position
-        remaining_entry_price: Entry price of remaining position
-        remaining_sl_order_id: Existing SL order ID to cancel
-        closed_leg: 'CE' or 'PE' - which leg was closed
-        bot_application: Telegram bot application
     """
     try:
         logger.info(f"🛡️ Protecting remaining leg: {remaining_symbol}")
@@ -160,30 +151,28 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
             except Exception as e:
                 logger.error(f"Error cancelling SL: {e}")
         
-        # Get product details
-        products_response = await client.get_products(contract_types='call_options,put_options')
-        if not products_response.get('success'):
-            raise Exception("Failed to fetch products")
-        
-        product = next((p for p in products_response['result'] 
-                       if p['symbol'] == remaining_symbol), None)
-        
-        if not product:
-            raise Exception(f"Product not found: {remaining_symbol}")
-        
-        # Place new SL at breakeven (entry price)
+        # Determine order side
         direction = strategy.get('direction', 'long')
         side = 'sell' if direction == 'long' else 'buy'
         
+        # Calculate limit price (slightly better execution)
+        if side == 'buy':
+            # Buying back - limit slightly above stop
+            limit_price = round(remaining_entry_price * 1.02, 2)
+        else:
+            # Selling - limit slightly below stop
+            limit_price = round(remaining_entry_price * 0.98, 2)
+        
+        # Place new SL at breakeven
         new_sl_order = await client.place_order({
-            'product_id': product['id'],
+            'product_symbol': remaining_symbol,  # ✅ FIXED: use product_symbol, not product_id
             'size': strategy.get('lot_size', 1),
             'side': side,
             'order_type': 'limit_order',
             'stop_order_type': 'stop_loss_order',
-            'stop_price': round(remaining_entry_price, 2),
-            'limit_price': round(remaining_entry_price * 0.98, 2),  # 2% below for execution
-            'time_in_force': 'gtc'
+            'stop_price': str(round(remaining_entry_price, 2)),
+            'limit_price': str(limit_price),
+            'reduce_only': True
         })
         
         if new_sl_order.get('success'):
@@ -196,7 +185,8 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
                 f"🛡️ **Leg Protection Activated!**\n\n"
                 f"🔄 **{closed_leg} leg closed**\n"
                 f"🛡️ **{remaining_leg} leg protected**\n\n"
-                f"💰 **New SL:** ${remaining_entry_price:.2f} (Breakeven)\n\n"
+                f"💰 **New SL:** ${remaining_entry_price:.2f} (Breakeven)\n"
+                f"📊 **Symbol:** {remaining_symbol}\n\n"
                 f"✅ You're now protected from further losses!"
             )
             
@@ -206,12 +196,13 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
                     text=message,
                     parse_mode="Markdown"
                 )
+                logger.info(f"✅ Notification sent to user {strategy['user_id']}")
             except Exception as e:
                 logger.error(f"Failed to send notification: {e}")
             
         else:
-            logger.error(f"Failed to place new SL: {new_sl_order.get('error')}")
+            error_msg = new_sl_order.get('error', {}).get('message', 'Unknown error')
+            logger.error(f"Failed to place new SL: {error_msg}")
         
     except Exception as e:
         logger.error(f"Error protecting remaining leg: {e}", exc_info=True)
-              
