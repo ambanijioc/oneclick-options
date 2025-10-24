@@ -640,6 +640,120 @@ async def schedule_algo_execution(setup: dict, bot_application):
         await execute_algo_trade(setup_id, setup['user_id'], bot_application)
 
 
+# ============================================================
+# ✅ NEW: LEG PROTECTION FEATURE
+# ============================================================
+
+async def _check_strategy_legs(strategy: Dict):
+    """
+    Check if ONE leg is closed and protect the other
+    WITH PRIORITY: SL Monitor > Leg Protection
+    """
+    try:
+        strategy_id = str(strategy["_id"])
+        
+        # ========================================
+        # ✅ PRIORITY CHECK: SL Monitor Active?
+        # ========================================
+        if strategy.get('sl_monitor_activated'):
+            logger.info(f"⏸️ {strategy_id}: SL Monitor active - skipping leg protection")
+            return
+        
+        # ========================================
+        # ✅ CHECK IF LEG PROTECTION IS ENABLED
+        # ========================================
+        if not strategy.get("enable_leg_protection", False):
+            return  # Feature not enabled
+        
+        # ========================================
+        # ✅ CHECK IF ALREADY ACTIVATED
+        # ========================================
+        if strategy.get("leg_protection_activated", False):
+            return  # Already protecting
+        
+        # ========================================
+        # ✅ CHECK LEG STATUS
+        # ========================================
+        legs = strategy.get("legs", [])
+        
+        if len(legs) != 2:
+            return  # Not a straddle/strangle
+        
+        leg1_closed = legs[0].get("status") == "closed"
+        leg2_closed = legs[1].get("status") == "closed"
+        
+        # Only ONE leg should be closed
+        if leg1_closed and not leg2_closed:
+            await _protect_remaining_leg(strategy, legs[1], 1)
+        elif leg2_closed and not leg1_closed:
+            await _protect_remaining_leg(strategy, legs[0], 0)
+            
+    except Exception as e:
+        logger.error(f"Error checking strategy legs: {e}")
+
+
+async def _protect_remaining_leg(strategy: Dict, remaining_leg: Dict, leg_index: int):
+    """
+    Move the remaining leg's SL to breakeven (entry price)
+    """
+    try:
+        strategy_id = str(strategy["_id"])
+        entry_price = remaining_leg.get("entry_price", 0)
+        current_sl = remaining_leg.get("stop_loss_price", 0)
+        leg_type = remaining_leg.get("type", "").upper()
+        
+        # Don't move if already at or better than breakeven
+        if current_sl >= entry_price:
+            logger.info(f"⏸️ {strategy_id}: Leg {leg_index} SL already at/above breakeven")
+            return
+        
+        # ========================================
+        # ✅ MOVE SL TO BREAKEVEN
+        # ========================================
+        logger.info(f"🛡️ {strategy_id}: Activating leg protection for {leg_type} leg")
+        logger.info(f"   Old SL: ${current_sl} → New SL: ${entry_price} (breakeven)")
+        
+        # Update database
+        from database.operations.strategy_preset import update_strategy_preset
+        
+        update_data = {
+            f"legs.{leg_index}.stop_loss_price": entry_price,
+            f"legs.{leg_index}.sl_protected": True,
+            "leg_protection_activated": True,
+            "leg_protection_activated_at": datetime.utcnow()
+        }
+        
+        await update_strategy_preset(
+            strategy["user_id"],
+            strategy_id,
+            update_data
+        )
+        
+        # ========================================
+        # ✅ SEND NOTIFICATION
+        # ========================================
+        closed_leg = "PUT" if leg_type == "CALL" else "CALL"
+        
+        message = (
+            f"🛡️ **Leg Protection Activated!**\n\n"
+            f"📊 **Strategy:** {strategy.get('name', 'Unnamed')}\n"
+            f"🔄 **Action:** {closed_leg} leg closed - protecting {leg_type} leg\n\n"
+            f"💰 **Old SL:** ${current_sl:.2f}\n"
+            f"💰 **New SL:** ${entry_price:.2f} (Breakeven)\n\n"
+            f"✅ You're now protected from further losses!"
+        )
+        
+        # Note: bot instance needs to be passed - will be added below
+        logger.info(f"✅ {strategy_id}: Leg protection activated successfully")
+        
+    except Exception as e:
+        logger.error(f"Error protecting remaining leg: {e}")
+
+
+# ============================================================
+# END OF LEG PROTECTION FEATURE
+# ============================================================
+
 async def start_algo_scheduler(bot_application):
     """Start the algo scheduler."""
     logger.info("Starting algo scheduler...")
