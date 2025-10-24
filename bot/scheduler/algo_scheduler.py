@@ -564,6 +564,33 @@ async def execute_algo_trade(setup_id: str, user_id: int, bot_application):
             )
         except Exception as notify_error:
             logger.error(f"Failed to send notification: {notify_error}")
+
+        # ✅ START LEG PROTECTION MONITOR (ALWAYS for Straddle/Strangle)
+        try:
+            from services.leg_protection_service import start_leg_protection_monitor
+    
+            # Build strategy data for monitor
+            monitor_data = {
+                'user_id': user_id,
+                'strategy_type': preset['strategy_type'],
+                'direction': direction,
+                'lot_size': lot_size,
+                'ce_symbol': ce_symbol,
+                'pe_symbol': pe_symbol,
+                'ce_entry_price': ce_fill_price,
+                'pe_entry_price': pe_fill_price,
+                'ce_sl_order_id': ce_bracket_orders.get('sl_order_id'),
+                'pe_sl_order_id': pe_bracket_orders.get('sl_order_id'),
+            }
+    
+            # Start monitoring
+            asyncio.create_task(
+                start_leg_protection_monitor(monitor_data, bot_application)
+            )
+            logger.info(f"🛡️ Leg protection activated for setup {setup_id}")
+    
+        except Exception as monitor_error:
+            logger.error(f"Failed to start leg protection: {monitor_error}")
     
     except Exception as e:
         logger.error(f"Algo trade execution failed for setup {setup_id}: {e}", exc_info=True)
