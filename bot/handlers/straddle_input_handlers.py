@@ -347,35 +347,52 @@ async def handle_sl_monitor_no(update, context):
 
 async def save_straddle_preset(update, context):
     """Save the straddle preset with SL preference."""
+    from database.models.strategy_preset import StrategyPresetCreate
     from database.operations.strategy_ops import create_strategy_preset
-    from datetime import datetime
     
-    preset_data = {
-        'user_id': update.callback_query.from_user.id,
-        'strategy_name': context.user_data.get('strategy_name'),
-        'strategy_type': 'straddle',
-        'symbol': context.user_data.get('symbol'),
-        'entry_time': context.user_data.get('entry_time'),
-        # ... other fields from your current implementation ...
-        
-        # ✅ NEW FIELD
-        'enable_sl_monitor': context.user_data.get('enable_sl_monitor', False),
-        
-        'created_at': datetime.now(),
-        'updated_at': datetime.now()
-    }
-
+    user = update.effective_user
+    
+    # ✅ Get data from state_manager (NOT context.user_data)
+    state_data = await state_manager.get_state_data(user.id)
+    
+    # ✅ Build preset from state_data
+    preset_data = StrategyPresetCreate(
+        user_id=user.id,
+        name=state_data['name'],
+        description=state_data.get('description', ''),
+        strategy_type='straddle',
+        asset=state_data['asset'],
+        expiry_code=state_data['expiry_code'],
+        direction=state_data['direction'],
+        lot_size=state_data['lot_size'],
+        sl_trigger_pct=state_data['sl_trigger_pct'],
+        sl_limit_pct=state_data['sl_limit_pct'],
+        target_trigger_pct=state_data.get('target_trigger_pct', 0.0),
+        target_limit_pct=state_data.get('target_limit_pct', 0.0),
+        atm_offset=state_data['atm_offset'],
+        enable_sl_monitor=context.user_data.get('enable_sl_monitor', False)  # ✅ From button callback
+    )
+    
     result = await create_strategy_preset(preset_data)
-    sl_status = "✅ Enabled" if preset_data['enable_sl_monitor'] else "❌ Disabled"
+    
+    sl_status = "✅ Enabled" if preset_data.enable_sl_monitor else "❌ Disabled"
+    
     if result:
-        await update.callback_query.edit_message_text(
-            f"✅ Preset saved!\n\n"
-            f"<b>Name:</b> {preset_data['strategy_name']}\n"
+        # ✅ Use update.message (NOT callback_query)
+        await update.message.reply_text(
+            f"✅ <b>Preset Saved!</b>\n\n"
+            f"<b>Name:</b> {preset_data.name}\n"
+            f"<b>Asset:</b> {preset_data.asset}\n"
+            f"<b>Direction:</b> {preset_data.direction.title()}\n"
             f"<b>SL Monitor:</b> {sl_status}",
             parse_mode='HTML'
         )
+        
+        await state_manager.clear_state(user.id)
+        context.user_data.clear()  # ✅ Clear context too
+        log_user_action(user.id, "straddle_save", f"Saved strategy: {preset_data.name}")
     else:
-        await update.callback_query.edit_message_text("❌ Error saving preset.", parse_mode='HTML')
+        await update.message.reply_text("❌ Error saving preset.", parse_mode='HTML')
 
 # ============================================================================
 # EDIT INPUT HANDLERS
