@@ -751,6 +751,112 @@ async def straddle_edit_target_callback(update: Update, context: ContextTypes.DE
     log_user_action(user.id, "straddle_edit_target", f"Editing target for strategy {strategy_id}")
 
 
+@error_handler
+async def handle_straddle_sl_yes_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle YES to enable SL monitoring."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
+    # Store preference
+    context.user_data['enable_sl_monitor'] = True
+    
+    # Save the preset
+    from database.models.strategy_preset import StrategyPresetCreate
+    from database.operations.strategy_ops import create_strategy_preset
+    from datetime import datetime
+    
+    state_data = await state_manager.get_state_data(user.id)
+    
+    preset_data = StrategyPresetCreate(
+        user_id=user.id,
+        name=state_data['name'],
+        description=state_data.get('description', ''),
+        strategy_type='straddle',
+        asset=state_data['asset'],
+        expiry_code=state_data['expiry_code'],
+        direction=state_data['direction'],
+        lot_size=state_data['lot_size'],
+        sl_trigger_pct=state_data['sl_trigger_pct'],
+        sl_limit_pct=state_data['sl_limit_pct'],
+        target_trigger_pct=state_data.get('target_trigger_pct', 0.0),
+        target_limit_pct=state_data.get('target_limit_pct', 0.0),
+        atm_offset=state_data['atm_offset'],
+        enable_sl_monitor=True,  # ✅ ENABLED
+        created_at=datetime.now(),
+        updated_at=datetime.now()
+    )
+    
+    result = await create_strategy_preset(preset_data)
+    
+    if result:
+        await query.edit_message_text(
+            f"✅ <b>Strategy Saved!</b>\n\n"
+            f"<b>Name:</b> {preset_data.name}\n"
+            f"<b>Asset:</b> {preset_data.asset}\n"
+            f"<b>SL Monitor:</b> ✅ Enabled",
+            parse_mode='HTML'
+        )
+        await state_manager.clear_state(user.id)
+        context.user_data.clear()
+        log_user_action(user.id, "straddle_save", f"Saved: {preset_data.name} (SL Monitor: ON)")
+    else:
+        await query.edit_message_text("❌ Error saving strategy.", parse_mode='HTML')
+
+
+@error_handler
+async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle NO to disable SL monitoring."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
+    # Store preference
+    context.user_data['enable_sl_monitor'] = False
+    
+    # Save the preset
+    from database.models.strategy_preset import StrategyPresetCreate
+    from database.operations.strategy_ops import create_strategy_preset
+    from datetime import datetime
+    
+    state_data = await state_manager.get_state_data(user.id)
+    
+    preset_data = StrategyPresetCreate(
+        user_id=user.id,
+        name=state_data['name'],
+        description=state_data.get('description', ''),
+        strategy_type='straddle',
+        asset=state_data['asset'],
+        expiry_code=state_data['expiry_code'],
+        direction=state_data['direction'],
+        lot_size=state_data['lot_size'],
+        sl_trigger_pct=state_data['sl_trigger_pct'],
+        sl_limit_pct=state_data['sl_limit_pct'],
+        target_trigger_pct=state_data.get('target_trigger_pct', 0.0),
+        target_limit_pct=state_data.get('target_limit_pct', 0.0),
+        atm_offset=state_data['atm_offset'],
+        enable_sl_monitor=False,  # ✅ DISABLED
+        created_at=datetime.now(),
+        updated_at=datetime.now()
+    )
+    
+    result = await create_strategy_preset(preset_data)
+    
+    if result:
+        await query.edit_message_text(
+            f"✅ <b>Strategy Saved!</b>\n\n"
+            f"<b>Name:</b> {preset_data.name}\n"
+            f"<b>Asset:</b> {preset_data.asset}\n"
+            f"<b>SL Monitor:</b> ❌ Disabled",
+            parse_mode='HTML'
+        )
+        await state_manager.clear_state(user.id)
+        context.user_data.clear()
+        log_user_action(user.id, "straddle_save", f"Saved: {preset_data.name} (SL Monitor: OFF)")
+    else:
+        await query.edit_message_text("❌ Error saving strategy.", parse_mode='HTML')
+
+
 def register_straddle_strategy_handlers(application: Application):
     """Register straddle strategy handlers."""
     
