@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 from bot.utils.error_handler import error_handler
 from bot.utils.logger import setup_logger
-from database.operations.strategy_ops import get_all_strategy_presets  # ✅ USE THIS!
+from database.operations.strategy_ops import get_all_strategy_presets, get_strategy_preset_by_id
 from bson import ObjectId
 
 logger = setup_logger(__name__)
@@ -29,7 +29,7 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
         # Filter for strategies with SL monitoring enabled
         monitored_strategies = [
             strategy for strategy in all_strategies 
-            if strategy.enable_sl_monitor
+            if strategy.enable_sl_monitor  # ✅ Pydantic attribute, not dictionary
         ]
         
         if not monitored_strategies:
@@ -56,9 +56,9 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
         
         keyboard = []
         for idx, strategy in enumerate(monitored_strategies, 1):
-            strategy_type = strategy.strategy_type.title()
-            name = strategy.name
-            asset = strategy.asset
+            strategy_type = strategy.strategy_type.title()  # ✅ Pydantic attribute
+            name = strategy.name  # ✅ Pydantic attribute
+            asset = strategy.asset  # ✅ Pydantic attribute
             
             message += f"{idx}. <b>{name}</b>\n"
             message += f"   📍 Type: {strategy_type}\n"
@@ -69,7 +69,7 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
             keyboard.append([
                 InlineKeyboardButton(
                     f"📊 {name[:30]}", 
-                    callback_data=f"sl_monitor_detail_{str(strategy.id)}"
+                    callback_data=f"sl_monitor_detail_{str(strategy.id)}"  # ✅ str(strategy.id)
                 )
             ])
         
@@ -110,7 +110,6 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
         logger.info(f"User {user.id} viewing SL monitor details for strategy {strategy_id}")
         
         # ✅ USE PYDANTIC MODEL OPERATIONS
-        from database.operations.strategy_ops import get_strategy_preset_by_id
         strategy = await get_strategy_preset_by_id(strategy_id)
         
         if not strategy:
@@ -121,7 +120,7 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
             )
             return
         
-        # Build detailed message
+        # Build detailed message using Pydantic attributes
         message = f"📊 <b>{strategy.name}</b>\n\n"
         message += f"<b>Strategy Details:</b>\n"
         message += f"• Type: {strategy.strategy_type.title()}\n"
