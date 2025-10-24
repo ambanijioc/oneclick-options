@@ -792,7 +792,7 @@ async def handle_straddle_sl_yes_callback(update: Update, context: ContextTypes.
     result = await create_strategy_preset(preset_data)
     
     if result:
-        logger.info(f"✅ Preset saved successfully for user {user.id} with SL Monitor: {result.enable_sl_monitor}")
+        logger.info(f"✅ Preset saved successfully with ID: {result}")
         
         await query.edit_message_text(
             f"✅ <b>Strategy Saved!</b>\n\n"
@@ -860,7 +860,7 @@ async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.D
     result = await create_strategy_preset(preset_data)
     
     if result:
-        logger.info(f"✅ Preset saved successfully for user {user.id} with SL Monitor: {result.enable_sl_monitor}")
+        logger.info(f"✅ Preset saved successfully with ID: {result}")
         
         await query.edit_message_text(
             f"✅ <b>Strategy Saved!</b>\n\n"
