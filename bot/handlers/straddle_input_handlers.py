@@ -553,14 +553,12 @@ async def handle_straddle_sl_yes_callback(update: Update, context: ContextTypes.
     await query.answer()
     user = query.from_user
     
-    # Set enable_sl_monitor = True
+    # ✅ FIX: Use state_manager to persist the value
     state_data = await state_manager.get_state_data(user.id)
     state_data['enable_sl_monitor'] = True
     await state_manager.set_state_data(user.id, state_data)
     
-    # NOW save the preset to database
-    await save_straddle_preset(query, context)
-
+    await save_straddle_preset(update, context)
 
 async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle SL monitor NO selection."""
@@ -568,13 +566,12 @@ async def handle_straddle_sl_no_callback(update: Update, context: ContextTypes.D
     await query.answer()
     user = query.from_user
     
-    # Set enable_sl_monitor = False
+    # ✅ FIX: Use state_manager to persist the value
     state_data = await state_manager.get_state_data(user.id)
     state_data['enable_sl_monitor'] = False
     await state_manager.set_state_data(user.id, state_data)
     
-    # NOW save the preset to database
-    await save_straddle_preset(query, context)
+    await save_straddle_preset(update, context)
 
 
 async def save_straddle_preset(query_or_update, context):
