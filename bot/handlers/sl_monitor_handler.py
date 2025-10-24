@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 from bot.utils.error_handler import error_handler
 from bot.utils.logger import setup_logger
-from database.connection import get_database  # ✅ CORRECT IMPORT
+from database.connection import get_database  # ✅ CORRECT
 from bson import ObjectId
 
 logger = setup_logger(__name__)
@@ -23,9 +23,10 @@ async def sl_monitor_menu_callback(update: Update, context: ContextTypes.DEFAULT
     logger.info(f"User {user.id} accessed SL Monitor menu")
     
     try:
-        # ✅ FIXED: Get database and access collection
+        # ✅ FIXED: Use async Motor syntax with await
         db = get_database()
-        all_presets = list(db.strategy_presets.find({"user_id": user.id}))
+        cursor = db.strategy_presets.find({"user_id": user.id})
+        all_presets = await cursor.to_list(length=None)
         
         # Filter for presets with SL monitoring enabled
         monitored_presets = [
@@ -108,9 +109,9 @@ async def sl_monitor_detail_callback(update: Update, context: ContextTypes.DEFAU
         
         logger.info(f"User {user.id} viewing SL monitor details for preset {preset_id}")
         
-        # ✅ FIXED: Get preset from database
+        # ✅ FIXED: Use async Motor syntax with await
         db = get_database()
-        preset = db.strategy_presets.find_one({"_id": ObjectId(preset_id)})
+        preset = await db.strategy_presets.find_one({"_id": ObjectId(preset_id)})
         
         if not preset:
             keyboard = [[InlineKeyboardButton("🔙 Back to Monitors", callback_data="menu_sl_monitors")]]
@@ -166,4 +167,4 @@ def register_sl_monitor_handlers(application: Application):
     application.add_handler(CallbackQueryHandler(sl_monitor_menu_callback, pattern="^menu_sl_monitors$"))
     application.add_handler(CallbackQueryHandler(sl_monitor_detail_callback, pattern="^sl_monitor_detail_"))
     logger.info("✓ SL monitor handlers registered")
-        
+                                       
