@@ -215,5 +215,27 @@ def register_all_handlers(application: Application):
         logger.error(f"Failed to register handlers: {e}", exc_info=True)
         raise
 
+    # ==========================================
+    # LEG PROTECTION MONITOR (NEW FEATURE)
+    # ==========================================
+    try:
+        logger.info("-" * 60)
+        logger.info("ATTEMPTING TO REGISTER LEG PROTECTION HANDLERS")
+        logger.info("-" * 60)
+    
+        from .straddle_leg_protection_handler import register_leg_protection_handlers
+    
+        register_leg_protection_handlers(application)
+    
+        logger.info("-" * 60)
+        logger.info("✅ LEG PROTECTION HANDLERS REGISTERED SUCCESSFULLY")
+        logger.info("-" * 60)
+    
+    except ImportError as e:
+        logger.warning(f"Leg protection handler not found: {e}")
+    except Exception as e:
+        logger.error(f"Error registering leg protection handlers: {e}", exc_info=True)
+
+
 
 __all__ = ['register_all_handlers']
