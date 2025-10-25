@@ -38,7 +38,7 @@ def register_move_strategy_handlers(application: Application):
             move_edit_callback,
             move_edit_select_callback,
             move_edit_field_callback,
-            move_edit_save_callback,  # ✅ FIX: Changed from move_update_field_callback
+            move_edit_save_callback,
         )
         
         # ===== DELETE HANDLERS =====
@@ -66,48 +66,42 @@ def register_move_strategy_handlers(application: Application):
         
         # ===== REGISTER VIEW HANDLERS =====
         application.add_handler(CallbackQueryHandler(move_view_callback, pattern="^move_view$"))
-        
-        # ✅ FIX: Changed from "move_view_details_" to "move_view_"
         application.add_handler(CallbackQueryHandler(
             move_view_details_callback, 
             pattern="^move_view_[a-f0-9]{24}$"  # Matches: move_view_{strategy_id}
         ))
         
         # ===== REGISTER EDIT HANDLERS =====
-        application.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit_list$"))
+        # ✅ FIX: Changed from "move_edit_list" to "move_edit"
+        application.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"))
         
-        # ✅ FIX: Changed from "move_edit_select_" to "move_edit_"
         application.add_handler(CallbackQueryHandler(
             move_edit_select_callback, 
             pattern="^move_edit_[a-f0-9]{24}$"  # Matches: move_edit_{strategy_id}
         ))
         
-        # Field selection pattern
         application.add_handler(CallbackQueryHandler(
             move_edit_field_callback, 
             pattern="^move_edit_field_"
         ))
         
-        # ✅ FIX: Changed handler name to move_edit_save_callback
-        # Handle save callbacks for asset/expiry/direction
         application.add_handler(CallbackQueryHandler(
             move_edit_save_callback, 
             pattern="^move_edit_save_"
         ))
         
         # ===== REGISTER DELETE HANDLERS =====
-        application.add_handler(CallbackQueryHandler(move_delete_callback, pattern="^move_delete_list$"))
+        # ✅ FIX: Changed from "move_delete_list" to "move_delete"
+        application.add_handler(CallbackQueryHandler(move_delete_callback, pattern="^move_delete$"))
         
-        # ✅ FIX: Changed from "move_delete_confirm_" to "move_delete_"
         application.add_handler(CallbackQueryHandler(
             move_delete_confirm_callback, 
             pattern="^move_delete_[a-f0-9]{24}$"  # Matches: move_delete_{strategy_id}
         ))
         
-        # Execution after confirmation
         application.add_handler(CallbackQueryHandler(
             move_delete_execute_callback, 
-            pattern="^move_delete_confirmed_"  # ✅ Matches: move_delete_confirmed_{strategy_id}
+            pattern="^move_delete_confirmed_"
         ))
         
         logger.info("✅ MOVE strategy handlers registered successfully!")
