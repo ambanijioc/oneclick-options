@@ -1,10 +1,7 @@
 """
 MOVE Strategy Edit Handler
 
-Handles editing existing MOVE strategies:
-- Select strategy from list
-- Choose field to edit
-- Update strategy data
+Handles editing existing MOVE strategies.
 """
 
 from telegram import Update
@@ -27,7 +24,10 @@ from bot.keyboards.move_strategy_keyboards import (
     get_expiry_keyboard,
     get_direction_keyboard,
     get_cancel_keyboard,
-    get_continue_edit_keyboard
+    get_continue_edit_keyboard,
+    get_edit_asset_keyboard,
+    get_edit_expiry_keyboard,
+    get_edit_direction_keyboard
 )
 
 logger = setup_logger(__name__)
@@ -56,8 +56,6 @@ async def move_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
     
-    await state_manager.set_state(user.id, 'move_edit_select')
-    
     await query.edit_message_text(
         "📝 Edit MOVE Strategy\n\n"
         "Select a strategy to edit:",
@@ -67,13 +65,28 @@ async def move_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 @error_handler
 async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle strategy selection for editing."""
+    """
+    Handle strategy selection for editing.
+    Callback data format: move_edit_{strategy_id}
+    """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # Extract strategy ID: move_edit_select_{strategy_id}
-    strategy_id = query.data.split('_')[-1]
+    # ✅ FIX: Extract strategy_id from "move_edit_{ID}"
+    parts = query.data.split('_')  # ['move', 'edit', 'ID']
+    strategy_id = parts[2] if len(parts) >= 3 else None
+    
+    logger.info(f"EDIT SELECT - Raw callback_data: {query.data}")
+    logger.info(f"EDIT SELECT - Extracted strategy_id: {strategy_id}")
+    
+    if not strategy_id:
+        await query.edit_message_text(
+            "❌ Invalid request.",
+            reply_markup=get_move_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
     
     strategy = await get_move_strategy(user.id, strategy_id)
     
@@ -90,7 +103,9 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         'editing_strategy_id': strategy_id,
         'strategy_data': strategy
     })
-    await state_manager.set_state(user.id, 'move_edit_field')
+    
+    # ✅ FIX: Pass strategy_id to keyboard function
+    keyboard = get_edit_fields_keyboard(strategy_id)
     
     await query.edit_message_text(
         f"📝 Edit Strategy: {strategy.get('strategy_name')}\n\n"
@@ -100,21 +115,36 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         f"• Direction: {strategy.get('direction', 'N/A').capitalize()}\n"
         f"• ATM Offset: {strategy.get('atm_offset', 0)}\n\n"
         f"What would you like to edit?",
-        reply_markup=get_edit_fields_keyboard(),
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
 
 @error_handler
 async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle field selection for editing."""
+    """
+    Handle field selection for editing.
+    Callback format: move_edit_field_{strategy_id}_{field_name}
+    """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # Extract field: move_edit_field_name, move_edit_field_asset, etc.
-    field = query.data.split('_')[-1]
+    # Extract: move_edit_field_{ID}_{field} -> ['move', 'edit', 'field', 'ID', 'field_name']
+    parts = query.data.split('_')
+    strategy_id = parts[3] if len(parts) >= 4 else None
+    field = parts[4] if len(parts) >= 5 else None
     
-    await state_manager.set_state_data(user.id, {'editing_field': field})
+    logger.info(f"EDIT FIELD - callback_data: {query.data}")
+    logger.info(f"EDIT FIELD - strategy_id: {strategy_id}, field: {field}")
+    
+    if not strategy_id or not field:
+        await query.edit_message_text(
+            "❌ Invalid request.",
+            reply_markup=get_move_menu_keyboard()
+        )
+        return
+    
+    await state_manager.set_state_data(user.id, {'editing_field': field, 'editing_strategy_id': strategy_id})
     data = await state_manager.get_state_data(user.id)
     strategy = data.get('strategy_data', {})
     
@@ -128,33 +158,40 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
             parse_mode='HTML'
         )
     
+    elif field == 'description':
+        await state_manager.set_state(user.id, 'move_edit_description')
+        await query.edit_message_text(
+            f"📝 Edit Description\n\n"
+            f"Current: {strategy.get('description', 'None')}\n\n"
+            f"Enter new description:",
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
+        )
+    
     elif field == 'asset':
-        await state_manager.set_state(user.id, 'move_edit_asset')
         await query.edit_message_text(
             f"📝 Edit Asset\n\n"
             f"Current: {strategy.get('asset')}\n\n"
             f"Select new asset:",
-            reply_markup=get_asset_keyboard(),
+            reply_markup=get_edit_asset_keyboard(strategy_id),
             parse_mode='HTML'
         )
     
     elif field == 'expiry':
-        await state_manager.set_state(user.id, 'move_edit_expiry')
         await query.edit_message_text(
             f"📝 Edit Expiry\n\n"
             f"Current: {strategy.get('expiry', 'daily').capitalize()}\n\n"
             f"Select new expiry:",
-            reply_markup=get_expiry_keyboard(),
+            reply_markup=get_edit_expiry_keyboard(strategy_id),
             parse_mode='HTML'
         )
     
     elif field == 'direction':
-        await state_manager.set_state(user.id, 'move_edit_direction')
         await query.edit_message_text(
             f"📝 Edit Direction\n\n"
             f"Current: {strategy.get('direction', 'N/A').capitalize()}\n\n"
             f"Select new direction:",
-            reply_markup=get_direction_keyboard(),
+            reply_markup=get_edit_direction_keyboard(strategy_id),
             parse_mode='HTML'
         )
     
@@ -167,34 +204,56 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
+    
+    elif field in ['sl_trigger', 'sl_limit', 'target_trigger', 'target_limit']:
+        await state_manager.set_state(user.id, f'move_edit_{field}')
+        field_display = field.replace('_', ' ').title()
+        await query.edit_message_text(
+            f"📝 Edit {field_display}\n\n"
+            f"Current: {strategy.get(field, 'Not set')}\n\n"
+            f"Enter new value (percentage):",
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
+        )
 
 @error_handler
-async def move_update_field_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Update strategy field (for callbacks like asset, expiry, direction)."""
+async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Save callback-based edits (asset, expiry, direction).
+    Format: move_edit_save_{field}_{strategy_id}_{value}
+    """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    data = await state_manager.get_state_data(user.id)
-    strategy_id = data.get('editing_strategy_id')
-    editing_field = data.get('editing_field')
+    # Extract: move_edit_save_asset_ID_BTC -> ['move', 'edit', 'save', 'asset', 'ID', 'BTC']
+    parts = query.data.split('_')
+    field = parts[3] if len(parts) >= 4 else None
+    strategy_id = parts[4] if len(parts) >= 5 else None
+    new_value = parts[5] if len(parts) >= 6 else None
     
-    # Extract the new value based on callback pattern
-    # move_asset_BTC, move_expiry_daily, move_direction_long
-    new_value = query.data.split('_')[-1]
+    logger.info(f"EDIT SAVE - callback_data: {query.data}")
+    logger.info(f"EDIT SAVE - field: {field}, strategy_id: {strategy_id}, value: {new_value}")
     
-    # Map callback to database field
+    if not all([field, strategy_id, new_value]):
+        await query.edit_message_text(
+            "❌ Invalid request.",
+            reply_markup=get_move_menu_keyboard()
+        )
+        return
+    
+    # Map field to database column
     field_mapping = {
         'asset': 'asset',
         'expiry': 'expiry',
         'direction': 'direction'
     }
     
-    db_field = field_mapping.get(editing_field)
+    db_field = field_mapping.get(field)
     
     if not db_field:
         await query.edit_message_text(
-            "❌ Invalid field selected.",
+            "❌ Invalid field.",
             reply_markup=get_move_menu_keyboard()
         )
         return
@@ -208,7 +267,7 @@ async def move_update_field_callback(update: Update, context: ContextTypes.DEFAU
         
         await query.edit_message_text(
             f"✅ Strategy Updated!\n\n"
-            f"{editing_field.capitalize()} changed to: {new_value.capitalize()}\n\n"
+            f"{field.capitalize()} changed to: {new_value.capitalize()}\n\n"
             f"Continue editing or return to menu?",
             reply_markup=get_continue_edit_keyboard(strategy_id),
             parse_mode='HTML'
@@ -219,48 +278,9 @@ async def move_update_field_callback(update: Update, context: ContextTypes.DEFAU
             reply_markup=get_move_menu_keyboard()
         )
 
-@error_handler
-async def move_continue_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Continue editing the same strategy."""
-    query = update.callback_query
-    await query.answer()
-    user = query.from_user
-    
-    # Extract strategy_id from callback: move_continue_edit_{strategy_id}
-    strategy_id = query.data.split('_')[-1]
-    
-    strategy = await get_move_strategy(user.id, strategy_id)
-    
-    if not strategy:
-        await query.edit_message_text(
-            "❌ Strategy not found.",
-            reply_markup=get_move_menu_keyboard()
-        )
-        return
-    
-    await state_manager.set_state_data(user.id, {
-        'editing_strategy_id': strategy_id,
-        'strategy_data': strategy
-    })
-    await state_manager.set_state(user.id, 'move_edit_field')
-    
-    await query.edit_message_text(
-        f"📝 Edit Strategy: {strategy.get('strategy_name')}\n\n"
-        f"Current Settings:\n"
-        f"• Asset: {strategy.get('asset')}\n"
-        f"• Expiry: {strategy.get('expiry', 'daily').capitalize()}\n"
-        f"• Direction: {strategy.get('direction', 'N/A').capitalize()}\n"
-        f"• ATM Offset: {strategy.get('atm_offset', 0)}\n\n"
-        f"What would you like to edit?",
-        reply_markup=get_edit_fields_keyboard(),
-        parse_mode='HTML'
-    )
-
 __all__ = [
     'move_edit_callback',
     'move_edit_select_callback',
     'move_edit_field_callback',
-    'move_update_field_callback',
-    'move_continue_edit_callback',
-  ]
-  
+    'move_edit_save_callback',
+]
