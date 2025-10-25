@@ -1,6 +1,6 @@
 """
 Bot command and callback handlers.
-UPDATED: 2025-10-25 10:15 AM IST - FIXED NESTED MOVE HANDLER IMPORTS
+UPDATED: 2025-10-25 10:25 AM IST - REMOVED MOVE_LIST_HANDLER (DELETED)
 """
 
 from telegram.ext import Application, MessageHandler, filters
@@ -16,7 +16,7 @@ def register_all_handlers(application: Application):
     Args:
         application: Bot application instance
     """
-    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.3 NESTED STRUCTURE")
+    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.4 REMOVED MOVE_LIST")
     try:
         logger.info("Registering all handlers...")
         
@@ -104,13 +104,7 @@ def register_all_handlers(application: Application):
         except Exception as e:
             logger.error(f"❌ Error registering MOVE strategy handlers: {e}", exc_info=True)
 
-        # ✅ MOVE LIST HANDLER (bot/handlers/)
-        try:
-            from .move_list_handler import register_move_list_handlers
-            register_move_list_handlers(application)
-            logger.info("✅ MOVE list handlers registered")
-        except ImportError as e:
-            logger.warning(f"Move list handler not found: {e}")
+        # ✅ REMOVED: move_list_handler (file deleted)
         
         # ✅ MOVE TRADE HANDLERS (bot/handlers/move/trade/)
         try:
