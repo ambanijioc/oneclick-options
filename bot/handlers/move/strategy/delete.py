@@ -57,13 +57,28 @@ async def move_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @error_handler
 async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show confirmation before deleting strategy."""
+    """
+    Show confirmation before deleting strategy.
+    Callback format: move_delete_{strategy_id}
+    """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # Extract strategy ID: move_delete_confirm_{strategy_id}
-    strategy_id = query.data.split('_')[-1]
+    # ✅ FIX: Extract strategy_id from "move_delete_{ID}"
+    parts = query.data.split('_')  # ['move', 'delete', 'ID']
+    strategy_id = parts[2] if len(parts) >= 3 else None
+    
+    logger.info(f"DELETE CONFIRM - Raw callback_data: {query.data}")
+    logger.info(f"DELETE CONFIRM - Extracted strategy_id: {strategy_id}")
+    
+    if not strategy_id:
+        await query.edit_message_text(
+            "❌ Invalid request.",
+            reply_markup=get_move_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
     
     strategy = await get_move_strategy(user.id, strategy_id)
     
@@ -88,13 +103,28 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
 
 @error_handler
 async def move_delete_execute_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Execute strategy deletion."""
+    """
+    Execute strategy deletion.
+    Callback format: move_delete_confirmed_{strategy_id}
+    """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # Extract strategy ID: move_delete_execute_{strategy_id}
-    strategy_id = query.data.split('_')[-1]
+    # ✅ FIX: Extract strategy_id from "move_delete_confirmed_{ID}"
+    parts = query.data.split('_')  # ['move', 'delete', 'confirmed', 'ID']
+    strategy_id = parts[3] if len(parts) >= 4 else None
+    
+    logger.info(f"DELETE EXECUTE - Raw callback_data: {query.data}")
+    logger.info(f"DELETE EXECUTE - Extracted strategy_id: {strategy_id}")
+    
+    if not strategy_id:
+        await query.edit_message_text(
+            "❌ Invalid request.",
+            reply_markup=get_move_menu_keyboard(),
+            parse_mode='HTML'
+        )
+        return
     
     strategy = await get_move_strategy(user.id, strategy_id)
     
@@ -112,6 +142,7 @@ async def move_delete_execute_callback(update: Update, context: ContextTypes.DEF
     
     if result:
         log_user_action(user.id, f"Deleted MOVE strategy: {name}")
+        logger.info(f"DELETE EXECUTE - Successfully deleted strategy: {name} (ID: {strategy_id})")
         
         await query.edit_message_text(
             f"✅ Strategy Deleted!\n\n"
@@ -120,6 +151,7 @@ async def move_delete_execute_callback(update: Update, context: ContextTypes.DEF
             parse_mode='HTML'
         )
     else:
+        logger.error(f"DELETE EXECUTE - Failed to delete strategy ID: {strategy_id}")
         await query.edit_message_text(
             "❌ Failed to delete strategy.\n\n"
             "Please try again.",
