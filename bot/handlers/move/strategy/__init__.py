@@ -1,5 +1,5 @@
 """
-MOVE Strategy handlers.
+MOVE Strategy handlers - FIXED ALL CALLBACK PATTERNS
 """
 
 from telegram.ext import CallbackQueryHandler, Application
@@ -9,7 +9,7 @@ logger = setup_logger(__name__)
 
 
 def register_move_strategy_handlers(application: Application):
-    """Register MOVE strategy handlers."""
+    """Register MOVE strategy handlers with corrected callback patterns."""
     
     try:
         logger.info("🚀 Registering MOVE strategy handlers...")
@@ -67,18 +67,23 @@ def register_move_strategy_handlers(application: Application):
         
         # ===== REGISTER VIEW HANDLERS =====
         application.add_handler(CallbackQueryHandler(move_view_callback, pattern="^move_view$"))
-        application.add_handler(CallbackQueryHandler(move_view_details_callback, pattern="^move_view_details_"))
+        
+        # ✅ FIX: Changed from "move_view_details_" to "move_view_"
+        application.add_handler(CallbackQueryHandler(
+            move_view_details_callback, 
+            pattern="^move_view_[a-f0-9]{24}$"  # Matches: move_view_{strategy_id}
+        ))
         
         # ===== REGISTER EDIT HANDLERS =====
         application.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit_list$"))
         
-        # ✅ FIX: Changed from "move_edit_select_" to "move_edit_" to match keyboard
+        # ✅ FIX: Changed from "move_edit_select_" to "move_edit_"
         application.add_handler(CallbackQueryHandler(
             move_edit_select_callback, 
-            pattern="^move_edit_[a-f0-9]{24}$"  # Matches ObjectId format (24 hex chars)
+            pattern="^move_edit_[a-f0-9]{24}$"  # Matches: move_edit_{strategy_id}
         ))
         
-        # Also need to handle field selection pattern
+        # Field selection pattern
         application.add_handler(CallbackQueryHandler(
             move_edit_field_callback, 
             pattern="^move_edit_field_"
@@ -98,8 +103,18 @@ def register_move_strategy_handlers(application: Application):
         
         # ===== REGISTER DELETE HANDLERS =====
         application.add_handler(CallbackQueryHandler(move_delete_callback, pattern="^move_delete_list$"))
-        application.add_handler(CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_confirm_"))
-        application.add_handler(CallbackQueryHandler(move_delete_execute_callback, pattern="^move_delete_execute_"))
+        
+        # ✅ FIX: Changed from "move_delete_confirm_" to "move_delete_"
+        application.add_handler(CallbackQueryHandler(
+            move_delete_confirm_callback, 
+            pattern="^move_delete_[a-f0-9]{24}$"  # Matches: move_delete_{strategy_id}
+        ))
+        
+        # Execution after confirmation
+        application.add_handler(CallbackQueryHandler(
+            move_delete_execute_callback, 
+            pattern="^move_delete_execute_"
+        ))
         
         logger.info("✅ MOVE strategy handlers registered successfully!")
         
