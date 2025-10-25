@@ -119,16 +119,21 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
                                 remaining_entry_price: float, remaining_sl_order_id: str,
                                 closed_leg: str, bot_application):
     """
-    Move remaining leg's SL to breakeven (entry price).
-    STRATEGY: Place new SL first, THEN cancel old one with proper parameters.
+    Protect remaining leg with SMART stop-loss placement.
+    
+    Strategy:
+    1. Get current market price
+    2. If current price ≈ entry price → Use dynamic SL (above current price)
+    3. If current price < entry price → Use breakeven SL (at entry price)
+    4. Place new SL FIRST (safety)
+    5. Cancel old SL SECOND (with correct parameters)
     """
     try:
         logger.info(f"🛡️ Protecting remaining leg: {remaining_symbol}")
         
-        # ✅ FIX 1: Get product_id for the remaining symbol FIRST
+        # ✅ STEP 1: Get product_id for the remaining symbol
         logger.info(f"📍 Fetching product details for {remaining_symbol}")
         
-        # Get product by symbol to extract product_id
         product_response = await client.get_product(remaining_symbol)
         
         if not product_response.get('success'):
@@ -138,28 +143,70 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
         product_id = product_response['result']['id']
         logger.info(f"✅ Product ID: {product_id}")
         
-        # Determine order side
+        # ✅ STEP 2: Get current market price
+        ticker_response = await client.get_ticker(remaining_symbol)
+        if not ticker_response.get('success'):
+            logger.error("Failed to fetch ticker")
+            return
+        
+        ticker = ticker_response['result']
+        current_mark_price = float(ticker.get('mark_price', 0))
+        current_last_price = float(ticker.get('close', 0))
+        current_price = current_mark_price or current_last_price
+        
+        logger.info(f"💰 Current market price: ${current_price:.2f}")
+        logger.info(f"💰 Original entry price: ${remaining_entry_price:.2f}")
+        
+        # ✅ STEP 3: SMART SL CALCULATION
+        # Check if current price is very close to entry price (within 5%)
+        price_diff_pct = abs(current_price - remaining_entry_price) / remaining_entry_price * 100
+        
+        if price_diff_pct <= 5.0:
+            # ⚠️ CASE 1: Price ≈ Entry Price (would trigger immediately)
+            # Use DYNAMIC SL above current price to prevent immediate execution
+            logger.warning(f"⚠️ Current price (${current_price:.2f}) too close to entry (${remaining_entry_price:.2f})")
+            logger.info("📍 Using DYNAMIC SL strategy to prevent immediate execution")
+            
+            if current_price < 5.0:
+                # Very cheap option - add $2 buffer
+                sl_price = current_price + 2.0
+            elif current_price < 20.0:
+                # Mid-priced - add 20% buffer
+                sl_price = current_price * 1.20
+            else:
+                # Higher-priced - add 15% buffer
+                sl_price = current_price * 1.15
+            
+            sl_price = round(sl_price, 2)
+            logger.info(f"✅ Dynamic SL: ${sl_price:.2f} (${sl_price - current_price:.2f} above current)")
+            
+        else:
+            # ✅ CASE 2: Price significantly different from entry
+            # Use BREAKEVEN SL at entry price
+            logger.info("📍 Using BREAKEVEN SL strategy (entry price)")
+            sl_price = round(remaining_entry_price, 2)
+            logger.info(f"✅ Breakeven SL: ${sl_price:.2f}")
+        
+        # ✅ STEP 4: Determine order parameters
         direction = strategy.get('direction', 'long')
         side = 'sell' if direction == 'long' else 'buy'
         
         # Calculate limit price (slightly better execution)
         if side == 'buy':
-            # Buying back - limit slightly above stop
-            limit_price = round(remaining_entry_price * 1.02, 2)
+            limit_price = round(sl_price * 1.02, 2)  # 2% slippage
         else:
-            # Selling - limit slightly below stop
-            limit_price = round(remaining_entry_price * 0.98, 2)
+            limit_price = round(sl_price * 0.98, 2)  # 2% slippage
         
-        # ✅ STEP 1: Place NEW breakeven SL FIRST (safety first!)
-        logger.info(f"📍 Step 1: Placing new breakeven SL at ${remaining_entry_price:.2f}")
+        # ✅ STEP 5: Place NEW protective SL FIRST (safety first!)
+        logger.info(f"📍 Step 1: Placing new protective SL at ${sl_price:.2f}")
         
         new_sl_order = await client.place_order({
-            'product_id': product_id,  # ✅ Use product_id
+            'product_id': product_id,
             'size': strategy.get('lot_size', 1),
             'side': side,
             'order_type': 'limit_order',
             'stop_order_type': 'stop_loss_order',
-            'stop_price': str(round(remaining_entry_price, 2)),
+            'stop_price': str(sl_price),
             'limit_price': str(limit_price),
             'reduce_only': True
         })
@@ -170,17 +217,17 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
             return
         
         new_sl_id = new_sl_order['result']['id']
-        logger.info(f"✅ New breakeven SL placed: {new_sl_id} at ${remaining_entry_price:.2f}")
+        logger.info(f"✅ New protective SL placed: {new_sl_id} at ${sl_price:.2f}")
         
-        # ✅ STEP 2: Now cancel OLD SL with BOTH product_id AND order_id
+        # ✅ STEP 6: Cancel OLD SL with CORRECT parameters (product_id + order_id)
         logger.info(f"📍 Step 2: Cancelling old SL: {remaining_sl_order_id}")
         
         if remaining_sl_order_id:
             try:
-                # ✅ FIX 2: Pass BOTH product_id and id
-                cancel_result = await client.delete_order(
+                # ✅ FIX: Pass BOTH product_id and order_id
+                cancel_result = await client.cancel_order(
                     product_id=product_id,  # ✅ REQUIRED!
-                    id=remaining_sl_order_id  # ✅ Order ID
+                    order_id=remaining_sl_order_id  # ✅ Order ID
                 )
                 
                 if cancel_result.get('success'):
@@ -188,16 +235,22 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
                 else:
                     error_msg = cancel_result.get('error', {}).get('message', 'Unknown error')
                     logger.warning(f"⚠️ Old SL cancellation failed: {error_msg}")
+            
             except Exception as e:
                 logger.warning(f"⚠️ Could not cancel old SL: {e}")
         
-        # ✅ STEP 3: Send notification
+        # ✅ STEP 7: Send notification
         remaining_leg = 'CE' if closed_leg == 'PE' else 'PE'
+        sl_strategy = "Dynamic (prevents immediate trigger)" if price_diff_pct <= 5.0 else "Breakeven (entry price)"
+        
         message = (
             f"🛡️ **Leg Protection Activated!**\n\n"
             f"🔄 **{closed_leg} leg closed**\n"
             f"🛡️ **{remaining_leg} leg protected**\n\n"
-            f"💰 **New SL:** ${remaining_entry_price:.2f} (Breakeven)\n"
+            f"💰 **Current Price:** ${current_price:.2f}\n"
+            f"💰 **Entry Price:** ${remaining_entry_price:.2f}\n"
+            f"🎯 **New SL:** ${sl_price:.2f}\n"
+            f"📊 **Strategy:** {sl_strategy}\n"
             f"📊 **Symbol:** {remaining_symbol}\n"
             f"🆔 **New SL Order:** `{new_sl_id}`\n"
             f"🗑️ **Old SL Cancelled:** `{remaining_sl_order_id}`\n\n"
@@ -216,4 +269,3 @@ async def protect_remaining_leg(client, strategy: Dict, remaining_symbol: str,
         
     except Exception as e:
         logger.error(f"Error protecting remaining leg: {e}", exc_info=True)
-        
