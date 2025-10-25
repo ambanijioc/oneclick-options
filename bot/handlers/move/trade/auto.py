@@ -8,7 +8,7 @@ Handles scheduled automatic execution of MOVE trades:
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 import re
 
 from bot.utils.logger import setup_logger, log_user_action
@@ -50,7 +50,7 @@ async def move_auto_trade_callback(update: Update, context: ContextTypes.DEFAULT
     for preset in presets:
         keyboard.append([InlineKeyboardButton(
             f"🎯 {preset['preset_name']}",
-            callback_data=f"move_auto_select_{preset['_id']}"
+            callback_data=f"move_auto_select_{preset['id']}"
         )])
     
     keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_move")])
@@ -155,7 +155,16 @@ async def move_auto_enable_callback(update: Update, context: ContextTypes.DEFAUL
     
     log_user_action(user.id, "Enabled MOVE auto trade")
 
+# ✅✅ REGISTRATION FUNCTION ✅✅
+def register_move_auto_trade_handlers(application: Application):
+    """Register MOVE auto trade handlers."""
+    application.add_handler(CallbackQueryHandler(move_auto_trade_callback, pattern="^menu_move_auto_trade$"))
+    application.add_handler(CallbackQueryHandler(move_auto_select_callback, pattern="^move_auto_select_"))
+    application.add_handler(CallbackQueryHandler(move_auto_enable_callback, pattern="^move_auto_enable$"))
+    logger.info("✓ MOVE auto trade handlers registered")
+
 __all__ = [
+    'register_move_auto_trade_handlers',
     'move_auto_trade_callback',
     'move_auto_select_callback',
     'handle_move_auto_time_input',
