@@ -1,6 +1,6 @@
 """
 Bot command and callback handlers.
-UPDATED: 2025-10-24 01:00 AM IST
+UPDATED: 2025-10-25 09:10 AM IST - FIXED MOVE TRADE IMPORTS
 """
 
 from telegram.ext import Application, MessageHandler, filters
@@ -16,7 +16,7 @@ def register_all_handlers(application: Application):
     Args:
         application: Bot application instance
     """
-    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.1")
+    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.2")
     try:
         logger.info("Registering all handlers...")
         
@@ -108,13 +108,13 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Move list handler not found: {e}")
         
-        # ✅ MOVE TRADE PRESET HANDLERS
+        # ✅ MOVE TRADE PRESET HANDLERS (OLD PATH - KEEP FOR BACKWARD COMPATIBILITY)
         try:
             from .move_trade_preset_handler import register_move_trade_preset_handlers
             register_move_trade_preset_handlers(application)
             logger.info("✓ MOVE trade preset handlers registered")
         except ImportError as e:
-            logger.warning(f"Move trade preset handler not found: {e}")
+            logger.warning(f"Move trade preset handler not found (old path): {e}")
         
         # Manual trade handlers
         try:
@@ -139,64 +139,33 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Auto trade handler not found: {e}")
         
-        # MOVE trade execution handlers
+        # ✅✅ MOVE TRADE EXECUTION HANDLERS - NEW PATH ✅✅
         try:
-            from .move_manual_trade_handler import register_move_manual_trade_handlers
+            logger.info("🔍 Attempting to import MOVE manual trade handler from NEW path...")
+            from bot.handlers.move.trade.manual import register_move_manual_trade_handlers
             register_move_manual_trade_handlers(application)
-            logger.info("✓ MOVE manual trade handlers registered")
+            logger.info("✓ MOVE manual trade handlers registered (NEW PATH)")
         except ImportError as e:
-            logger.warning(f"Move manual trade handler not found: {e}")
+            logger.warning(f"Move manual trade handler not found (new path): {e}")
         
         try:
-            from .move_auto_trade_handler import register_move_auto_trade_handlers
+            logger.info("🔍 Attempting to import MOVE auto trade handler from NEW path...")
+            from bot.handlers.move.trade.auto import register_move_auto_trade_handlers
             register_move_auto_trade_handlers(application)
-            logger.info("✓ MOVE auto trade handlers registered")
+            logger.info("✓ MOVE auto trade handlers registered (NEW PATH)")
         except ImportError as e:
-            logger.warning(f"Move auto trade handler not found: {e}")
+            logger.warning(f"Move auto trade handler not found (new path): {e}")
 
-        # ✅✅✅ SL MONITOR HANDLERS - ENHANCED ERROR LOGGING ✅✅✅
-        logger.info("=" * 60)
-        logger.info("🔍 ATTEMPTING TO REGISTER SL MONITOR HANDLERS")
-        logger.info("=" * 60)
+        # ✅✅✅ SL MONITOR HANDLERS ✅✅✅
         try:
-            logger.info("Step 1: Importing sl_monitor_handler module...")
+            logger.info("🔍 Importing sl_monitor_handler module...")
             from .sl_monitor_handler import register_sl_monitor_handlers
-            logger.info("✅ Step 1 SUCCESS: Module imported")
-            
-            logger.info("Step 2: Calling register_sl_monitor_handlers()...")
             register_sl_monitor_handlers(application)
-            logger.info("✅ Step 2 SUCCESS: Function called")
-            
-            logger.info("=" * 60)
-            logger.info("✓✓✓ SL MONITOR HANDLERS REGISTERED SUCCESSFULLY ✓✓✓")
-            logger.info("=" * 60)
-            
+            logger.info("✓ SL monitor handlers registered")
         except ImportError as e:
-            logger.error("=" * 60)
-            logger.error("❌❌❌ IMPORT ERROR - SL MONITOR FILE NOT FOUND ❌❌❌")
-            logger.error("=" * 60)
-            logger.error(f"Error: {e}")
-            logger.error("File should be at: bot/handlers/sl_monitor_handler.py")
-            logger.error("Full traceback:", exc_info=True)
-            logger.error("=" * 60)
-            
-        except AttributeError as e:
-            logger.error("=" * 60)
-            logger.error("❌❌❌ ATTRIBUTE ERROR - FUNCTION NOT FOUND ❌❌❌")
-            logger.error("=" * 60)
-            logger.error(f"Error: {e}")
-            logger.error("The file exists but register_sl_monitor_handlers function is missing")
-            logger.error("Full traceback:", exc_info=True)
-            logger.error("=" * 60)
-            
+            logger.warning(f"SL monitor handler not found: {e}")
         except Exception as e:
-            logger.error("=" * 60)
-            logger.error("❌❌❌ UNEXPECTED ERROR ❌❌❌")
-            logger.error("=" * 60)
-            logger.error(f"Error type: {type(e).__name__}")
-            logger.error(f"Error message: {e}")
-            logger.error("Full traceback:", exc_info=True)
-            logger.error("=" * 60)
+            logger.error(f"Error registering SL monitor handlers: {e}", exc_info=True)
         
         # Register message router LAST (lowest priority)
         from .message_router import route_message
@@ -216,7 +185,7 @@ def register_all_handlers(application: Application):
         raise
 
     # ==========================================
-    # LEG PROTECTION MONITOR (NEW FEATURE)
+    # LEG PROTECTION MONITOR
     # ==========================================
     try:
         logger.info("-" * 60)
@@ -239,3 +208,4 @@ def register_all_handlers(application: Application):
 
 
 __all__ = ['register_all_handlers']
+                
