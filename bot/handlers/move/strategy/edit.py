@@ -4,7 +4,7 @@ MOVE Strategy Edit Handler
 Handles editing existing MOVE strategies.
 """
 
-from telegram import Update
+from telegram import Update, BadRequest
 from telegram.ext import ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
@@ -107,17 +107,23 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
     # ✅ FIX: Pass strategy_id to keyboard function
     keyboard = get_edit_fields_keyboard(strategy_id)
     
-    await query.edit_message_text(
-        f"📝 Edit Strategy: {strategy.get('strategy_name')}\n\n"
-        f"Current Settings:\n"
-        f"• Asset: {strategy.get('asset')}\n"
-        f"• Expiry: {strategy.get('expiry', 'daily').capitalize()}\n"
-        f"• Direction: {strategy.get('direction', 'N/A').capitalize()}\n"
-        f"• ATM Offset: {strategy.get('atm_offset', 0)}\n\n"
-        f"What would you like to edit?",
-        reply_markup=keyboard,
-        parse_mode='HTML'
-    )
+    try:
+        await query.edit_message_text(
+            f"📝 Edit Strategy: {strategy.get('strategy_name')}\n\n"
+            f"Current Settings:\n"
+            f"• Asset: {strategy.get('asset')}\n"
+            f"• Expiry: {strategy.get('expiry', 'daily').capitalize()}\n"
+            f"• Direction: {strategy.get('direction', 'N/A').capitalize()}\n"
+            f"• ATM Offset: {strategy.get('atm_offset', 0)}\n\n"
+            f"What would you like to edit?",
+            reply_markup=keyboard,
+            parse_mode='HTML'
+        )
+    except BadRequest as e:
+        if "message is not modified" in str(e).lower():
+            logger.warning("Message not modified - content identical")
+        else:
+            raise
 
 @error_handler
 async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -278,9 +284,24 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=get_move_menu_keyboard()
         )
 
+
+# ✅✅✅ ADD THIS REGISTRATION FUNCTION ✅✅✅
+def register_move_edit_handlers(app):
+    """Register MOVE strategy edit handlers"""
+    from telegram.ext import CallbackQueryHandler
+    
+    app.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"))
+    app.add_handler(CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"))
+    app.add_handler(CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"))
+    app.add_handler(CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"))
+    
+    logger.info("✓ MOVE edit handlers registered")
+
+
 __all__ = [
     'move_edit_callback',
     'move_edit_select_callback',
     'move_edit_field_callback',
     'move_edit_save_callback',
+    'register_move_edit_handlers',  # ✅ Add to exports
 ]
