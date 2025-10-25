@@ -1,6 +1,6 @@
 """
 Bot command and callback handlers.
-UPDATED: 2025-10-25 09:10 AM IST - FIXED MOVE TRADE IMPORTS
+UPDATED: 2025-10-25 10:15 AM IST - FIXED NESTED MOVE HANDLER IMPORTS
 """
 
 from telegram.ext import Application, MessageHandler, filters
@@ -16,7 +16,7 @@ def register_all_handlers(application: Application):
     Args:
         application: Bot application instance
     """
-    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.2")
+    logger.info("🚀 STARTING HANDLER REGISTRATION - v2.3 NESTED STRUCTURE")
     try:
         logger.info("Registering all handlers...")
         
@@ -89,34 +89,66 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Strangle strategy handler not found: {e}")
         
-        # ✅ MOVE STRATEGY HANDLERS
+        # ============================================================================
+        # MOVE HANDLERS - NESTED STRUCTURE
+        # ============================================================================
+        
+        # ✅ MOVE STRATEGY HANDLERS (bot/handlers/move/strategy/)
         try:
-            logger.info("🔍 Attempting to import MOVE strategy handlers...")
+            logger.info("🔍 Registering MOVE strategy handlers...")
             from bot.handlers.move.strategy import register_move_strategy_handlers
-            logger.info("🔍 Import successful, registering handlers...")
             register_move_strategy_handlers(application)
-            logger.info("✓ MOVE strategy handlers registered")
+            logger.info("✅ MOVE strategy handlers registered")
         except ImportError as e:
-            logger.error(f"❌ ImportError in MOVE handler: {e}", exc_info=True)
+            logger.error(f"❌ ImportError in MOVE strategy handler: {e}", exc_info=True)
         except Exception as e:
-            logger.error(f"❌ Error registering MOVE handlers: {e}", exc_info=True)
+            logger.error(f"❌ Error registering MOVE strategy handlers: {e}", exc_info=True)
 
+        # ✅ MOVE LIST HANDLER (bot/handlers/)
         try:
             from .move_list_handler import register_move_list_handlers
             register_move_list_handlers(application)
-            logger.info("✓ MOVE list handlers registered")
+            logger.info("✅ MOVE list handlers registered")
         except ImportError as e:
             logger.warning(f"Move list handler not found: {e}")
         
-        # ✅ MOVE TRADE PRESET HANDLERS (OLD PATH - KEEP FOR BACKWARD COMPATIBILITY)
+        # ✅ MOVE TRADE HANDLERS (bot/handlers/move/trade/)
         try:
-            from .move_trade_preset_handler import register_move_trade_preset_handlers
-            register_move_trade_preset_handlers(application)
-            logger.info("✓ MOVE trade preset handlers registered")
+            logger.info("🔍 Registering MOVE trade handlers (NESTED)...")
+            from bot.handlers.move.trade.manual import register_move_manual_trade_handlers
+            register_move_manual_trade_handlers(application)
+            logger.info("✅ MOVE manual trade handlers registered")
         except ImportError as e:
-            logger.warning(f"Move trade preset handler not found (old path): {e}")
+            logger.error(f"❌ Move manual trade handler import failed: {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"❌ Error registering MOVE manual trade handlers: {e}", exc_info=True)
         
-        # Manual trade handlers
+        try:
+            logger.info("🔍 Registering MOVE auto trade handlers (NESTED)...")
+            from bot.handlers.move.trade.auto import register_move_auto_trade_handlers
+            register_move_auto_trade_handlers(application)
+            logger.info("✅ MOVE auto trade handlers registered")
+        except ImportError as e:
+            logger.error(f"❌ Move auto trade handler import failed: {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"❌ Error registering MOVE auto trade handlers: {e}", exc_info=True)
+        
+        # ✅ MOVE PRESET HANDLERS (bot/handlers/move/preset/)
+        try:
+            logger.info("🔍 Registering MOVE preset handlers (NESTED)...")
+            from bot.handlers.move.preset import register_move_preset_handlers
+            register_move_preset_handlers(application)
+            logger.info("✅ MOVE preset handlers registered")
+        except ImportError as e:
+            logger.warning(f"Move preset handler not found (new nested path): {e}")
+        except Exception as e:
+            logger.error(f"❌ Error registering MOVE preset handlers: {e}", exc_info=True)
+        
+        # ============================================================================
+        # MANUAL TRADE HANDLERS
+        # ============================================================================
+        
+        # Manual trade preset handlers
         try:
             from .manual_trade_preset_handler import register_manual_preset_handlers
             register_manual_preset_handlers(application)
@@ -124,12 +156,17 @@ def register_all_handlers(application: Application):
         except ImportError as e:
             logger.warning(f"Manual trade preset handler not found: {e}")
         
+        # Manual trade handlers
         try:
             from .manual_trade_handler import register_manual_trade_handlers
             register_manual_trade_handlers(application)
             logger.info("✓ Manual trade handlers registered")
         except ImportError as e:
             logger.warning(f"Manual trade handler not found: {e}")
+        
+        # ============================================================================
+        # AUTO TRADE HANDLERS
+        # ============================================================================
         
         # Auto trade handlers
         try:
@@ -138,34 +175,46 @@ def register_all_handlers(application: Application):
             logger.info("✓ Auto trade handlers registered")
         except ImportError as e:
             logger.warning(f"Auto trade handler not found: {e}")
-        
-        # ✅✅ MOVE TRADE EXECUTION HANDLERS - NEW PATH ✅✅
-        try:
-            logger.info("🔍 Attempting to import MOVE manual trade handler from NEW path...")
-            from bot.handlers.move.trade.manual import register_move_manual_trade_handlers
-            register_move_manual_trade_handlers(application)
-            logger.info("✓ MOVE manual trade handlers registered (NEW PATH)")
-        except ImportError as e:
-            logger.warning(f"Move manual trade handler not found (new path): {e}")
-        
-        try:
-            logger.info("🔍 Attempting to import MOVE auto trade handler from NEW path...")
-            from bot.handlers.move.trade.auto import register_move_auto_trade_handlers
-            register_move_auto_trade_handlers(application)
-            logger.info("✓ MOVE auto trade handlers registered (NEW PATH)")
-        except ImportError as e:
-            logger.warning(f"Move auto trade handler not found (new path): {e}")
 
-        # ✅✅✅ SL MONITOR HANDLERS ✅✅✅
+        # ============================================================================
+        # SL MONITOR HANDLERS
+        # ============================================================================
+        
         try:
             logger.info("🔍 Importing sl_monitor_handler module...")
             from .sl_monitor_handler import register_sl_monitor_handlers
             register_sl_monitor_handlers(application)
-            logger.info("✓ SL monitor handlers registered")
+            logger.info("✅ SL monitor handlers registered")
         except ImportError as e:
             logger.warning(f"SL monitor handler not found: {e}")
         except Exception as e:
             logger.error(f"Error registering SL monitor handlers: {e}", exc_info=True)
+        
+        # ============================================================================
+        # LEG PROTECTION HANDLERS
+        # ============================================================================
+        
+        try:
+            logger.info("-" * 60)
+            logger.info("ATTEMPTING TO REGISTER LEG PROTECTION HANDLERS")
+            logger.info("-" * 60)
+        
+            from .straddle_leg_protection_handler import register_leg_protection_handlers
+        
+            register_leg_protection_handlers(application)
+        
+            logger.info("-" * 60)
+            logger.info("✅ LEG PROTECTION HANDLERS REGISTERED SUCCESSFULLY")
+            logger.info("-" * 60)
+        
+        except ImportError as e:
+            logger.warning(f"Leg protection handler not found: {e}")
+        except Exception as e:
+            logger.error(f"Error registering leg protection handlers: {e}", exc_info=True)
+        
+        # ============================================================================
+        # MESSAGE ROUTER (LOWEST PRIORITY)
+        # ============================================================================
         
         # Register message router LAST (lowest priority)
         from .message_router import route_message
@@ -178,34 +227,12 @@ def register_all_handlers(application: Application):
         )
         
         logger.info("✓ Message router registered")
-        logger.info("✓ All available handlers registered successfully")
+        logger.info("✅ All available handlers registered successfully")
         
     except Exception as e:
         logger.error(f"Failed to register handlers: {e}", exc_info=True)
         raise
 
-    # ==========================================
-    # LEG PROTECTION MONITOR
-    # ==========================================
-    try:
-        logger.info("-" * 60)
-        logger.info("ATTEMPTING TO REGISTER LEG PROTECTION HANDLERS")
-        logger.info("-" * 60)
-    
-        from .straddle_leg_protection_handler import register_leg_protection_handlers
-    
-        register_leg_protection_handlers(application)
-    
-        logger.info("-" * 60)
-        logger.info("✅ LEG PROTECTION HANDLERS REGISTERED SUCCESSFULLY")
-        logger.info("-" * 60)
-    
-    except ImportError as e:
-        logger.warning(f"Leg protection handler not found: {e}")
-    except Exception as e:
-        logger.error(f"Error registering leg protection handlers: {e}", exc_info=True)
-
-
 
 __all__ = ['register_all_handlers']
-                
+        
