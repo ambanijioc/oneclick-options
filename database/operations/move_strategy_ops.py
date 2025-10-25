@@ -25,6 +25,7 @@ async def create_move_strategy(user_id: int, strategy_data: dict) -> Optional[st
             'expiry': strategy_data.get('expiry', 'daily'),
             'direction': strategy_data['direction'],
             'atm_offset': strategy_data.get('atm_offset', 0),
+            'lot_size': strategy_data.get('lot_size', 1),  # ✅ ADD LOT SIZE
             'stop_loss_trigger': strategy_data.get('stop_loss_trigger'),
             'stop_loss_limit': strategy_data.get('stop_loss_limit'),
             'target_trigger': strategy_data.get('target_trigger'),
@@ -58,6 +59,8 @@ async def get_move_strategies(user_id: int) -> List[dict]:
                 strategy['expiry'] = 'daily'
             if 'description' not in strategy:
                 strategy['description'] = ''
+            if 'lot_size' not in strategy:
+                strategy['lot_size'] = 1
         
         return strategies
     
@@ -66,11 +69,17 @@ async def get_move_strategies(user_id: int) -> List[dict]:
         return []
 
 
-async def get_move_strategy(strategy_id: str) -> Optional[dict]:
-    """Get a specific MOVE strategy."""
+# ✅ FIX: Add user_id parameter for security
+async def get_move_strategy(user_id: int, strategy_id: str) -> Optional[dict]:
+    """Get a specific MOVE strategy for a user."""
     try:
         db = get_database()
-        strategy = await db.move_strategies.find_one({'_id': ObjectId(strategy_id)})
+        
+        # ✅ Verify strategy belongs to user
+        strategy = await db.move_strategies.find_one({
+            '_id': ObjectId(strategy_id),
+            'user_id': user_id
+        })
         
         if strategy:
             strategy['id'] = str(strategy['_id'])
@@ -81,6 +90,8 @@ async def get_move_strategy(strategy_id: str) -> Optional[dict]:
                 strategy['expiry'] = 'daily'
             if 'description' not in strategy:
                 strategy['description'] = ''
+            if 'lot_size' not in strategy:
+                strategy['lot_size'] = 1
         
         return strategy
     
@@ -89,27 +100,23 @@ async def get_move_strategy(strategy_id: str) -> Optional[dict]:
         return None
 
 
-async def update_move_strategy(strategy_id: str, strategy_data: dict) -> bool:
+# ✅ FIX: Add user_id parameter for security
+async def update_move_strategy(user_id: int, strategy_id: str, strategy_data: dict) -> bool:
     """Update a MOVE strategy."""
     try:
         db = get_database()
         
         update_data = {
-            'strategy_name': strategy_data['strategy_name'],
-            'description': strategy_data.get('description', ''),
-            'asset': strategy_data['asset'],
-            'expiry': strategy_data.get('expiry', 'daily'),
-            'direction': strategy_data['direction'],
-            'atm_offset': strategy_data.get('atm_offset', 0),
-            'stop_loss_trigger': strategy_data.get('stop_loss_trigger'),
-            'stop_loss_limit': strategy_data.get('stop_loss_limit'),
-            'target_trigger': strategy_data.get('target_trigger'),
-            'target_limit': strategy_data.get('target_limit'),
+            **strategy_data,  # Use all provided fields
             'updated_at': datetime.utcnow()
         }
         
+        # ✅ Only update if strategy belongs to user
         result = await db.move_strategies.update_one(
-            {'_id': ObjectId(strategy_id)},
+            {
+                '_id': ObjectId(strategy_id),
+                'user_id': user_id
+            },
             {'$set': update_data}
         )
         
@@ -121,11 +128,17 @@ async def update_move_strategy(strategy_id: str, strategy_data: dict) -> bool:
         return False
 
 
-async def delete_move_strategy(strategy_id: str) -> bool:
+# ✅ FIX: Add user_id parameter for security
+async def delete_move_strategy(user_id: int, strategy_id: str) -> bool:
     """Delete a MOVE strategy."""
     try:
         db = get_database()
-        result = await db.move_strategies.delete_one({'_id': ObjectId(strategy_id)})
+        
+        # ✅ Only delete if strategy belongs to user
+        result = await db.move_strategies.delete_one({
+            '_id': ObjectId(strategy_id),
+            'user_id': user_id
+        })
         
         if result.deleted_count > 0:
             logger.info(f"Deleted MOVE strategy: {strategy_id}")
@@ -180,11 +193,14 @@ async def get_move_trade_presets(user_id: int) -> List[dict]:
         return []
 
 
-async def get_move_trade_preset(preset_id: str) -> Optional[dict]:
+async def get_move_trade_preset(user_id: int, preset_id: str) -> Optional[dict]:
     """Get a specific MOVE trade preset."""
     try:
         db = get_database()
-        preset = await db.move_trade_presets.find_one({'_id': ObjectId(preset_id)})
+        preset = await db.move_trade_presets.find_one({
+            '_id': ObjectId(preset_id),
+            'user_id': user_id
+        })
         
         if preset:
             preset['id'] = str(preset['_id'])
@@ -197,7 +213,7 @@ async def get_move_trade_preset(preset_id: str) -> Optional[dict]:
         return None
 
 
-async def update_move_trade_preset(preset_id: str, preset_data: dict) -> bool:
+async def update_move_trade_preset(user_id: int, preset_id: str, preset_data: dict) -> bool:
     """Update a MOVE trade preset."""
     try:
         db = get_database()
@@ -210,7 +226,10 @@ async def update_move_trade_preset(preset_id: str, preset_data: dict) -> bool:
         }
         
         result = await db.move_trade_presets.update_one(
-            {'_id': ObjectId(preset_id)},
+            {
+                '_id': ObjectId(preset_id),
+                'user_id': user_id
+            },
             {'$set': update_data}
         )
         
@@ -222,11 +241,14 @@ async def update_move_trade_preset(preset_id: str, preset_data: dict) -> bool:
         return False
 
 
-async def delete_move_trade_preset(preset_id: str) -> bool:
+async def delete_move_trade_preset(user_id: int, preset_id: str) -> bool:
     """Delete a MOVE trade preset."""
     try:
         db = get_database()
-        result = await db.move_trade_presets.delete_one({'_id': ObjectId(preset_id)})
+        result = await db.move_trade_presets.delete_one({
+            '_id': ObjectId(preset_id),
+            'user_id': user_id
+        })
         
         if result.deleted_count > 0:
             logger.info(f"Deleted MOVE trade preset: {preset_id}")
