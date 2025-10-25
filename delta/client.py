@@ -649,6 +649,25 @@ class DeltaClient:
             params['end_time'] = end_time
         
         return await self._request('GET', '/v2/orders/history', params=params)
+
+    async def cancel_order(self, product_id: int, order_id: int) -> dict:
+        """
+        Cancel an open order.
+    
+        Args:
+            product_id: Product ID
+            order_id: Order ID to cancel
+        
+        Returns:
+            API response dict with success and order details
+        """
+        body = {
+            "id": order_id,
+            "product_id": product_id
+        }
+    
+        return await self._request('DELETE', '/v2/orders', data=body)
+    
     
     async def get_fills(
         self,
