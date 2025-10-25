@@ -38,8 +38,7 @@ def register_move_strategy_handlers(application: Application):
             move_edit_callback,
             move_edit_select_callback,
             move_edit_field_callback,
-            move_update_field_callback,
-            move_continue_edit_callback
+            move_edit_save_callback,  # ✅ FIX: Changed from move_update_field_callback
         )
         
         # ===== DELETE HANDLERS =====
@@ -89,16 +88,11 @@ def register_move_strategy_handlers(application: Application):
             pattern="^move_edit_field_"
         ))
         
-        # Handle update callbacks for asset/expiry/direction
+        # ✅ FIX: Changed handler name to move_edit_save_callback
+        # Handle save callbacks for asset/expiry/direction
         application.add_handler(CallbackQueryHandler(
-            move_update_field_callback, 
-            pattern="^move_(asset|expiry|direction)_"
-        ))
-        
-        # Continue editing same strategy
-        application.add_handler(CallbackQueryHandler(
-            move_continue_edit_callback, 
-            pattern="^move_continue_edit_"
+            move_edit_save_callback, 
+            pattern="^move_edit_save_"
         ))
         
         # ===== REGISTER DELETE HANDLERS =====
@@ -113,7 +107,7 @@ def register_move_strategy_handlers(application: Application):
         # Execution after confirmation
         application.add_handler(CallbackQueryHandler(
             move_delete_execute_callback, 
-            pattern="^move_delete_execute_"
+            pattern="^move_delete_confirmed_"  # ✅ Matches: move_delete_confirmed_{strategy_id}
         ))
         
         logger.info("✅ MOVE strategy handlers registered successfully!")
