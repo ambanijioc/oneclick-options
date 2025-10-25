@@ -9,7 +9,7 @@ Handles immediate manual execution of MOVE trades with:
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
@@ -52,7 +52,7 @@ async def move_manual_trade_callback(update: Update, context: ContextTypes.DEFAU
     for preset in presets:
         keyboard.append([InlineKeyboardButton(
             f"🎯 {preset['preset_name']}",
-            callback_data=f"move_manual_select_{preset['_id']}"
+            callback_data=f"move_manual_select_{preset['id']}"
         )])
     
     keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_move")])
@@ -82,7 +82,7 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
     
     try:
         # Get preset
-        preset = await get_move_trade_preset_by_id(preset_id)
+        preset = await get_move_trade_preset_by_id(user.id, preset_id)
         if not preset:
             await query.edit_message_text(
                 "❌ Trade preset not found.",
@@ -91,7 +91,7 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
             return
         
         # Get API credentials
-        api = await get_api_credential_by_id(preset['api_id'])
+        api = await get_api_credential_by_id(user.id, preset['api_id'])
         if not api:
             await query.edit_message_text(
                 "❌ API credential not found.",
@@ -108,7 +108,7 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
             return
         
         # Get strategy
-        strategy = await get_move_strategy(preset['strategy_id'])
+        strategy = await get_move_strategy(user.id, preset['strategy_id'])
         if not strategy:
             await query.edit_message_text(
                 "❌ Strategy not found.",
@@ -116,29 +116,17 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
             )
             return
         
-        # Extract strategy data (handle dict or Pydantic model)
-        if isinstance(strategy, dict):
-            strategy_name = strategy.get('strategy_name', 'N/A')
-            asset = strategy.get('asset', 'BTC')
-            expiry = strategy.get('expiry', 'daily')
-            direction = strategy.get('direction', 'long')
-            lot_size = strategy.get('lot_size', 1)
-            atm_offset = strategy.get('atm_offset', 0)
-            sl_trigger = strategy.get('stop_loss_trigger')
-            sl_limit = strategy.get('stop_loss_limit')
-            target_trigger = strategy.get('target_trigger')
-            target_limit = strategy.get('target_limit')
-        else:
-            strategy_name = strategy.strategy_name
-            asset = strategy.asset
-            expiry = strategy.expiry
-            direction = strategy.direction
-            lot_size = strategy.lot_size
-            atm_offset = strategy.atm_offset
-            sl_trigger = strategy.stop_loss_trigger
-            sl_limit = strategy.stop_loss_limit
-            target_trigger = strategy.target_trigger
-            target_limit = strategy.target_limit
+        # Extract strategy data
+        strategy_name = strategy.get('strategy_name', 'N/A')
+        asset = strategy.get('asset', 'BTC')
+        expiry = strategy.get('expiry', 'daily')
+        direction = strategy.get('direction', 'long')
+        lot_size = strategy.get('lot_size', 1)
+        atm_offset = strategy.get('atm_offset', 0)
+        sl_trigger = strategy.get('stop_loss_trigger')
+        sl_limit = strategy.get('stop_loss_limit')
+        target_trigger = strategy.get('target_trigger')
+        target_limit = strategy.get('target_limit')
         
         # Create Delta client
         api_key, api_secret = credentials
@@ -183,7 +171,7 @@ async def move_manual_select_callback(update: Update, context: ContextTypes.DEFA
                 # Build confirmation message
                 text = f"🎯 Confirm MOVE Trade Execution\n\n"
                 text += f"Preset: {preset['preset_name']}\n"
-                text += f"API: {api.api_name}\n"
+                text += f"API: {api['api_name']}\n"
                 text += f"Strategy: {strategy_name}\n\n"
                 text += f"📊 Market Data:\n"
                 text += f"Spot Price: ${spot_price:,.2f}\n"
@@ -434,10 +422,20 @@ async def _execute_move_trade(query, context, user, pending_trade: dict, fallbac
         )
         context.user_data.pop('pending_move_trade', None)
 
+# ✅✅ REGISTRATION FUNCTION ✅✅
+def register_move_manual_trade_handlers(application: Application):
+    """Register MOVE manual trade handlers."""
+    application.add_handler(CallbackQueryHandler(move_manual_trade_callback, pattern="^menu_move_manual_trade$"))
+    application.add_handler(CallbackQueryHandler(move_manual_select_callback, pattern="^move_manual_select_"))
+    application.add_handler(CallbackQueryHandler(move_manual_execute_callback, pattern="^move_manual_execute$"))
+    application.add_handler(CallbackQueryHandler(move_manual_execute_fallback_callback, pattern="^move_manual_execute_fallback$"))
+    logger.info("✓ MOVE manual trade handlers registered")
+
 __all__ = [
+    'register_move_manual_trade_handlers',
     'move_manual_trade_callback',
     'move_manual_select_callback',
     'move_manual_execute_callback',
     'move_manual_execute_fallback_callback',
 ]
-              
+                    
