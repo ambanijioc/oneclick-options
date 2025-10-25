@@ -51,7 +51,7 @@ def register_move_strategy_handlers(application: Application):
         # ===== REGISTER MENU HANDLER =====
         application.add_handler(CallbackQueryHandler(
             move_add_callback, 
-            pattern="^move_menu$"
+            pattern="^move_strategy$"   # ✅ FIXED!
         ))
         
         # ===== REGISTER CREATE HANDLERS =====
@@ -72,7 +72,6 @@ def register_move_strategy_handlers(application: Application):
         ))
         
         # ===== REGISTER EDIT HANDLERS =====
-        # ✅ FIX: Changed from "move_edit_list" to "move_edit"
         application.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"))
         
         application.add_handler(CallbackQueryHandler(
@@ -91,7 +90,6 @@ def register_move_strategy_handlers(application: Application):
         ))
         
         # ===== REGISTER DELETE HANDLERS =====
-        # ✅ FIX: Changed from "move_delete_list" to "move_delete"
         application.add_handler(CallbackQueryHandler(move_delete_callback, pattern="^move_delete$"))
         
         application.add_handler(CallbackQueryHandler(
@@ -112,3 +110,4 @@ def register_move_strategy_handlers(application: Application):
 
 
 __all__ = ['register_move_strategy_handlers']
+        
