@@ -1,9 +1,9 @@
 """MOVE Trade Execution Handlers"""
 
-from .manual import *
-from .auto import *
+from .manual import register_move_manual_trade_handlers
+from .auto import register_move_auto_trade_handlers
 
 __all__ = [
-    'move_manual_trade',
-    'move_auto_trade',
+    'register_move_manual_trade_handlers',
+    'register_move_auto_trade_handlers',
 ]
