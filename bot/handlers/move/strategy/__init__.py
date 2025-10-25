@@ -71,10 +71,30 @@ def register_move_strategy_handlers(application: Application):
         
         # ===== REGISTER EDIT HANDLERS =====
         application.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit_list$"))
-        application.add_handler(CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_select_"))
-        application.add_handler(CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"))
-        application.add_handler(CallbackQueryHandler(move_update_field_callback, pattern="^move_(asset|expiry|direction)_"))
-        application.add_handler(CallbackQueryHandler(move_continue_edit_callback, pattern="^move_continue_edit_"))
+        
+        # ✅ FIX: Changed from "move_edit_select_" to "move_edit_" to match keyboard
+        application.add_handler(CallbackQueryHandler(
+            move_edit_select_callback, 
+            pattern="^move_edit_[a-f0-9]{24}$"  # Matches ObjectId format (24 hex chars)
+        ))
+        
+        # Also need to handle field selection pattern
+        application.add_handler(CallbackQueryHandler(
+            move_edit_field_callback, 
+            pattern="^move_edit_field_"
+        ))
+        
+        # Handle update callbacks for asset/expiry/direction
+        application.add_handler(CallbackQueryHandler(
+            move_update_field_callback, 
+            pattern="^move_(asset|expiry|direction)_"
+        ))
+        
+        # Continue editing same strategy
+        application.add_handler(CallbackQueryHandler(
+            move_continue_edit_callback, 
+            pattern="^move_continue_edit_"
+        ))
         
         # ===== REGISTER DELETE HANDLERS =====
         application.add_handler(CallbackQueryHandler(move_delete_callback, pattern="^move_delete_list$"))
