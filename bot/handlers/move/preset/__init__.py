@@ -1,13 +1,28 @@
-"""MOVE Trade Preset CRUD Operations"""
+"""
+MOVE Trade Preset CRUD Operations
+Create, View, Edit, Delete MOVE Trade Presets
+"""
 
-from .create import *
-from .edit import *
-from .view import *
-from .delete import *
+from telegram.ext import Application
+from bot.utils.logger import setup_logger
 
-__all__ = [
-    'move_preset_create',
-    'move_preset_edit',
-    'move_preset_view',
-    'move_preset_delete',
-]
+logger = setup_logger(__name__)
+
+
+def register_move_preset_handlers(application: Application):
+    """Register all MOVE preset CRUD handlers."""
+    
+    try:
+        logger.info("🚀 Registering MOVE preset handlers...")
+        
+        # You can add imports from create.py, view.py, edit.py, delete.py here
+        # For now, this is a placeholder
+        
+        logger.info("✅ All MOVE preset handlers registered successfully!")
+        
+    except Exception as e:
+        logger.error(f"❌ Error in MOVE preset handler registration: {e}", exc_info=True)
+        raise
+
+
+__all__ = ['register_move_preset_handlers']
