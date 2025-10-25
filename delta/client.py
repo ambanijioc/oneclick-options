@@ -417,17 +417,23 @@ class DeltaClient:
         """
         return await self._request('GET', f'/v2/orders/{order_id}')
     
-    async def cancel_order(self, order_id: str) -> Dict[str, Any]:
+    async def cancel_order(self, product_id: int, order_id: int) -> Dict[str, Any]:
         """
-        Cancel an order.
-        
+        Cancel an open order.
+    
         Args:
-            order_id: Order ID
+            product_id: Product ID
+            order_id: Order ID to cancel
         
         Returns:
-            Cancellation response
+            API response dict with success and order details
         """
-        return await self._request('DELETE', f'/v2/orders/{order_id}')
+        body = {
+            "id": order_id,
+            "product_id": product_id
+        }
+    
+        return await self._request('DELETE', '/v2/orders', data=body)
     
     async def cancel_all_orders(self, product_id: Optional[int] = None) -> Dict[str, Any]:
         """
@@ -649,25 +655,6 @@ class DeltaClient:
             params['end_time'] = end_time
         
         return await self._request('GET', '/v2/orders/history', params=params)
-
-    async def cancel_order(self, product_id: int, order_id: int) -> dict:
-        """
-        Cancel an open order.
-    
-        Args:
-            product_id: Product ID
-            order_id: Order ID to cancel
-        
-        Returns:
-            API response dict with success and order details
-        """
-        body = {
-            "id": order_id,
-            "product_id": product_id
-        }
-    
-        return await self._request('DELETE', '/v2/orders', data=body)
-    
     
     async def get_fills(
         self,
