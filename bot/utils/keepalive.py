@@ -69,8 +69,8 @@ async def keepalive_loop(base_url: str):
                 )
                 failed_count = 0  # Reset on success
                 
-                # Send hourly status to Telegram (every 6 pings = 1 hour)
-                if ping_count % 6 == 0:
+                # Send hourly status to Telegram (every 12 pings = 1 hour)
+                if ping_count % 12 == 0:
                     await log_to_telegram(
                         f"✅ Keep-Alive Status\n"
                         f"Time: {now_ist.strftime('%I:%M %p IST')}\n"
@@ -99,8 +99,8 @@ async def keepalive_loop(base_url: str):
                     f"Action Required: Check Render logs"
                 )
             
-            # Wait 10 minutes (600 seconds)
-            await asyncio.sleep(600)
+            # Wait 5 minutes (300 seconds)
+            await asyncio.sleep(300)
         
         except Exception as e:
             logger.error(f"❌ Keep-alive loop error: {e}", exc_info=True)
