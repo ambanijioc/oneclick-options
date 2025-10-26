@@ -35,17 +35,17 @@ async def ping_self(url: str):
 
 async def keepalive_loop(base_url: str):
     """
-    Run keep-alive pings every 10 minutes (24x7 operation).
+    Run keep-alive pings every 5 minutes (24x7 operation).
     Sends Telegram notification every hour.
     """
     logger.info("🔄 Keep-alive service started (24x7 mode)")
-    logger.info(f"🎯 Pinging: {base_url}/health every 10 minutes")
+    logger.info(f"🎯 Pinging: {base_url}/health every 5 minutes")
     
     # Send startup notification
     await log_to_telegram(
         f"🔄 Keep-Alive Started\n"
         f"Time: {datetime.now(IST).strftime('%I:%M %p IST')}\n"
-        f"Interval: Every 10 minutes\n"
+        f"Interval: Every 5 minutes\n"
         f"Status: Active 24x7"
     )
     
