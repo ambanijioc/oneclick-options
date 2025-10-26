@@ -210,15 +210,17 @@ async def root():
     }
 
 
-@app.get("/health")
-async def health_check():
+@app.api_route("/health", methods=["GET", "HEAD", "POST", "OPTIONS"])
+async def health_check(request: Request):
     """
-    Health check endpoint for UptimeRobot monitoring.
+    Universal health check endpoint.
+    Supports GET, HEAD, POST, and OPTIONS for maximum compatibility.
     """
     return {
         "status": "ok",
         "timestamp": datetime.now().isoformat(),
-        "service": "telegram_trading_bot"
+        "service": "telegram_trading_bot",
+        "method": request.method  # Shows which method was used
     }
 
 
