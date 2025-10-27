@@ -101,7 +101,8 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
             'stop_order_type': 'stop_loss_order',
             'stop_price': round(sl_trigger_price, 2),
             'limit_price': round(sl_limit_price, 2),
-            'time_in_force': 'gtc'
+            'time_in_force': 'gtc',
+            'reduce_only': True  # ✅ CRITICAL FIX
         })
         
         if sl_order.get('success'):
@@ -125,7 +126,8 @@ async def place_sl_target_orders(client: DeltaClient, symbol: str, size: int, di
                 'stop_order_type': 'take_profit_order',
                 'stop_price': round(target_trigger_price, 2),
                 'limit_price': round(target_limit_price, 2),
-                'time_in_force': 'gtc'
+                'time_in_force': 'gtc',
+                'reduce_only': True  # ✅ CRITICAL FIX
             })
             
             if target_order.get('success'):
