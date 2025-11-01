@@ -17,7 +17,10 @@ from database.operations.move_strategy_ops import create_move_strategy, update_m
 from bot.keyboards.move_strategy_keyboards import (
     get_skip_target_keyboard,
     get_cancel_keyboard,
-    get_move_menu_keyboard
+    get_move_menu_keyboard,
+    get_asset_keyboard,  # ✅ ADD THIS
+    get_expiry_keyboard,  # ✅ ADD THIS
+    get_direction_keyboard,  # ✅ ADD THIS
 )
 
 logger = setup_logger(__name__)
