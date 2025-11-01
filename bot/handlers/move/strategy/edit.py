@@ -5,7 +5,7 @@ Handles editing existing MOVE strategies.
 """
 
 from telegram import Update, BadRequest
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
@@ -136,7 +136,7 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
     user = query.from_user
     
     # Extract: move_edit_field_{ID}_{field} -> ['move', 'edit', 'field', 'ID', 'field_name']
-    parts = query.data.split('_')
+    parts = query.data.split('_', 4)  # ✅ FIX: Limit splits to preserve field names
     strategy_id = parts[3] if len(parts) >= 4 else None
     field = parts[4] if len(parts) >= 5 else None
     
@@ -284,12 +284,9 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=get_move_menu_keyboard()
         )
 
-
-# ✅✅✅ ADD THIS REGISTRATION FUNCTION ✅✅✅
-def register_move_edit_handlers(app):
+# ✅ REGISTRATION FUNCTION
+def register_move_edit_handlers(app: Application):
     """Register MOVE strategy edit handlers"""
-    from telegram.ext import CallbackQueryHandler
-    
     app.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"))
     app.add_handler(CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"))
     app.add_handler(CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"))
@@ -297,11 +294,10 @@ def register_move_edit_handlers(app):
     
     logger.info("✓ MOVE edit handlers registered")
 
-
 __all__ = [
     'move_edit_callback',
     'move_edit_select_callback',
     'move_edit_field_callback',
     'move_edit_save_callback',
-    'register_move_edit_handlers',  # ✅ Add to exports
+    'register_move_edit_handlers',
 ]
