@@ -1,115 +1,71 @@
 """
-MOVE Trade Preset CRUD Operations - Create, View, Edit, Delete MOVE Trade Presets
+MOVE Preset Handlers
+Handles creation, viewing, editing, and deletion of MOVE trade presets.
 """
 
-from telegram.ext import CallbackQueryHandler, Application
+from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
 from bot.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
 def register_move_preset_handlers(application: Application):
-    """Register all MOVE preset CRUD handlers."""
+    """Register all MOVE preset handlers."""
     
     try:
-        logger.info("🚀 Registering MOVE preset handlers...")
+        logger.info("🔍 Registering MOVE preset handlers...")
         
-        # Import handlers from modules
+        # Import handlers
         from .create import (
             move_preset_add_callback,
             move_preset_add_new_callback,
             move_preset_confirm_save_callback,
             move_preset_cancel_callback
         )
-        
         from .view import (
             move_preset_view_callback,
             move_preset_view_details_callback
         )
-        
         from .edit import (
             move_preset_edit_callback,
-            move_preset_edit_select_callback,
-            move_preset_edit_save_callback
+            move_preset_edit_select_callback
         )
-        
         from .delete import (
             move_preset_delete_callback,
             move_preset_delete_confirm_callback,
             move_preset_delete_execute_callback
         )
         
-        # ===== REGISTER CREATE HANDLERS =====
-        application.add_handler(CallbackQueryHandler(
-            move_preset_add_callback, 
-            pattern="^move_preset$"
-        ))
+        # Register CREATE handlers
+        application.add_handler(CallbackQueryHandler(move_preset_add_callback, pattern="^menu_move_preset$"))
+        application.add_handler(CallbackQueryHandler(move_preset_add_new_callback, pattern="^move_preset_add_new$"))
+        application.add_handler(CallbackQueryHandler(move_preset_confirm_save_callback, pattern="^move_preset_confirm_save$"))
+        application.add_handler(CallbackQueryHandler(move_preset_cancel_callback, pattern="^move_preset_cancel$"))
         
-        application.add_handler(CallbackQueryHandler(
-            move_preset_add_new_callback, 
-            pattern="^move_preset_add$"
-        ))
+        # Register VIEW handlers
+        application.add_handler(CallbackQueryHandler(move_preset_view_callback, pattern="^move_preset_view$"))
+        application.add_handler(CallbackQueryHandler(move_preset_view_details_callback, pattern="^move_preset_view_details_"))
         
-        application.add_handler(CallbackQueryHandler(
-            move_preset_confirm_save_callback, 
-            pattern="^move_preset_confirm_save$"
-        ))
+        # Register EDIT handlers
+        application.add_handler(CallbackQueryHandler(move_preset_edit_callback, pattern="^move_preset_edit$"))
+        application.add_handler(CallbackQueryHandler(move_preset_edit_select_callback, pattern="^move_preset_edit_select_"))
         
-        application.add_handler(CallbackQueryHandler(
-            move_preset_cancel_callback, 
-            pattern="^move_preset_cancel$"
-        ))
+        # Register DELETE handlers
+        application.add_handler(CallbackQueryHandler(move_preset_delete_callback, pattern="^move_preset_delete$"))
+        application.add_handler(CallbackQueryHandler(move_preset_delete_confirm_callback, pattern="^move_preset_delete_confirm_"))
+        application.add_handler(CallbackQueryHandler(move_preset_delete_execute_callback, pattern="^move_preset_delete_execute_"))
         
-        # ===== REGISTER VIEW HANDLERS =====
-        application.add_handler(CallbackQueryHandler(
-            move_preset_view_callback, 
-            pattern="^move_preset_view$"
-        ))
+        # Register input handlers (text input)
+        from .input_handlers import (
+            handle_move_preset_name_input,
+            handle_move_preset_entry_lots_input,
+            handle_move_preset_exit_lots_input
+        )
         
-        application.add_handler(CallbackQueryHandler(
-            move_preset_view_details_callback, 
-            pattern="^move_preset_view_[a-f0-9]{24}$"
-        ))
-        
-        # ===== REGISTER EDIT HANDLERS =====
-        application.add_handler(CallbackQueryHandler(
-            move_preset_edit_callback, 
-            pattern="^move_preset_edit$"
-        ))
-        
-        application.add_handler(CallbackQueryHandler(
-            move_preset_edit_select_callback, 
-            pattern="^move_preset_edit_[a-f0-9]{24}$"
-        ))
-        
-        application.add_handler(CallbackQueryHandler(
-            move_preset_edit_save_callback, 
-            pattern="^move_preset_edit_save_"
-        ))
-        
-        # ===== REGISTER DELETE HANDLERS =====
-        application.add_handler(CallbackQueryHandler(
-            move_preset_delete_callback, 
-            pattern="^move_preset_delete$"
-        ))
-        
-        application.add_handler(CallbackQueryHandler(
-            move_preset_delete_confirm_callback, 
-            pattern="^move_preset_delete_[a-f0-9]{24}$"
-        ))
-        
-        application.add_handler(CallbackQueryHandler(
-            move_preset_delete_execute_callback, 
-            pattern="^move_preset_delete_confirmed_"
-        ))
-        
-        logger.info("✅ All MOVE preset handlers registered successfully!")
-        
-    except ImportError as e:
-        logger.warning(f"⚠️ Some MOVE preset modules not found yet: {e}")
-        logger.info("Create the missing preset modules (create.py, view.py, edit.py, delete.py)")
+        logger.info("✅ MOVE preset handlers registered successfully!")
+    
     except Exception as e:
-        logger.error(f"❌ Error in MOVE preset handler registration: {e}", exc_info=True)
+        logger.error(f"❌ Error registering MOVE preset handlers: {e}", exc_info=True)
         raise
 
 
