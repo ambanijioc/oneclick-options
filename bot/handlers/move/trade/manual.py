@@ -1,5 +1,3 @@
-# ============ FILE 2: bot/handlers/move/trade/manual.py ============
-
 """
 MOVE Manual Trade Execution Handler
 
@@ -20,6 +18,7 @@ from bot.keyboards.move_trade_keyboards import get_trade_menu_keyboard
 
 logger = setup_logger(__name__)
 
+
 @error_handler
 async def move_manual_trade_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start MOVE manual trade entry"""
@@ -33,6 +32,7 @@ async def move_manual_trade_callback(update: Update, context: ContextTypes.DEFAU
     
     log_user_action(user.id, "Started MOVE manual trade")
     
+    # Set initial state
     await state_manager.set_state(user.id, 'move_manual_entry_price')
     
     await query.edit_message_text(
@@ -42,10 +42,17 @@ async def move_manual_trade_callback(update: Update, context: ContextTypes.DEFAU
         parse_mode='HTML'
     )
 
+
 @error_handler
 async def handle_move_manual_entry_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle manual trade entry price"""
     user = update.effective_user
+    
+    # Check if user is in this state
+    state = await state_manager.get_state(user.id)
+    if state != 'move_manual_entry_price':
+        return  # Not for us
+    
     text = update.message.text.strip()
     
     try:
@@ -53,9 +60,7 @@ async def handle_move_manual_entry_price(update: Update, context: ContextTypes.D
         if entry_price <= 0:
             raise ValueError("Price must be positive")
     except (ValueError, TypeError):
-        await update.message.reply_text(
-            "❌ Please enter a valid price"
-        )
+        await update.message.reply_text("❌ Please enter a valid price")
         return
     
     await state_manager.set_state_data(user.id, {'entry_price': entry_price})
@@ -68,10 +73,16 @@ async def handle_move_manual_entry_price(update: Update, context: ContextTypes.D
         parse_mode='HTML'
     )
 
+
 @error_handler
 async def handle_move_manual_lot_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle manual lot size"""
     user = update.effective_user
+    
+    state = await state_manager.get_state(user.id)
+    if state != 'move_manual_lot_size':
+        return
+    
     text = update.message.text.strip()
     
     try:
@@ -79,9 +90,7 @@ async def handle_move_manual_lot_size(update: Update, context: ContextTypes.DEFA
         if not (1 <= lot_size <= 1000):
             raise ValueError("Lot size out of range")
     except (ValueError, TypeError):
-        await update.message.reply_text(
-            "❌ Please enter valid lot size (1-1000)"
-        )
+        await update.message.reply_text("❌ Please enter valid lot size (1-1000)")
         return
     
     await state_manager.set_state_data(user.id, {'lot_size': lot_size})
@@ -94,10 +103,16 @@ async def handle_move_manual_lot_size(update: Update, context: ContextTypes.DEFA
         parse_mode='HTML'
     )
 
+
 @error_handler
 async def handle_move_manual_sl_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle SL price"""
     user = update.effective_user
+    
+    state = await state_manager.get_state(user.id)
+    if state != 'move_manual_sl_price':
+        return
+    
     text = update.message.text.strip()
     
     try:
@@ -105,9 +120,7 @@ async def handle_move_manual_sl_price(update: Update, context: ContextTypes.DEFA
         if sl_price <= 0:
             raise ValueError("Price must be positive")
     except (ValueError, TypeError):
-        await update.message.reply_text(
-            "❌ Please enter a valid SL price"
-        )
+        await update.message.reply_text("❌ Please enter a valid SL price")
         return
     
     await state_manager.set_state_data(user.id, {'sl_price': sl_price})
@@ -120,10 +133,16 @@ async def handle_move_manual_sl_price(update: Update, context: ContextTypes.DEFA
         parse_mode='HTML'
     )
 
+
 @error_handler
 async def handle_move_manual_target_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle target price"""
     user = update.effective_user
+    
+    state = await state_manager.get_state(user.id)
+    if state != 'move_manual_target_price':
+        return
+    
     text = update.message.text.strip()
     
     if text.lower() == 'skip':
@@ -135,9 +154,7 @@ async def handle_move_manual_target_price(update: Update, context: ContextTypes.
                 raise ValueError("Price must be positive")
             await state_manager.set_state_data(user.id, {'target_price': target_price})
         except (ValueError, TypeError):
-            await update.message.reply_text(
-                "❌ Please enter valid price or 'skip'"
-            )
+            await update.message.reply_text("❌ Please enter valid price or 'skip'")
             return
     
     await state_manager.set_state(user.id, 'move_manual_direction')
@@ -149,16 +166,20 @@ async def handle_move_manual_target_price(update: Update, context: ContextTypes.
         parse_mode='HTML'
     )
 
+
 @error_handler
 async def handle_move_manual_direction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle trade direction"""
     user = update.effective_user
+    
+    state = await state_manager.get_state(user.id)
+    if state != 'move_manual_direction':
+        return
+    
     text = update.message.text.strip().upper()
     
     if text not in ['BUY', 'SELL']:
-        await update.message.reply_text(
-            "❌ Please enter 'BUY' or 'SELL'"
-        )
+        await update.message.reply_text("❌ Please enter 'BUY' or 'SELL'")
         return
     
     await state_manager.set_state_data(user.id, {'direction': text})
@@ -171,16 +192,21 @@ async def handle_move_manual_direction(update: Update, context: ContextTypes.DEF
         parse_mode='HTML'
     )
 
+
 @error_handler
 async def handle_move_manual_strategy_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Complete manual trade entry"""
     user = update.effective_user
-    text = update.message.text.strip()
     
+    state = await state_manager.get_state(user.id)
+    if state != 'move_manual_strategy_select':
+        return
+    
+    text = update.message.text.strip()
     data = await state_manager.get_state_data(user.id)
     
     try:
-        # ✅ FIX: Create manual trade record
+        # ✅ Create manual trade record
         trade_data = {
             'entry_price': data['entry_price'],
             'lot_size': data['lot_size'],
@@ -197,6 +223,9 @@ async def handle_move_manual_strategy_select(update: Update, context: ContextTyp
         
         if not trade_id:
             raise Exception("Failed to create trade")
+        
+        # Clear state
+        await state_manager.clear_state(user.id)
         
         message = (
             f"✅ Manual Trade Created\n\n"
@@ -219,8 +248,20 @@ async def handle_move_manual_strategy_select(update: Update, context: ContextTyp
         
     except Exception as e:
         logger.error(f"Manual trade creation failed: {str(e)}")
+        await state_manager.clear_state(user.id)
         await update.message.reply_text(
             f"❌ Trade creation failed: {str(e)}",
             reply_markup=get_trade_menu_keyboard()
         )
 
+
+__all__ = [
+    'move_manual_trade_callback',
+    'handle_move_manual_entry_price',
+    'handle_move_manual_lot_size',
+    'handle_move_manual_sl_price',
+    'handle_move_manual_target_price',
+    'handle_move_manual_direction',
+    'handle_move_manual_strategy_select'
+]
+        
