@@ -123,7 +123,17 @@ def register_all_handlers(application: Application):
             logger.info("✓ Options list handlers registered")
         except ImportError as e:
             logger.warning(f"Options list handler not found: {e}")
-        
+
+        # Move list handlers
+        try:
+            from .move_list_handler import register_move_list_handlers
+            register_move_list_handlers(application)
+            logger.info("✓ Move list handlers registered")
+        except ImportError as e:
+            logger.warning(f"Move list handler not found: {e}")
+        except Exception as e:
+            logger.error(f"Error registering move list handlers: {e}", exc_info=True)
+            
         # Strategy handlers
         try:
             from .straddle_strategy_handler import register_straddle_strategy_handlers
