@@ -1,6 +1,5 @@
 """
 MOVE Strategy handlers initialization and registration.
-Imports from create, delete, edit, and view modules.
 """
 
 from telegram.ext import Application, CallbackQueryHandler
@@ -8,14 +7,14 @@ from bot.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+
 def register_move_strategy_handlers(application: Application):
-    """Register all MOVE strategy handlers."""
+    """Register all MOVE strategy handlers (Group 10)."""
     
     # ==================== CREATE HANDLERS ====================
     try:
         from bot.handlers.move.strategy.create import (
             move_add_callback,
-            move_add_new_strategy_callback,
             move_skip_description_callback,
             move_asset_callback,
             move_expiry_callback,
@@ -28,10 +27,6 @@ def register_move_strategy_handlers(application: Application):
         # Register create handlers
         application.add_handler(
             CallbackQueryHandler(move_add_callback, pattern="^move_menu$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_add_new_strategy_callback, pattern="^move_add_strategy$"), 
             group=10
         )
         application.add_handler(
@@ -160,7 +155,7 @@ def register_move_strategy_handlers(application: Application):
     except Exception as e:
         logger.error(f"❌ Error registering MOVE view handlers: {e}", exc_info=True)
     
-    logger.info("✅ ALL MOVE strategy handlers registered (Group 10)")
+    logger.info("✅ ALL MOVE strategy handlers registered successfully (Group 10)")
+
 
 __all__ = ['register_move_strategy_handlers']
-        
