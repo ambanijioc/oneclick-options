@@ -345,6 +345,60 @@ async def move_add_new_strategy_callback(update: Update, context: ContextTypes.D
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
+
+@error_handler
+async def move_skip_description_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Skip description button callback"""
+    user = update.effective_user
+    query = update.callback_query
+    
+    state = await state_manager.get_state(user.id)
+    if state != 'move_add_description':
+        await query.answer("❌ Invalid state", show_alert=True)
+        return
+    
+    await query.answer("⏭️ Skipping description...")
+    
+    # Save empty description and move to lot size
+    await state_manager.set_state_data(user.id, {'description': ''})
+    await state_manager.set_state(user.id, 'move_add_lot_size')
+    
+    logger.info(f"📥 User {user.id} skipped description")
+    
+    await query.edit_message_text(
+        "⏭️ Description skipped\n\n"
+        "Step 3/7: <b>Lot Size</b>\n"
+        "Enter lot size (1-1000):",
+        reply_markup=get_cancel_keyboard(),
+        parse_mode='HTML'
+    )
+
+
+@error_handler
+async def move_skip_target_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Skip target setup button callback - skips BOTH Step 7 & 8"""
+    user = update.effective_user
+    query = update.callback_query
+    
+    state = await state_manager.get_state(user.id)
+    if state != 'move_add_target_trigger':
+        await query.answer("❌ Invalid state", show_alert=True)
+        return
+    
+    await query.answer("⏭️ Skipping target setup...")
+    
+    # ✅ Save empty targets and go DIRECTLY to confirmation (skip both Step 7 & 8)
+    await state_manager.set_state_data(user.id, {
+        'target_trigger_percent': 0,
+        'target_limit_percent': 0
+    })
+    
+    logger.info(f"📥 User {user.id} skipped target setup - going to confirmation")
+    
+    # Import and show confirmation
+    from bot.handlers.move.strategy.create import show_move_confirmation
+    await show_move_confirmation(update, context)
+    
     
 __all__ = [
     'move_add_callback',
