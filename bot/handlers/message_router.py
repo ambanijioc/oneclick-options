@@ -69,9 +69,9 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ==================== MOVE STRATEGY STATES ====================
         # Strategy Creation States
         elif state_str == 'move_add_name':
-            from bot.handlers.move.input_handlers import handle_move_strategy_name
+            from bot.handlers.move.strategy.input_handlers import handle_move_strategy_name
             await handle_move_strategy_name(update, context)
-
+            
         elif state_str == 'move_add_description':
             from bot.handlers.move.input_handlers import handle_move_description
             await handle_move_description(update, context)
