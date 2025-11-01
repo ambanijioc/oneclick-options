@@ -15,6 +15,7 @@ def register_move_strategy_handlers(application: Application):
     try:
         from bot.handlers.move.strategy.create import (
             move_add_callback,
+            move_add_new_strategy_callback,  # ✅ ADD THIS
             move_skip_description_callback,
             move_asset_callback,
             move_expiry_callback,
@@ -26,6 +27,11 @@ def register_move_strategy_handlers(application: Application):
         
         application.add_handler(CallbackQueryHandler(
             move_add_callback, pattern="^move_menu$"), group=10)
+
+        # ✅ ADD THIS - Handle "Add Strategy" button
+        application.add_handler(CallbackQueryHandler(
+            move_add_new_strategy_callback, pattern="^move_add_strategy$"), group=10)
+     
         application.add_handler(CallbackQueryHandler(
             move_skip_description_callback, pattern="^move_skip_description$"), group=10)
         application.add_handler(CallbackQueryHandler(
