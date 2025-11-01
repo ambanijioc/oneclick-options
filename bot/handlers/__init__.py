@@ -59,16 +59,13 @@ def register_all_handlers(application: Application):
         # ✅ MOVE TRADE HANDLERS (bot/handlers/move/trade/ - includes manual & auto)
         try:
             logger.info("🔍 Registering MOVE trade handlers (nested: manual + auto)...")
-            
-            # Manual trade handlers
-            from bot.handlers.move.trade import register_move_manual_trade_handlers
+            from bot.handlers.move.trade import (
+                register_move_manual_trade_handlers,
+                register_move_auto_trade_handlers
+            )
             register_move_manual_trade_handlers(application)
-            logger.info("✅ MOVE manual trade handlers registered")
-            
-            # Auto trade handlers
-            from bot.handlers.move.trade.auto import register_move_auto_trade_handlers
             register_move_auto_trade_handlers(application)
-            logger.info("✅ MOVE auto trade handlers registered")
+            logger.info("✅ MOVE manual and auto trade handlers registered")
             
         except ImportError as e:
             logger.error(f"❌ Move trade handler import failed: {e}", exc_info=True)
@@ -218,3 +215,4 @@ def register_all_handlers(application: Application):
 
 
 __all__ = ['register_all_handlers']
+        
