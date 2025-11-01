@@ -15,7 +15,7 @@ def register_move_strategy_handlers(application: Application):
     try:
         from bot.handlers.move.strategy.create import (
             move_add_callback,
-            move_add_new_strategy_callback,  # ✅ ADD THIS
+            move_add_new_strategy_callback,
             move_skip_description_callback,
             move_asset_callback,
             move_expiry_callback,
@@ -25,31 +25,49 @@ def register_move_strategy_handlers(application: Application):
             move_cancel_callback
         )
         
-        application.add_handler(CallbackQueryHandler(
-            move_add_callback, pattern="^move_menu$"), group=10)
-
-        # ✅ ADD THIS - Handle "Add Strategy" button
-        application.add_handler(CallbackQueryHandler(
-            move_add_new_strategy_callback, pattern="^move_add_strategy$"), group=10)
-     
-        application.add_handler(CallbackQueryHandler(
-            move_skip_description_callback, pattern="^move_skip_description$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_asset_callback, pattern="^move_asset_(btc|eth)$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_direction_callback, pattern="^move_direction_(long|short)$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_confirm_save_callback, pattern="^move_confirm_save$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_skip_target_callback, pattern="^move_skip_target$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_cancel_callback, pattern="^move_cancel$"), group=10)
+        # Register create handlers
+        application.add_handler(
+            CallbackQueryHandler(move_add_callback, pattern="^move_menu$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_add_new_strategy_callback, pattern="^move_add_strategy$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(btc|eth)$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_direction_callback, pattern="^move_direction_(long|short)$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_confirm_save_callback, pattern="^move_confirm_save$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_cancel_callback, pattern="^move_cancel$"), 
+            group=10
+        )
         
-        logger.info("✅ MOVE create handlers registered")
+        logger.info("✅ MOVE create handlers registered (Group 10)")
     except ImportError as e:
-        logger.error(f"❌ Error importing MOVE create handlers: {e}")
+        logger.error(f"❌ Error importing MOVE create handlers: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"❌ Error registering MOVE create handlers: {e}", exc_info=True)
     
     # ==================== EDIT HANDLERS ====================
     try:
@@ -60,20 +78,28 @@ def register_move_strategy_handlers(application: Application):
             move_edit_save_callback
         )
         
-        application.add_handler(CallbackQueryHandler(
-            move_edit_callback, pattern="^move_edit$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_edit_field_callback, pattern="^move_edit_field_"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_edit_save_callback, pattern="^move_edit_save_"), group=10)
+        application.add_handler(
+            CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"), 
+            group=10
+        )
         
-        logger.info("✅ MOVE edit handlers registered")
+        logger.info("✅ MOVE edit handlers registered (Group 10)")
     except ImportError as e:
         logger.warning(f"⚠️ MOVE edit handlers not available: {e}")
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE edit handlers: {e}")
+        logger.error(f"❌ Error registering MOVE edit handlers: {e}", exc_info=True)
     
     # ==================== DELETE HANDLERS ====================
     try:
@@ -83,18 +109,24 @@ def register_move_strategy_handlers(application: Application):
             move_delete_execute_callback
         )
         
-        application.add_handler(CallbackQueryHandler(
-            move_delete_callback, pattern="^move_delete$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_delete_confirm_callback, pattern="^move_delete_[0-9a-f]{24}$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_delete_execute_callback, pattern="^move_delete_confirmed_"), group=10)
+        application.add_handler(
+            CallbackQueryHandler(move_delete_callback, pattern="^move_delete$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_[0-9a-f]{24}$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_delete_execute_callback, pattern="^move_delete_confirmed_"), 
+            group=10
+        )
         
-        logger.info("✅ MOVE delete handlers registered")
+        logger.info("✅ MOVE delete handlers registered (Group 10)")
     except ImportError as e:
         logger.warning(f"⚠️ MOVE delete handlers not available: {e}")
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE delete handlers: {e}")
+        logger.error(f"❌ Error registering MOVE delete handlers: {e}", exc_info=True)
     
     # ==================== VIEW HANDLERS ====================
     try:
@@ -105,22 +137,30 @@ def register_move_strategy_handlers(application: Application):
             move_strategy_status
         )
         
-        application.add_handler(CallbackQueryHandler(
-            move_view_callback, pattern="^move_view$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_view_detail_callback, pattern="^move_view_[0-9a-f]{24}$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_list_all_callback, pattern="^move_list_all$"), group=10)
-        application.add_handler(CallbackQueryHandler(
-            move_strategy_status, pattern="^move_status_"), group=10)
+        application.add_handler(
+            CallbackQueryHandler(move_view_callback, pattern="^move_view$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_view_detail_callback, pattern="^move_view_[0-9a-f]{24}$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_list_all_callback, pattern="^move_list_all$"), 
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_strategy_status, pattern="^move_status_"), 
+            group=10
+        )
         
-        logger.info("✅ MOVE view handlers registered")
+        logger.info("✅ MOVE view handlers registered (Group 10)")
     except ImportError as e:
         logger.warning(f"⚠️ MOVE view handlers not available: {e}")
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE view handlers: {e}")
+        logger.error(f"❌ Error registering MOVE view handlers: {e}", exc_info=True)
     
-    logger.info("✅ ALL MOVE strategy handlers registered")
+    logger.info("✅ ALL MOVE strategy handlers registered (Group 10)")
 
 __all__ = ['register_move_strategy_handlers']
         
