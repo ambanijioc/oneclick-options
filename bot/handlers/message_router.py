@@ -69,41 +69,41 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ==================== MOVE STRATEGY STATES ====================
         # Strategy Creation States
         elif state_str == 'move_add_name':
-            from .move.strategy.input_handlers import handle_move_name_input
-            await handle_move_name_input(update, context, text)
-        
+            from bot.handlers.move.input_handlers import handle_move_strategy_name
+            await handle_move_strategy_name(update, context)
+
         elif state_str == 'move_add_description':
-            from .move.strategy.input_handlers import handle_move_description_input
-            await handle_move_description_input(update, context, text)
+            from bot.handlers.move.input_handlers import handle_move_description
+            await handle_move_description(update, context)
+
+        elif state_str == 'move_add_asset':
+            from bot.handlers.move.input_handlers import handle_move_asset
+            await handle_move_asset(update, context)
 
         elif state_str == 'move_add_atm_offset':
-            from .move.strategy.input_handlers import handle_move_atm_offset_input
-            await handle_move_atm_offset_input(update, context, text)
-        
+            from bot.handlers.move.input_handlers import handle_move_atm_offset
+            await handle_move_atm_offset(update, context)
+
         elif state_str == 'move_add_lot_size':
-            from .move.strategy.input_handlers import handle_move_lot_size_input
-            await handle_move_lot_size_input(update, context, text)
-        
-        elif state_str == 'move_add_otm_value':
-            from .move.strategy.input_handlers import handle_move_otm_value_input
-            await handle_move_otm_value_input(update, context, text)
-        
+            from bot.handlers.move.input_handlers import handle_move_lot_size
+            await handle_move_lot_size(update, context)
+
         elif state_str == 'move_add_sl_trigger':
-            from .move.strategy.input_handlers import handle_move_sl_trigger_input
-            await handle_move_sl_trigger_input(update, context, text)
-        
+            from bot.handlers.move.input_handlers import handle_move_sl_trigger
+            await handle_move_sl_trigger(update, context)
+
         elif state_str == 'move_add_sl_limit':
-            from .move.strategy.input_handlers import handle_move_sl_limit_input
-            await handle_move_sl_limit_input(update, context, text)
-        
+            from bot.handlers.move.input_handlers import handle_move_sl_limit
+            await handle_move_sl_limit(update, context)
+
         elif state_str == 'move_add_target_trigger':
-            from .move.strategy.input_handlers import handle_move_target_trigger_input
-            await handle_move_target_trigger_input(update, context, text)
-        
+            from bot.handlers.move.input_handlers import handle_move_target_trigger
+            await handle_move_target_trigger(update, context)
+
         elif state_str == 'move_add_target_limit':
-            from .move.strategy.input_handlers import handle_move_target_limit_input
-            await handle_move_target_limit_input(update, context, text)
-        
+            from bot.handlers.move.input_handlers import handle_move_target_limit
+            await handle_move_target_limit(update, context)
+      
         # Strategy Edit States
         elif state_str == 'move_edit_name':
             from .move.strategy.input_handlers import handle_move_edit_name_input
