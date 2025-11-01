@@ -1,5 +1,6 @@
 """
-MOVE Trade Handlers - Manual + Auto (Nested)
+MOVE Trade Handlers Module (Manual + Auto)
+Handles both manual and automatic trade execution for MOVE strategies.
 """
 
 from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
@@ -8,87 +9,79 @@ from bot.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
+def register_handlers(application: Application) -> None:
+    """Register manual trade handlers (entry point from parent)"""
+    register_move_manual_trade_handlers(application)
+
+
 def register_move_manual_trade_handlers(application: Application) -> None:
-    """Register MOVE manual trade handlers - LAZY LOAD"""
+    """
+    ✅ Register MOVE manual trade handlers
+    Imports actual handler functions from the manual submodule
+    """
     try:
-        # Lazy import - only when called
+        # Import from manual submodule
         from bot.handlers.move.trade.manual import (
             move_manual_trade_callback,
-            handle_move_manual_entry_price,
-            handle_move_manual_lot_size,
-            handle_move_manual_sl_price,
-            handle_move_manual_target_price,
-            handle_move_manual_direction,
-            handle_move_manual_strategy_select,
         )
         
-        # Callback button click
+        logger.info("🔍 Registering MOVE manual trade handlers...")
+        
+        # Callback handler for button click: move_manual_trade
         application.add_handler(
             CallbackQueryHandler(
                 move_manual_trade_callback,
                 pattern=r"^move_manual_trade$"
-            )
+            ),
+            group=1  # High priority
         )
         
-        # Text input handlers - group 10 (low priority)
-        application.add_handler(
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_move_manual_entry_price
-            ),
-            group=10
-        )
-        application.add_handler(
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_move_manual_lot_size
-            ),
-            group=10
-        )
-        application.add_handler(
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_move_manual_sl_price
-            ),
-            group=10
-        )
-        application.add_handler(
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_move_manual_target_price
-            ),
-            group=10
-        )
-        application.add_handler(
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_move_manual_direction
-            ),
-            group=10
-        )
-        application.add_handler(
-            MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                handle_move_manual_strategy_select
-            ),
-            group=10
-        )
-        
-        logger.info("✅ Manual trade handlers registered")
+        logger.info("✅ Manual trade handlers registered successfully")
         
     except Exception as e:
-        logger.error(f"❌ Manual trade handler error: {e}")
+        logger.error(f"❌ Manual trade handler error: {e}", exc_info=True)
 
 
-def register_auto_trade_handlers(application: Application) -> None:
-    """Register MOVE auto trade handlers"""
+def register_move_auto_trade_handlers(application: Application) -> None:
+    """
+    ✅ Register MOVE auto trade handlers
+    Imports from the auto submodule
+    """
     try:
-        logger.info("✅ Auto trade handlers registered")
+        # Import auto trade handler
+        from bot.handlers.move.trade.auto import (
+            move_auto_trade_callback,
+            move_auto_execute_trade_callback,
+        )
+        
+        logger.info("🔍 Registering MOVE auto trade handlers...")
+        
+        # Main auto trade button click
+        application.add_handler(
+            CallbackQueryHandler(
+                move_auto_trade_callback,
+                pattern=r"^move_auto_trade$"
+            ),
+            group=1  # High priority
+        )
+        
+        # Auto trade strategy selection callback
+        application.add_handler(
+            CallbackQueryHandler(
+                move_auto_execute_trade_callback,
+                pattern=r"^move_auto_trade_.*"  # Matches: move_auto_trade_{ID}
+            ),
+            group=1
+        )
+        
+        logger.info("✅ Auto trade handlers registered successfully")
+        
     except Exception as e:
-        logger.error(f"❌ Auto trade handler error: {e}")
+        logger.error(f"❌ Auto trade handler error: {e}", exc_info=True)
 
 
 __all__ = [
+    'register_handlers',
     'register_move_manual_trade_handlers',
-    'register_auto_trade_handlers'
+    'register_move_auto_trade_handlers',
 ]
