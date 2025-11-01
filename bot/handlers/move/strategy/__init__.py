@@ -1,8 +1,6 @@
-"""
-MOVE Strategy handlers initialization and registration.
-"""
+"""MOVE Strategy handlers initialization and registration."""
 
-from telegram.ext import Application, CallbackQueryHandler
+from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
 from bot.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -15,6 +13,7 @@ def register_move_strategy_handlers(application: Application):
     try:
         from bot.handlers.move.strategy.create import (
             move_add_callback,
+            move_add_new_strategy_callback,
             move_skip_description_callback,
             move_asset_callback,
             move_expiry_callback,
@@ -25,38 +24,15 @@ def register_move_strategy_handlers(application: Application):
         )
         
         # Register create handlers
-        application.add_handler(
-            CallbackQueryHandler(move_add_callback, pattern="^move_menu$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(btc|eth)$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_direction_callback, pattern="^move_direction_(long|short)$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_confirm_save_callback, pattern="^move_confirm_save$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_cancel_callback, pattern="^move_cancel$"), 
-            group=10
-        )
+        application.add_handler(CallbackQueryHandler(move_add_callback, pattern="^move_menu$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_add_new_strategy_callback, pattern="^move_add_strategy$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(btc|eth)$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_direction_callback, pattern="^move_direction_(long|short)$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_confirm_save_callback, pattern="^move_confirm_save$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_cancel_callback, pattern="^move_cancel$"), group=10)
         
         logger.info("✅ MOVE create handlers registered (Group 10)")
     except ImportError as e:
@@ -64,98 +40,32 @@ def register_move_strategy_handlers(application: Application):
     except Exception as e:
         logger.error(f"❌ Error registering MOVE create handlers: {e}", exc_info=True)
     
-    # ==================== EDIT HANDLERS ====================
+    # ==================== INPUT HANDLERS ====================
     try:
-        from bot.handlers.move.strategy.edit import (
-            move_edit_callback,
-            move_edit_select_callback,
-            move_edit_field_callback,
-            move_edit_save_callback
+        from bot.handlers.move.strategy.input_handlers import (
+            handle_move_strategy_name,
+            handle_move_lot_size,
+            handle_move_atm_offset,
+            handle_move_sl_trigger,
+            handle_move_sl_limit,
+            handle_move_target_trigger,
+            handle_move_target_limit
         )
         
-        application.add_handler(
-            CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"), 
-            group=10
-        )
+        # Register text input handlers (Group 11 - after callback handlers)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_strategy_name), group=11)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_lot_size), group=11)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_atm_offset), group=11)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_sl_trigger), group=11)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_sl_limit), group=11)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_target_trigger), group=11)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_target_limit), group=11)
         
-        logger.info("✅ MOVE edit handlers registered (Group 10)")
+        logger.info("✅ MOVE input handlers registered (Group 11)")
     except ImportError as e:
-        logger.warning(f"⚠️ MOVE edit handlers not available: {e}")
+        logger.warning(f"⚠️ MOVE input handlers not available: {e}")
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE edit handlers: {e}", exc_info=True)
-    
-    # ==================== DELETE HANDLERS ====================
-    try:
-        from bot.handlers.move.strategy.delete import (
-            move_delete_callback,
-            move_delete_confirm_callback,
-            move_delete_execute_callback
-        )
-        
-        application.add_handler(
-            CallbackQueryHandler(move_delete_callback, pattern="^move_delete$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_[0-9a-f]{24}$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_delete_execute_callback, pattern="^move_delete_confirmed_"), 
-            group=10
-        )
-        
-        logger.info("✅ MOVE delete handlers registered (Group 10)")
-    except ImportError as e:
-        logger.warning(f"⚠️ MOVE delete handlers not available: {e}")
-    except Exception as e:
-        logger.error(f"❌ Error registering MOVE delete handlers: {e}", exc_info=True)
-    
-    # ==================== VIEW HANDLERS ====================
-    try:
-        from bot.handlers.move.strategy.view import (
-            move_view_callback,
-            move_view_detail_callback,
-            move_list_all_callback,
-            move_strategy_status
-        )
-        
-        application.add_handler(
-            CallbackQueryHandler(move_view_callback, pattern="^move_view$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_view_detail_callback, pattern="^move_view_[0-9a-f]{24}$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_list_all_callback, pattern="^move_list_all$"), 
-            group=10
-        )
-        application.add_handler(
-            CallbackQueryHandler(move_strategy_status, pattern="^move_status_"), 
-            group=10
-        )
-        
-        logger.info("✅ MOVE view handlers registered (Group 10)")
-    except ImportError as e:
-        logger.warning(f"⚠️ MOVE view handlers not available: {e}")
-    except Exception as e:
-        logger.error(f"❌ Error registering MOVE view handlers: {e}", exc_info=True)
-    
-    logger.info("✅ ALL MOVE strategy handlers registered successfully (Group 10)")
+        logger.error(f"❌ Error registering MOVE input handlers: {e}", exc_info=True)
 
 
 __all__ = ['register_move_strategy_handlers']
