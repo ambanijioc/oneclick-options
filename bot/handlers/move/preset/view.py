@@ -73,17 +73,16 @@ async def move_preset_view_details_callback(update: Update, context: ContextType
         return
     
     name = preset.get('preset_name', 'Unnamed')
-    description = preset.get('description', 'No description')
-    entry_lots = preset.get('entry_lots', 1)
-    exit_lots = preset.get('exit_lots', 1)
+    api_id = preset.get('api_id', 'N/A')
+    strategy_id = preset.get('strategy_id', 'N/A')
+    created_at = preset.get('created_at', 'N/A')
     
     text = (
         f"📋 MOVE Preset Details\n\n"
         f"📌 Name: {name}\n"
-        f"📝 Description: {description}\n\n"
-        f"⚙️ Configuration:\n"
-        f"• Entry Lots: {entry_lots}\n"
-        f"• Exit Lots: {exit_lots}\n"
+        f"🔑 API: {api_id}\n"
+        f"📊 Strategy: {strategy_id}\n"
+        f"📅 Created: {created_at}\n"
     )
     
     await query.edit_message_text(
