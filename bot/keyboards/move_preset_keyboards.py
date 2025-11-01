@@ -3,7 +3,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def get_move_preset_menu_keyboard():
+def get_preset_menu_keyboard():
     """Main preset menu"""
     keyboard = [
         [InlineKeyboardButton("➕ Create Preset", callback_data="move_preset_create")],
@@ -15,7 +15,12 @@ def get_move_preset_menu_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_move_preset_select_keyboard(presets: list):
+def get_move_preset_menu_keyboard():
+    """Alias for get_preset_menu_keyboard"""
+    return get_preset_menu_keyboard()
+
+
+def get_preset_select_keyboard(presets: list):
     """Select preset from list"""
     keyboard = []
     for preset in presets:
@@ -27,11 +32,12 @@ def get_move_preset_select_keyboard(presets: list):
                 callback_data=f"move_preset_select_{preset_id}"
             )
         ])
-    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="move_preset_list")])
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="move_preset_menu")])
     return InlineKeyboardMarkup(keyboard)
 
 
 __all__ = [
+    'get_preset_menu_keyboard',
     'get_move_preset_menu_keyboard',
-    'get_move_preset_select_keyboard',
+    'get_preset_select_keyboard',
 ]
