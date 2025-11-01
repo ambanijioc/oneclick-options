@@ -98,20 +98,27 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
         parse_mode='HTML'
     )
 
+# ✅ FIX: handle_move_description function
+
 @error_handler
 async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle MOVE strategy description input"""
     user = update.effective_user
     text = update.message.text.strip()
     
+    # Save description
     await state_manager.set_state_data(user.id, {'description': text})
     await state_manager.set_state(user.id, 'move_add_asset')
     
+    data = await state_manager.get_state_data(user.id)
+    
+    # ✅ SEND WITH ASSET KEYBOARD BUTTONS
     await update.message.reply_text(
         f"✅ Description saved\n\n"
         f"📝 Step 3/7: Asset Selection\n\n"
-        f"Select your asset (or type BTC/ETH):",
-        reply_markup=get_cancel_keyboard(),
+        f"Name: {data.get('name')}\n\n"
+        f"Select your asset:",
+        reply_markup=get_asset_keyboard(),  # ✅ THIS WAS MISSING!
         parse_mode='HTML'
     )
 
