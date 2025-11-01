@@ -1,5 +1,3 @@
-# ============ FILE 1: bot/handlers/move/trade/auto.py ============
-
 """
 MOVE Auto Trade Execution Handler
 
@@ -25,6 +23,24 @@ from bot.keyboards.move_trade_keyboards import get_trade_status_keyboard
 
 logger = setup_logger(__name__)
 
+
+def get_strategy_selection_keyboard(strategies, mode='auto'):
+    """Build strategy selection keyboard"""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    
+    buttons = []
+    for idx, strat in enumerate(strategies):
+        strat_name = strat.get('strategy_name', f'Strategy {idx+1}')
+        strat_id = str(strat.get('_id', strat.get('id', '')))
+        callback = f"move_auto_trade_{strat_id}"
+        buttons.append([
+            InlineKeyboardButton(f"📊 {strat_name}", callback_data=callback)
+        ])
+    
+    buttons.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel_trade")])
+    return InlineKeyboardMarkup(buttons)
+
+
 @error_handler
 async def move_auto_trade_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start MOVE auto trade execution"""
@@ -38,7 +54,6 @@ async def move_auto_trade_callback(update: Update, context: ContextTypes.DEFAULT
     
     log_user_action(user.id, "Initiated MOVE auto trade")
     
-    # Get active strategies
     strategies = await get_move_strategies(user.id, active_only=True)
     
     if not strategies:
@@ -49,13 +64,13 @@ async def move_auto_trade_callback(update: Update, context: ContextTypes.DEFAULT
         )
         return
     
-    # ✅ FIX: Show strategy selection
     await query.edit_message_text(
         "📊 Select Strategy for Auto Trade\n\n"
-        "Which strategy would you like to trade?:",
+        "Which strategy would you like to trade?",
         reply_markup=get_strategy_selection_keyboard(strategies, mode='auto'),
         parse_mode='HTML'
     )
+
 
 @error_handler
 async def move_auto_execute_trade_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -103,7 +118,7 @@ async def move_auto_execute_trade_callback(update: Update, context: ContextTypes
     try:
         trade_data = {
             'strategy_id': strategy_id,
-            'entry_price': None,  # Will be filled by market
+            'entry_price': None,
             'entry_time': datetime.now().isoformat(),
             'lot_size': strategy['lot_size'],
             'sl_trigger': strategy['sl_trigger_percent'],
@@ -146,3 +161,40 @@ async def move_auto_execute_trade_callback(update: Update, context: ContextTypes
             f"❌ Trade execution failed: {str(e)}",
             parse_mode='HTML'
         )
+
+
+async def register_move_auto_trade_handlers(application):
+    """
+    ✅ REQUIRED EXPORT: Register all MOVE auto trade handlers
+    This is the function imported by __init__.py
+    """
+    try:
+        from telegram.ext import CallbackQueryHandler
+        
+        logger.info("Registering MOVE auto trade handlers...")
+        
+        # Register main auto trade callback
+        application.add_handler(
+            CallbackQueryHandler(move_auto_trade_callback, pattern="^move_auto_trade$")
+        )
+        
+        # Register strategy selection callback
+        application.add_handler(
+            CallbackQueryHandler(move_auto_execute_trade_callback, pattern="^move_auto_trade_")
+        )
+        
+        logger.info("✅ MOVE auto trade handlers registered successfully")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error registering auto trade handlers: {e}")
+        return False
+
+
+# ✅ REQUIRED EXPORTS
+__all__ = [
+    'register_move_auto_trade_handlers',
+    'move_auto_trade_callback',
+    'move_auto_execute_trade_callback',
+    'get_strategy_selection_keyboard',
+]
