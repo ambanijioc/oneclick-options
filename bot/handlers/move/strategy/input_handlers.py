@@ -184,7 +184,7 @@ async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     
-    logger.info(f"📥 Description saved: '{text[:50]}'")
+    logger.info(f"📥 Description input saved: '{text[:50]}'")  # ← FIXED LOG
     
     await state_manager.set_state_data(user.id, {'description': text})
     await state_manager.set_state(user.id, 'move_add_lot_size')
