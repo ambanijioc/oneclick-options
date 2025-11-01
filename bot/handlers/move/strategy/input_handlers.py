@@ -131,7 +131,7 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
             logger.error(f"Shorthand error: {e}")
             await update.message.reply_text(
                 "❌ Invalid shorthand format!\n\n"
-                "Use: <code>ASSET TIME% PERCENTAGE%</code>\n"
+                "Use: <code>ASSET TIME PERCENTAGE%</code>\n"
                 "Example: <code>BTC 8AM 25%</code>\n\n"
                 "Or enter a regular strategy name:",
                 parse_mode='HTML',
@@ -150,7 +150,7 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
         )
         return
     
-    # ✅ SAVE & MOVE TO DESCRIPTION
+    # ✅ SAVE NAME & MOVE TO DESCRIPTION
     await state_manager.set_state_data(user.id, {'name': text})
     await state_manager.set_state(user.id, 'move_add_description')
     
@@ -159,7 +159,7 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
     await update.message.reply_text(
         f"✅ Strategy name saved: <code>{text}</code>\n\n"
         f"Step 2/7: <b>Description</b>\n"
-        f"(Optional) Enter a description:",
+        f"(Optional) Enter a description or skip:",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
@@ -168,7 +168,7 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
 
 @error_handler
 async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle optional description"""
+    """Handle optional description input"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -176,15 +176,18 @@ async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("❌ Unauthorized")
         return
     
+    # ✅ VALIDATE LENGTH
     if len(text) > 500:
         await update.message.reply_text(
-            "❌ Description too long (max 500 characters)",
+            "❌ Description too long (max 500 characters)\n\n"
+            "Please enter a shorter description:",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    logger.info(f"📥 Description input saved: '{text[:50]}'")  # ← FIXED LOG
+    # ✅ SAVE DESCRIPTION
+    logger.info(f"📥 Description input saved: '{text[:50]}'")
     
     await state_manager.set_state_data(user.id, {'description': text})
     await state_manager.set_state(user.id, 'move_add_lot_size')
@@ -329,7 +332,7 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
         f"✅ SL Limit: {pct}%\n\n"
         f"🎯 Target Setup\n\n"
         f"Enter Target Trigger percentage\n"
-        f"(or /skip if not needed):",
+        f"(or click Skip if not needed):",
         reply_markup=get_skip_target_keyboard(),
         parse_mode='HTML'
     )
@@ -405,4 +408,3 @@ __all__ = [
     'handle_move_target_trigger',
     'handle_move_target_limit',
         ]
-    
