@@ -1,6 +1,6 @@
 """
-MOVE Strategy Input Handlers
-Handles text input for MOVE strategy creation and editing flows.
+MOVE Strategy Input Handlers - FIXED & UNIFIED
+Handles text input for MOVE strategy creation flows with shorthand support
 """
 
 import re
@@ -23,11 +23,30 @@ logger = setup_logger(__name__)
 # ============ VALIDATORS ============
 
 def validate_strategy_name(name: str) -> tuple[bool, str]:
-    """Validate strategy name (3-50 chars, alphanumeric + spaces/hyphens)"""
-    if not name or len(name) < 3 or len(name) > 50:
-        return False, "Name must be 3-50 characters long"
-    if not re.match(r"^[a-zA-Z0-9\s\-_]+$", name):
-        return False, "Name can only contain letters, numbers, spaces, hyphens, underscores"
+    """
+    ✅ RELAXED validation - supports common trading symbols
+    Allowed: letters, numbers, spaces, hyphens, underscores, %, @, &, #, :, /, ()
+    """
+    name = name.strip()
+    
+    if not name:
+        return False, "Name cannot be empty"
+    
+    if len(name) < 2:
+        return False, "Name must be at least 2 characters"
+    
+    if len(name) > 100:
+        return False, "Name must be less than 100 characters"
+    
+    # ✅ RELAXED: Allow these characters
+    if not re.match(r"^[a-zA-Z0-9\s\-_#@&:%/.()]+$", name):
+        return False, (
+            "❌ Invalid characters found!\n\n"
+            "✅ Allowed: letters, numbers, spaces,\n"
+            "hyphens (-), underscores (_), %, @, &, #, :, /, (), .\n\n"
+            "Try: 'BTC 8AM 25%' or 'Morning Move Strategy'"
+        )
+    
     return True, ""
 
 def validate_lot_size(value: str) -> tuple[bool, str, int]:
@@ -60,11 +79,14 @@ def validate_percentage(value: str, field_name: str = "Percentage") -> tuple[boo
     except ValueError:
         return False, f"{field_name} must be a number", 0
 
-# ============ STRATEGY NAME INPUT ============
+# ============ STRATEGY NAME INPUT (WITH SHORTHAND PARSER) ============
 
 @error_handler
 async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle MOVE strategy name input"""
+    """
+    Handle MOVE strategy name input - Supports both shorthand and regular names
+    Shorthand format: "ASSET TIME% PERCENTAGE%" e.g., "BTC 8AM 25%"
+    """
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -72,23 +94,86 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
         await update.message.reply_text("❌ Unauthorized")
         return
     
+    logger.info(f"📥 Name input: '{text}'")
+    
+    # ============= PARSE SHORTHAND FORMAT =============
+    shorthand_match = re.match(
+        r'^([A-Z]+)\s+(\d{1,2}(?:AM|PM)?)\s+(\d+)%$',
+        text,
+        re.IGNORECASE
+    )
+    
+    if shorthand_match:
+        asset, time, percentage = shorthand_match.groups()
+        logger.info(f"🔄 Shorthand detected: Asset={asset}, Time={time}, %={percentage}")
+        
+        try:
+            # Parse time
+            time_str = time.upper()
+            if not time_str.endswith(('AM', 'PM')):
+                time_str += 'AM'
+            
+            # Validate percentage
+            sl_percent = float(percentage)
+            if sl_percent < 0 or sl_percent > 100:
+                raise ValueError("Percentage must be 0-100")
+            
+            # Save shorthand data - skip to asset selection
+            await state_manager.set_state_data(user.id, {
+                'asset': asset.upper(),
+                'entry_time': time_str,
+                'sl_percent': sl_percent,
+                'entry_method': 'shorthand'
+            })
+            
+            await state_manager.set_state(user.id, 'move_add_lot_size')
+            logger.info("✅ Shorthand parsed, moving to lot size")
+            
+            await update.message.reply_text(
+                f"✅ <b>Parsed Shorthand!</b>\n\n"
+                f"🔹 Asset: <code>{asset.upper()}</code>\n"
+                f"🔹 Entry Time: <code>{time_str}</code>\n"
+                f"🔹 SL%: <code>{sl_percent}%</code>\n\n"
+                f"Step 2/7: <b>Lot Size</b>\n"
+                f"Enter lot size (1-1000):",
+                parse_mode='HTML',
+                reply_markup=get_cancel_keyboard()
+            )
+            return
+        
+        except Exception as e:
+            logger.error(f"❌ Shorthand parse error: {e}")
+            await update.message.reply_text(
+                "❌ Invalid shorthand format!\n\n"
+                "Use: <code>ASSET TIME% PERCENTAGE%</code>\n"
+                "Example: <code>BTC 8AM 25%</code>\n\n"
+                "Or enter a regular strategy name:",
+                parse_mode='HTML',
+                reply_markup=get_cancel_keyboard()
+            )
+            return
+    
+    # ============= VALIDATE REGULAR NAME =============
     valid, error = validate_strategy_name(text)
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\nPlease enter a valid strategy name:",
+            f"❌ {error}",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
     
+    # ============= SAVE NAME & CONTINUE =============
     await state_manager.set_state_data(user.id, {'name': text})
     await state_manager.set_state(user.id, 'move_add_description')
     
+    logger.info(f"✅ Name saved: {text}")
+    
     await update.message.reply_text(
-        f"✅ Strategy name: {text}\n\n"
-        f"📝 Step 2/7: Description (optional)\n\n"
-        f"Enter a description or /skip:",
+        f"✅ Strategy name saved: <code>{text}</code>\n\n"
+        f"Step 2/7: <b>Description</b>\n"
+        f"(Optional) Enter a description:",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
@@ -122,7 +207,7 @@ async def handle_move_lot_size(update: Update, context: ContextTypes.DEFAULT_TYP
     
     await update.message.reply_text(
         f"✅ Lot size set: {lot_size}\n\n"
-        f"💰 Step 5/7: Stop Loss Setup\n\n"
+        f"💰 Step 3/7: Stop Loss Setup\n\n"
         f"Enter SL Trigger percentage (0-100):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -157,7 +242,7 @@ async def handle_move_atm_offset(update: Update, context: ContextTypes.DEFAULT_T
     
     await update.message.reply_text(
         f"✅ ATM offset set: {offset:+d}\n\n"
-        f"📊 Step 6/7: Lot Size\n\n"
+        f"📊 Step 4/7: Lot Size\n\n"
         f"Enter lot size (1-1000):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -300,4 +385,4 @@ __all__ = [
     'handle_move_sl_limit',
     'handle_move_target_trigger',
     'handle_move_target_limit',
-        ]
+    ]
