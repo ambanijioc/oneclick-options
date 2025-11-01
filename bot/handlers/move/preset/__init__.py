@@ -1,17 +1,47 @@
-# ============ FILE 3: bot/handlers/move/preset/__init__.py ============
-
 """
-MOVE Preset Sub-module Initializer
-
-Registers preset-specific handlers for create, delete, edit, and view.
+MOVE Preset Handlers Module
+Registers all MOVE preset callbacks (create, edit, delete)
 """
 
-from .create import move_create_preset_callback
-from .delete import move_delete_preset_callback
-from .edit import move_edit_preset_callback
+from telegram.ext import Application, CallbackQueryHandler
+from bot.utils.logger import setup_logger
 
-__all__ = [
-    'move_create_preset_callback',
-    'move_delete_preset_callback',
-    'move_edit_preset_callback',
-]
+logger = setup_logger(__name__)
+
+
+def register_move_preset_handlers(application: Application) -> None:
+    """Register MOVE preset handlers."""
+    
+    try:
+        from bot.handlers.move.preset.create import handle_move_preset_create
+        from bot.handlers.move.preset.edit import handle_move_preset_edit
+        from bot.handlers.move.preset.delete import handle_move_preset_delete
+        
+        application.add_handler(
+            CallbackQueryHandler(
+                handle_move_preset_create,
+                pattern=r"^move_preset_create|^move_preset_add"
+            )
+        )
+        application.add_handler(
+            CallbackQueryHandler(
+                handle_move_preset_edit,
+                pattern=r"^move_preset_edit_"
+            )
+        )
+        application.add_handler(
+            CallbackQueryHandler(
+                handle_move_preset_delete,
+                pattern=r"^move_preset_delete_"
+            )
+        )
+        
+        logger.info("✅ MOVE preset handlers registered")
+        
+    except ImportError as e:
+        logger.error(f"Import error in MOVE preset handlers: {e}")
+    except Exception as e:
+        logger.error(f"Error registering MOVE preset handlers: {e}")
+
+
+__all__ = ['register_move_preset_handlers']
