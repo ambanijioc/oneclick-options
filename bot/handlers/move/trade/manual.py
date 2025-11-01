@@ -210,6 +210,9 @@ async def handle_move_manual_strategy_select(update: Update, context: ContextTyp
     data = await state_manager.get_state_data(user.id)
     
     try:
+        # ✅ Get database instance
+        db = await get_db()
+        
         # ✅ Create manual trade record
         trade_data = {
             'entry_price': data['entry_price'],
@@ -223,7 +226,7 @@ async def handle_move_manual_strategy_select(update: Update, context: ContextTyp
             'strategy_name': text if text.lower() != 'skip' else 'Manual Trade'
         }
         
-        trade_id = await create_move_trade(user.id, trade_data)
+        trade_id = await create_move_trade(db, user.id, trade_data)
         
         if not trade_id:
             raise Exception("Failed to create trade")
@@ -257,7 +260,7 @@ async def handle_move_manual_strategy_select(update: Update, context: ContextTyp
             f"❌ Trade creation failed: {str(e)}",
             reply_markup=get_trade_menu_keyboard()
         )
-
+        
 
 __all__ = [
     'move_manual_trade_callback',
