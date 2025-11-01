@@ -9,10 +9,7 @@ from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
-
-# FIX: Use correct function name from your database file
 from database.operations.move_trade_preset_ops import create_move_trade_preset
-
 from bot.keyboards.move_strategy_keyboards import (
     get_cancel_keyboard,
     get_confirmation_keyboard,
@@ -22,8 +19,8 @@ from bot.keyboards.move_strategy_keyboards import (
 logger = setup_logger(__name__)
 
 @error_handler
-async def move_preset_create_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start MOVE preset creation flow."""
+async def move_preset_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show MOVE preset menu (called by main menu button)."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -32,9 +29,28 @@ async def move_preset_create_callback(update: Update, context: ContextTypes.DEFA
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
+    log_user_action(user.id, "Opened MOVE preset menu")
+    
+    await query.edit_message_text(
+        "🎯 MOVE Trade Preset Management\n\n"
+        "Choose an action:",
+        reply_markup=get_move_menu_keyboard(),
+        parse_mode='HTML'
+    )
+
+@error_handler
+async def move_preset_add_new_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start MOVE preset creation flow (called by Add Preset button)."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
     log_user_action(user.id, "Started adding MOVE preset")
     
+    # Clear any existing state
     await state_manager.clear_state(user.id)
+    
+    # Set initial state
     await state_manager.set_state(user.id, 'move_preset_add_name')
     await state_manager.set_state_data(user.id, {'preset_type': 'move'})
     
@@ -96,7 +112,6 @@ async def move_preset_confirm_save_callback(update: Update, context: ContextType
             'strategy_id': data.get('strategy_id', '')
         }
         
-        # FIX: Use correct function name
         result = await create_move_trade_preset(user.id, preset_data)
         
         if not result:
@@ -122,8 +137,26 @@ async def move_preset_confirm_save_callback(update: Update, context: ContextType
             parse_mode='HTML'
         )
 
+@error_handler
+async def move_preset_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel preset creation."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
+    await state_manager.clear_state(user.id)
+    log_user_action(user.id, "Cancelled MOVE preset operation")
+    
+    await query.edit_message_text(
+        "❌ Operation Cancelled",
+        reply_markup=get_move_menu_keyboard(),
+        parse_mode='HTML'
+    )
+
 __all__ = [
-    'move_preset_create_callback',
+    'move_preset_add_callback',
+    'move_preset_add_new_callback',
     'show_move_preset_confirmation',
     'move_preset_confirm_save_callback',
-    ]
+    'move_preset_cancel_callback',
+]
