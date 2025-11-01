@@ -1,30 +1,24 @@
-# ============ FILE 4: bot/handlers/move/trade/__init__.py ============
-
 """
-MOVE Trade Sub-module Initializer
-
-Registers trade execution handlers for auto and manual trade modes.
+MOVE Trade Handlers Module  
+Registers manual and auto trade handlers
 """
 
-from .auto import move_auto_trade_callback
-from .manual import move_manual_trade_callback
-from .input_handlers import (
-    validate_price,
-    validate_lot_size,
-    validate_trade_quantity,
-    validate_direction,
-    validate_entry_exit_pair,
-)
+from telegram.ext import Application
+
+
+def register_move_manual_trade_handlers(application: Application) -> None:
+    """Register MOVE manual trade handlers."""
+    from bot.handlers.move.trade.manual import register_manual_trade_handlers
+    register_manual_trade_handlers(application)
+
+
+def register_move_auto_trade_handlers(application: Application) -> None:
+    """Register MOVE auto trade handlers."""
+    from bot.handlers.move.trade.auto import register_auto_trade_handlers
+    register_auto_trade_handlers(application)
+
 
 __all__ = [
-    # Auto Trade
-    'move_auto_trade_callback',
-    # Manual Trade
-    'move_manual_trade_callback',
-    # Input Validators
-    'validate_price',
-    'validate_lot_size',
-    'validate_trade_quantity',
-    'validate_direction',
-    'validate_entry_exit_pair',
+    'register_move_manual_trade_handlers',
+    'register_move_auto_trade_handlers'
 ]
