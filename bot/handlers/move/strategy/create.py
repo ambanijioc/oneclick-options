@@ -314,6 +314,33 @@ async def move_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         parse_mode='HTML'
     )
 
+# ✅ ADD THIS TO bot/handlers/move/strategy/create.py
+
+@error_handler
+async def move_add_new_strategy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 'Add Strategy' button from MOVE menu."""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
+    log_user_action(user.id, "Started adding new MOVE strategy")
+    
+    # Clear any existing state
+    await state_manager.clear_state(user.id)
+    
+    # Set initial state for name input
+    await state_manager.set_state(user.id, 'move_add_name')
+    await state_manager.set_state_data(user.id, {'strategy_type': 'move'})
+    
+    await query.edit_message_text(
+        "📝 Add MOVE Strategy\n\n"
+        "Step 1/7: Strategy Name\n\n"
+        "Enter a unique name for your MOVE strategy:\n\n"
+        "Example: BTC 8AM MOVE, ETH Daily MOVE",
+        reply_markup=get_cancel_keyboard(),
+        parse_mode='HTML'
+    )
+    
 __all__ = [
     'move_add_callback',
     'move_add_new_callback',
