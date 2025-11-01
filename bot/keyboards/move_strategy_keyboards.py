@@ -6,16 +6,15 @@ All inline keyboard definitions for MOVE strategy management
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-def get_move_menu_keyboard():
-    """Get MOVE strategy management menu keyboard."""
+def get_move_menu_keyboard() -> InlineKeyboardMarkup:
+    """Get MOVE Strategy Management menu keyboard."""
     keyboard = [
-        [InlineKeyboardButton("➕ Add Strategy", callback_data="move_add")],
-        [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_edit_list")],
-        [InlineKeyboardButton("🗑️ Delete Strategy", callback_data="move_delete_list")],
+        [InlineKeyboardButton("➕ Add Strategy", callback_data="move_add_strategy")],  # ✅ FIXED
+        [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_edit")],
+        [InlineKeyboardButton("🗑️ Delete Strategy", callback_data="move_delete")],
         [InlineKeyboardButton("👁️ View Strategies", callback_data="move_view")],
-        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")]
+        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")],
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
 def get_cancel_keyboard():
