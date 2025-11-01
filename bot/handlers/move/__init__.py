@@ -1,33 +1,38 @@
 """
-MOVE Strategy Handler Module Initializer
-
-Registers all MOVE strategy, preset, and trade handlers.
-Includes routing setup for strategy operations.
+MOVE Strategy & Trade Handlers - Nested structure
 """
 
-from .strategy.create import move_create_strategy_callback
-from .strategy.delete import move_delete_strategy_callback
-from .strategy.edit import move_edit_strategy_callback
-from .strategy.view import move_view_callback
+from telegram.ext import Application
+from bot.utils.logger import setup_logger
 
-from .preset.create import move_create_preset_callback
-from .preset.delete import move_delete_preset_callback
-from .preset.edit import move_edit_preset_callback
+logger = setup_logger(__name__)
 
-from .trade.auto import move_auto_trade_callback
-from .trade.manual import move_manual_trade_callback
+# ✅ NO DIRECT IMPORTS - Use lazy loading to avoid circular dependencies
 
-__all__ = [
-    # Strategy
-    'move_create_strategy_callback',
-    'move_delete_strategy_callback',
-    'move_edit_strategy_callback',
-    'move_view_callback',
-    # Preset
-    'move_create_preset_callback',
-    'move_delete_preset_callback',
-    'move_edit_preset_callback',
-    # Trade
-    'move_auto_trade_callback',
-    'move_manual_trade_callback',
-]
+def register_move_handlers(application: Application) -> None:
+    """Register all MOVE handlers (strategy + trade)"""
+    
+    try:
+        # Strategy handlers
+        logger.info("🔍 Registering MOVE strategy handlers...")
+        from bot.handlers.move.strategy import register_move_strategy_handlers
+        register_move_strategy_handlers(application)
+        logger.info("✓ MOVE strategy handlers registered")
+    except Exception as e:
+        logger.error(f"❌ MOVE strategy handler error: {e}")
+    
+    try:
+        # Trade handlers (manual + auto)
+        logger.info("🔍 Registering MOVE trade handlers (nested: manual + auto)...")
+        from bot.handlers.move.trade import (
+            register_manual_trade_handlers,
+            register_auto_trade_handlers
+        )
+        register_manual_trade_handlers(application)
+        register_auto_trade_handlers(application)
+        logger.info("✓ MOVE trade handlers registered")
+    except Exception as e:
+        logger.error(f"❌ Move trade handler error: {e}")
+
+
+__all__ = ['register_move_handlers']
