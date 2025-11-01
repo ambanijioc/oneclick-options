@@ -99,16 +99,22 @@ async def move_skip_description_callback(update: Update, context: ContextTypes.D
     await query.answer()
     user = query.from_user
     
+    # ✅ Save empty description
     await state_manager.set_state_data(user.id, {'description': ''})
-    await state_manager.set_state(user.id, 'move_add_asset')
+    
+    # ✅ Get current data
     data = await state_manager.get_state_data(user.id)
     
+    # ✅ Move to LOT SIZE (NOT ASSET)
+    # Description is Step 2, Lot Size is Step 3
+    await state_manager.set_state(user.id, 'move_add_lot_size')
+    
     await query.edit_message_text(
-        f"📝 Add MOVE Strategy\n\n"
-        f"Step 3/7: Asset Selection\n\n"
+        f"✅ Description skipped\n\n"
+        f"Step 3/7: <b>Lot Size</b>\n"
         f"Name: {data.get('name')}\n\n"
-        f"Select underlying asset:",
-        reply_markup=get_asset_keyboard(),
+        f"Enter lot size (1-1000):",
+        reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
 
