@@ -8,9 +8,10 @@ from bot.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
-def register_manual_trade_handlers(application: Application) -> None:
-    """Register MOVE manual trade handlers"""
+def register_move_manual_trade_handlers(application: Application) -> None:
+    """Register MOVE manual trade handlers - LAZY LOAD"""
     try:
+        # Lazy import - only when called
         from bot.handlers.move.trade.manual import (
             move_manual_trade_callback,
             handle_move_manual_entry_price,
@@ -82,13 +83,12 @@ def register_manual_trade_handlers(application: Application) -> None:
 def register_auto_trade_handlers(application: Application) -> None:
     """Register MOVE auto trade handlers"""
     try:
-        # Import from auto.py if exists
         logger.info("✅ Auto trade handlers registered")
     except Exception as e:
         logger.error(f"❌ Auto trade handler error: {e}")
 
 
 __all__ = [
-    'register_manual_trade_handlers',
+    'register_move_manual_trade_handlers',
     'register_auto_trade_handlers'
 ]
