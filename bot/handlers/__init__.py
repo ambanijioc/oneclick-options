@@ -61,7 +61,7 @@ def register_all_handlers(application: Application):
             logger.info("🔍 Registering MOVE trade handlers (nested: manual + auto)...")
             
             # Manual trade handlers
-            from bot.handlers.move.trade.manual import register_move_manual_trade_handlers
+            from bot.handlers.move.trade import register_move_manual_trade_handlers
             register_move_manual_trade_handlers(application)
             logger.info("✅ MOVE manual trade handlers registered")
             
