@@ -94,7 +94,7 @@ async def show_description_prompt(update: Update, context: ContextTypes.DEFAULT_
 
 @error_handler
 async def move_skip_description_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Skip description and move to asset selection."""
+    """Skip description and move to lot size."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -105,8 +105,7 @@ async def move_skip_description_callback(update: Update, context: ContextTypes.D
     # ✅ Get current data
     data = await state_manager.get_state_data(user.id)
     
-    # ✅ Move to LOT SIZE (NOT ASSET)
-    # Description is Step 2, Lot Size is Step 3
+    # ✅ Move to LOT SIZE (NOT ASSET) - Description is Step 2, Lot Size is Step 3
     await state_manager.set_state(user.id, 'move_add_lot_size')
     
     await query.edit_message_text(
