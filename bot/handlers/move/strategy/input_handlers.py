@@ -95,6 +95,41 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
         return
     
     logger.info(f"📥 Name input: '{text}'")
+
+# ============ DESCRIPTION INPUT ============
+
+@error_handler
+async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle optional description input for MOVE strategy"""
+    user = update.effective_user
+    text = update.message.text.strip()
+    
+    if not await check_user_authorization(user):
+        await update.message.reply_text("❌ Unauthorized")
+        return
+    
+    # Validate description (optional, max 500 chars)
+    if len(text) > 500:
+        await update.message.reply_text(
+            "❌ Description too long (max 500 characters)",
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    logger.info(f"📥 Description saved: '{text[:50]}'")
+    
+    # Save description and move to LOT SIZE
+    await state_manager.set_state_data(user.id, {'description': text})
+    await state_manager.set_state(user.id, 'move_add_lot_size')
+    
+    await update.message.reply_text(
+        f"✅ Description saved\n\n"
+        f"Step 3/7: <b>Lot Size</b>\n"
+        f"Enter lot size (1-1000):",
+        reply_markup=get_cancel_keyboard(),
+        parse_mode='HTML'
+    )
     
     # ============= PARSE SHORTHAND FORMAT =============
     shorthand_match = re.match(
