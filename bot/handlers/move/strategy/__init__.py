@@ -15,11 +15,11 @@ def register_move_strategy_handlers(application: Application):
             move_add_callback,
             move_add_new_strategy_callback,
             move_skip_description_callback,
+            move_skip_target_callback,
             move_asset_callback,
             move_expiry_callback,
             move_direction_callback,
             move_confirm_save_callback,
-            move_skip_target_callback,
             move_cancel_callback
         )
         
@@ -27,11 +27,11 @@ def register_move_strategy_handlers(application: Application):
         application.add_handler(CallbackQueryHandler(move_add_callback, pattern="^move_menu$"), group=10)
         application.add_handler(CallbackQueryHandler(move_add_new_strategy_callback, pattern="^move_add_strategy$"), group=10)
         application.add_handler(CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"), group=10)  # ✅ ADD THIS
         application.add_handler(CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(btc|eth)$"), group=10)
         application.add_handler(CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"), group=10)
         application.add_handler(CallbackQueryHandler(move_direction_callback, pattern="^move_direction_(long|short)$"), group=10)
         application.add_handler(CallbackQueryHandler(move_confirm_save_callback, pattern="^move_confirm_save$"), group=10)
-        application.add_handler(CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"), group=10)
         application.add_handler(CallbackQueryHandler(move_cancel_callback, pattern="^move_cancel$"), group=10)
         
         logger.info("✅ MOVE create handlers registered (Group 10)")
@@ -44,6 +44,7 @@ def register_move_strategy_handlers(application: Application):
     try:
         from bot.handlers.move.strategy.input_handlers import (
             handle_move_strategy_name,
+            handle_move_description,  # ✅ ADD THIS - WAS MISSING!
             handle_move_lot_size,
             handle_move_atm_offset,
             handle_move_sl_trigger,
@@ -54,6 +55,7 @@ def register_move_strategy_handlers(application: Application):
         
         # Register text input handlers (Group 11 - after callback handlers)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_strategy_name), group=11)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_description), group=11)  # ✅ ADD THIS
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_lot_size), group=11)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_atm_offset), group=11)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_sl_trigger), group=11)
