@@ -12,13 +12,17 @@ from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
-from database.operations.move_strategy_ops import get_move_strategy
-from database.operations.move_trade_ops import create_move_trade, update_move_trade
+from database.operations.move_trade_ops import create_move_trade
 from bot.keyboards.move_trade_keyboards import get_trade_menu_keyboard
 
 logger = setup_logger(__name__)
 
 
+async def get_db():
+    """Get MongoDB instance"""
+    from bot.database.mongo import db
+    return db
+    
 @error_handler
 async def move_manual_trade_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start MOVE manual trade entry"""
