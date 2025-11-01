@@ -1,8 +1,6 @@
 """
 MOVE Strategy Input Handlers
-
 Handles text input for MOVE strategy creation and editing flows.
-Includes lot size validation, SL/Target handling, and percentage inputs.
 """
 
 import re
@@ -18,14 +16,12 @@ from bot.keyboards.move_strategy_keyboards import (
     get_skip_target_keyboard,
     get_cancel_keyboard,
     get_move_menu_keyboard,
-    get_asset_keyboard,  # ✅ ADD THIS
-    get_expiry_keyboard,  # ✅ ADD THIS
-    get_direction_keyboard,  # ✅ ADD THIS
 )
 
 logger = setup_logger(__name__)
 
-# ✅ FIX: IMPROVED VALIDATORS
+# ============ VALIDATORS ============
+
 def validate_strategy_name(name: str) -> tuple[bool, str]:
     """Validate strategy name (3-50 chars, alphanumeric + spaces/hyphens)"""
     if not name or len(name) < 3 or len(name) > 50:
@@ -35,10 +31,7 @@ def validate_strategy_name(name: str) -> tuple[bool, str]:
     return True, ""
 
 def validate_lot_size(value: str) -> tuple[bool, str, int]:
-    """
-    ✅ FIX: Validate lot size input
-    Returns: (is_valid, error_message, lot_size)
-    """
+    """Validate lot size input"""
     try:
         lot_size = int(value.strip())
         if lot_size < 1 or lot_size > 1000:
@@ -48,7 +41,7 @@ def validate_lot_size(value: str) -> tuple[bool, str, int]:
         return False, "Lot size must be a whole number", 0
 
 def validate_atm_offset(value: str) -> tuple[bool, str, int]:
-    """✅ FIX: Validate ATM offset (-10 to +10)"""
+    """Validate ATM offset (-10 to +10)"""
     try:
         offset = int(value.strip())
         if offset < -10 or offset > 10:
@@ -58,7 +51,7 @@ def validate_atm_offset(value: str) -> tuple[bool, str, int]:
         return False, "ATM offset must be a whole number", 0
 
 def validate_percentage(value: str, field_name: str = "Percentage") -> tuple[bool, str, float]:
-    """✅ FIX: Validate percentage inputs (0-100)"""
+    """Validate percentage inputs (0-100)"""
     try:
         pct = float(value.strip())
         if pct < 0 or pct > 100:
@@ -71,7 +64,7 @@ def validate_percentage(value: str, field_name: str = "Percentage") -> tuple[boo
 
 @error_handler
 async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle MOVE strategy name input during creation"""
+    """Handle MOVE strategy name input"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -83,8 +76,7 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\n"
-            f"Please enter a valid strategy name:",
+            f"❌ {error}\n\nPlease enter a valid strategy name:",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
@@ -96,32 +88,8 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
     await update.message.reply_text(
         f"✅ Strategy name: {text}\n\n"
         f"📝 Step 2/7: Description (optional)\n\n"
-        f"Enter a description or press Skip:",
+        f"Enter a description or /skip:",
         reply_markup=get_cancel_keyboard(),
-        parse_mode='HTML'
-    )
-
-# ✅ FIX: handle_move_description function
-
-@error_handler
-async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle MOVE strategy description input"""
-    user = update.effective_user
-    text = update.message.text.strip()
-    
-    # Save description
-    await state_manager.set_state_data(user.id, {'description': text})
-    await state_manager.set_state(user.id, 'move_add_asset')
-    
-    data = await state_manager.get_state_data(user.id)
-    
-    # ✅ SEND WITH ASSET KEYBOARD BUTTONS
-    await update.message.reply_text(
-        f"✅ Description saved\n\n"
-        f"📝 Step 3/7: Asset Selection\n\n"
-        f"Name: {data.get('name')}\n\n"
-        f"Select your asset:",
-        reply_markup=get_asset_keyboard(),  # ✅ THIS WAS MISSING!
         parse_mode='HTML'
     )
 
@@ -129,9 +97,7 @@ async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_
 
 @error_handler
 async def handle_move_lot_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    ✅ FIX: Handle lot size input with improved validation
-    """
+    """Handle lot size input"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -143,8 +109,7 @@ async def handle_move_lot_size(update: Update, context: ContextTypes.DEFAULT_TYP
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\n"
-            f"Please enter a valid lot size (1-1000):",
+            f"❌ {error}\n\nPlease enter a valid lot size (1-1000):",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
@@ -167,7 +132,7 @@ async def handle_move_lot_size(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @error_handler
 async def handle_move_atm_offset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """✅ FIX: Handle ATM offset input"""
+    """Handle ATM offset input"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -179,8 +144,7 @@ async def handle_move_atm_offset(update: Update, context: ContextTypes.DEFAULT_T
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\n"
-            f"Please enter a valid offset (-10 to +10):",
+            f"❌ {error}\n\nPlease enter a valid offset (-10 to +10):",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
@@ -199,11 +163,11 @@ async def handle_move_atm_offset(update: Update, context: ContextTypes.DEFAULT_T
         parse_mode='HTML'
     )
 
-# ============ STOP LOSS INPUTS ============
+# ============ SL INPUTS ============
 
 @error_handler
 async def handle_move_sl_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """✅ FIX: Handle SL trigger percentage"""
+    """Handle SL trigger percentage"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -215,8 +179,7 @@ async def handle_move_sl_trigger(update: Update, context: ContextTypes.DEFAULT_T
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\n"
-            f"Enter SL Trigger % (0-100):",
+            f"❌ {error}\n\nEnter SL Trigger % (0-100):",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
@@ -225,10 +188,10 @@ async def handle_move_sl_trigger(update: Update, context: ContextTypes.DEFAULT_T
     await state_manager.set_state_data(user.id, {'sl_trigger_percent': pct})
     await state_manager.set_state(user.id, 'move_add_sl_limit')
     
-    logger.info(f"User {user.id} set SL trigger: {pct}%")
+    logger.info(f"✅ User {user.id} set SL trigger: {pct}%")
     
     await update.message.reply_text(
-        f"✅ SL Trigger set: {pct}%\n\n"
+        f"✅ SL Trigger: {pct}%\n\n"
         f"Enter SL Limit percentage:\n"
         f"(Usually lower than trigger):",
         reply_markup=get_cancel_keyboard(),
@@ -237,7 +200,7 @@ async def handle_move_sl_trigger(update: Update, context: ContextTypes.DEFAULT_T
 
 @error_handler
 async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """✅ FIX: Handle SL limit percentage"""
+    """Handle SL limit percentage"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -249,8 +212,7 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\n"
-            f"Enter SL Limit % (0-100):",
+            f"❌ {error}\n\nEnter SL Limit % (0-100):",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
@@ -260,10 +222,10 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
     await state_manager.set_state(user.id, 'move_add_target_trigger')
     
     await update.message.reply_text(
-        f"✅ SL Limit set: {pct}%\n\n"
+        f"✅ SL Limit: {pct}%\n\n"
         f"🎯 Target Setup\n\n"
         f"Enter Target Trigger percentage\n"
-        f"(or Skip if not needed):",
+        f"(or /skip if not needed):",
         reply_markup=get_skip_target_keyboard(),
         parse_mode='HTML'
     )
@@ -272,7 +234,7 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @error_handler
 async def handle_move_target_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """✅ FIX: Handle target trigger percentage"""
+    """Handle target trigger percentage"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -284,8 +246,7 @@ async def handle_move_target_trigger(update: Update, context: ContextTypes.DEFAU
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\n"
-            f"Enter Target Trigger % (0-100):",
+            f"❌ {error}\n\nEnter Target Trigger % (0-100):",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
@@ -295,7 +256,7 @@ async def handle_move_target_trigger(update: Update, context: ContextTypes.DEFAU
     await state_manager.set_state(user.id, 'move_add_target_limit')
     
     await update.message.reply_text(
-        f"✅ Target Trigger set: {pct}%\n\n"
+        f"✅ Target Trigger: {pct}%\n\n"
         f"Enter Target Limit percentage:",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -303,7 +264,7 @@ async def handle_move_target_trigger(update: Update, context: ContextTypes.DEFAU
 
 @error_handler
 async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """✅ FIX: Handle target limit percentage"""
+    """Handle target limit percentage"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -315,8 +276,7 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\n"
-            f"Enter Target Limit % (0-100):",
+            f"❌ {error}\n\nEnter Target Limit % (0-100):",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
@@ -324,72 +284,9 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
     
     await state_manager.set_state_data(user.id, {'target_limit_percent': pct})
     
-    # Show confirmation (from create.py)
+    # Import and call confirmation
     from bot.handlers.move.strategy.create import show_move_confirmation
     await show_move_confirmation(update, context)
-
-# ============ EDIT MODE HANDLERS ============
-
-@error_handler
-async def handle_move_edit_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle name edit input"""
-    user = update.effective_user
-    text = update.message.text.strip()
-    
-    valid, error = validate_strategy_name(text)
-    if not valid:
-        await update.message.reply_text(f"❌ {error}")
-        return
-    
-    data = await state_manager.get_state_data(user.id)
-    strategy_id = data.get('editing_strategy_id')
-    
-    result = await update_move_strategy(user.id, strategy_id, {'strategy_name': text})
-    
-    if result:
-        await update.message.reply_text(f"✅ Name updated to: {text}")
-        log_user_action(user.id, f"Updated strategy name: {text}")
-    else:
-        await update.message.reply_text("❌ Failed to update")
-
-@error_handler
-async def handle_move_edit_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle description edit input"""
-    user = update.effective_user
-    text = update.message.text.strip()
-    
-    data = await state_manager.get_state_data(user.id)
-    strategy_id = data.get('editing_strategy_id')
-    
-    result = await update_move_strategy(user.id, strategy_id, {'description': text})
-    
-    if result:
-        await update.message.reply_text(f"✅ Description updated")
-        log_user_action(user.id, "Updated strategy description")
-    else:
-        await update.message.reply_text("❌ Failed to update")
-
-@error_handler
-async def handle_move_edit_atm_offset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle ATM offset edit input"""
-    user = update.effective_user
-    text = update.message.text.strip()
-    
-    valid, error, offset = validate_atm_offset(text)
-    if not valid:
-        await update.message.reply_text(f"❌ {error}")
-        return
-    
-    data = await state_manager.get_state_data(user.id)
-    strategy_id = data.get('editing_strategy_id')
-    
-    result = await update_move_strategy(user.id, strategy_id, {'atm_offset': offset})
-    
-    if result:
-        await update.message.reply_text(f"✅ ATM offset updated: {offset:+d}")
-        log_user_action(user.id, f"Updated ATM offset: {offset:+d}")
-    else:
-        await update.message.reply_text("❌ Failed to update")
 
 __all__ = [
     'validate_strategy_name',
@@ -397,14 +294,10 @@ __all__ = [
     'validate_atm_offset',
     'validate_percentage',
     'handle_move_strategy_name',
-    'handle_move_description',
     'handle_move_lot_size',
     'handle_move_atm_offset',
     'handle_move_sl_trigger',
     'handle_move_sl_limit',
     'handle_move_target_trigger',
     'handle_move_target_limit',
-    'handle_move_edit_name',
-    'handle_move_edit_description',
-    'handle_move_edit_atm_offset',
-    ]
+        ]
