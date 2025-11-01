@@ -1,5 +1,10 @@
+# ============ FIXED FILE: bot/handlers/message_router.py ============
+
 """
-Message router to direct messages to appropriate handlers based on state.
+✅ FIXED: Message router to direct messages to appropriate handlers based on state.
+
+Comprehensive state-based routing for all strategies (MOVE, STRADDLE, STRANGLE)
+and their sub-operations (create, edit, preset management, trading).
 """
 
 from telegram import Update
@@ -11,12 +16,12 @@ from bot.utils.state_manager import state_manager
 logger = setup_logger(__name__)
 
 async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Route text messages to appropriate handler based on user's conversation state."""
+    """✅ FIX: Route text messages to appropriate handler based on user's conversation state."""
     
     try:
-        logger.info("=" * 50)
+        logger.info("=" * 60)
         logger.info("MESSAGE ROUTER CALLED")
-        logger.info("=" * 50)
+        logger.info("=" * 60)
         
         if not update.message or not update.message.text:
             logger.warning("No message or text in update")
@@ -61,7 +66,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .api_handler import handle_api_secret_input
             await handle_api_secret_input(update, context)
         
-        # ==================== MOVE STRATEGY STATES (NEW MODULAR) ====================
+        # ==================== MOVE STRATEGY STATES ====================
         # Strategy Creation States
         elif state_str == 'move_add_name':
             from .move.strategy.input_handlers import handle_move_name_input
@@ -72,7 +77,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_move_description_input(update, context, text)
 
         elif state_str == 'move_add_atm_offset':
-            from .move.strategy.input_handlers import handle_move_atm_offset_input  # CORRECT PATH
+            from .move.strategy.input_handlers import handle_move_atm_offset_input
             await handle_move_atm_offset_input(update, context, text)
         
         elif state_str == 'move_add_lot_size':
@@ -112,22 +117,57 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .move.strategy.input_handlers import handle_move_edit_lot_size_input
             await handle_move_edit_lot_size_input(update, context, text)
         
-        # ==================== MOVE PRESET STATES (NEW MODULAR) ====================
-        elif state_str == 'move_preset_add_name':
-            from .move.preset.input_handlers import handle_move_preset_name_input
-            await handle_move_preset_name_input(update, context, text)
+        # ==================== MOVE PRESET STATES ====================
+        elif state_str == 'move_create_preset_name':
+            from .move.preset.create import handle_move_preset_name
+            await handle_move_preset_name(update, context)
         
-        elif state_str == 'move_preset_add_entry_lots':
-            from .move.preset.input_handlers import handle_move_preset_entry_lots_input
-            await handle_move_preset_entry_lots_input(update, context, text)
+        elif state_str == 'move_preset_sl_trigger':
+            from .move.preset.create import handle_move_preset_sl_trigger
+            await handle_move_preset_sl_trigger(update, context)
         
-        elif state_str == 'move_preset_add_exit_lots':
-            from .move.preset.input_handlers import handle_move_preset_exit_lots_input
-            await handle_move_preset_exit_lots_input(update, context, text)
+        elif state_str == 'move_preset_sl_limit':
+            from .move.preset.create import handle_move_preset_sl_limit
+            await handle_move_preset_sl_limit(update, context)
         
-        elif state_str == 'move_preset_edit_name':
-            from .move.preset.input_handlers import handle_move_preset_edit_name_input
-            await handle_move_preset_edit_name_input(update, context, text)
+        elif state_str == 'move_preset_target':
+            from .move.preset.create import handle_move_preset_target
+            await handle_move_preset_target(update, context)
+        
+        elif state_str == 'move_preset_target_limit':
+            from .move.preset.create import handle_move_preset_target
+            await handle_move_preset_target(update, context)
+        
+        # Preset Edit States
+        elif state_str.startswith('move_edit_preset_'):
+            from .move.preset.edit import handle_move_edit_preset_field
+            await handle_move_edit_preset_field(update, context)
+        
+        # ==================== MOVE TRADE STATES ====================
+        # Manual Trade States
+        elif state_str == 'move_manual_entry_price':
+            from .move.trade.manual import handle_move_manual_entry_price
+            await handle_move_manual_entry_price(update, context)
+        
+        elif state_str == 'move_manual_lot_size':
+            from .move.trade.manual import handle_move_manual_lot_size
+            await handle_move_manual_lot_size(update, context)
+        
+        elif state_str == 'move_manual_sl_price':
+            from .move.trade.manual import handle_move_manual_sl_price
+            await handle_move_manual_sl_price(update, context)
+        
+        elif state_str == 'move_manual_target_price':
+            from .move.trade.manual import handle_move_manual_target_price
+            await handle_move_manual_target_price(update, context)
+        
+        elif state_str == 'move_manual_direction':
+            from .move.trade.manual import handle_move_manual_direction
+            await handle_move_manual_direction(update, context)
+        
+        elif state_str == 'move_manual_strategy_select':
+            from .move.trade.manual import handle_move_manual_strategy_select
+            await handle_move_manual_strategy_select(update, context)
         
         # ==================== STRADDLE STRATEGY STATES ====================
         elif state_str == 'straddle_add_name':
@@ -239,10 +279,8 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from .move_auto_trade_handler import handle_move_auto_edit_time_input
             await handle_move_auto_edit_time_input(update, context, text)
 
-        # ==================== STRADDLE/STRANGLE SL MONITOR STATES ====================
-
-        elif state_str == 'straddle_sl_monitor_confirm' or state_str == 'strangle_sl_monitor_confirm':
-            # This state doesn't need text input - it's handled by callbacks
+        # ==================== CALLBACK-BASED STATES (no text input needed) ====================
+        elif state_str in ['straddle_sl_monitor_confirm', 'strangle_sl_monitor_confirm']:
             logger.info(f"State {state_str} is callback-based, skipping text handler")
             await update.message.reply_text(
                 "Please use the buttons to confirm your choice.",
@@ -257,17 +295,19 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await state_manager.clear_state(user.id)
         
-        logger.info("=" * 50)
+        logger.info("=" * 60)
         logger.info("MESSAGE ROUTER COMPLETE")
-        logger.info("=" * 50)
+        logger.info("=" * 60)
     
     except Exception as e:
-        logger.error("=" * 50)
+        logger.error("=" * 60)
         logger.error(f"ERROR IN MESSAGE ROUTER: {e}", exc_info=True)
-        logger.error("=" * 50)
+        logger.error("=" * 60)
         try:
             await update.message.reply_text("❌ An error occurred. Please try /start.", parse_mode='HTML')
             await state_manager.clear_state(update.effective_user.id)
-        except Exception:
-            pass
-            
+        except Exception as err:
+            logger.error(f"Failed to send error message: {err}")
+
+
+__all__ = ['route_message']
