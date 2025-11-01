@@ -161,7 +161,7 @@ def register_move_list_handlers(application: Application):
     
     application.add_handler(CallbackQueryHandler(
         move_list_menu_callback,
-        pattern="^menu_move_list$"
+        pattern="^menu_list_move_options$"
     ))
     
     application.add_handler(CallbackQueryHandler(
