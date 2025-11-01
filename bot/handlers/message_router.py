@@ -74,12 +74,15 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_move_strategy_name(update, context)
     
         elif state_str == 'move_add_description':
-            from bot.handlers.move.strategy.input_handlers import handle_move_description
-            await handle_move_description(update, context)
+            # ✅ Description is keyboard-only - SKIP
+            logger.info("⏭️ move_add_description requires keyboard buttons only")
+            return
 
         elif state_str == 'move_add_asset':
             # Asset selection is callback-only, no text input needed
+            logger.info("⏭️ move_add_asset requires keyboard buttons")
             await update.message.reply_text("Please use the buttons to select an asset.")
+            return
 
         elif state_str == 'move_add_atm_offset':
             from bot.handlers.move.strategy.input_handlers import handle_move_atm_offset
