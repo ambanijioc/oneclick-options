@@ -11,7 +11,7 @@ from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.validators.user_validator import check_user_authorization
 from database.operations.move_trade_preset_ops import (
-    get_move_trade_presets,
+    get_move_trade_presets,  # ✅ FIXED: Use this instead of get_move_trade_preset_by_id
     get_move_trade_preset_by_id,
     delete_move_trade_preset
 )
@@ -36,7 +36,8 @@ async def move_preset_delete_callback(update: Update, context: ContextTypes.DEFA
     
     log_user_action(user.id, "Requested MOVE preset list for deletion")
     
-    presets = await get_move_trade_preset_by_id(user.id)
+    # ✅ FIXED: Use correct function
+    presets = await get_move_trade_presets(user.id)
     
     if not presets:
         await query.edit_message_text(
@@ -106,7 +107,7 @@ async def move_preset_delete_execute_callback(update: Update, context: ContextTy
     
     name = preset.get('preset_name', 'Unnamed')
     
-    result = await delete_move_preset(user.id, preset_id)
+    result = await delete_move_trade_preset(user.id, preset_id)
     
     if result:
         log_user_action(user.id, f"Deleted MOVE preset: {name}")
