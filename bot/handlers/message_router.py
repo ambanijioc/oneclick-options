@@ -74,9 +74,8 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_move_strategy_name(update, context)
     
         elif state_str == 'move_add_description':
-            # ✅ Description is keyboard-only - SKIP
-            logger.info("⏭️ move_add_description requires keyboard buttons only")
-            return
+            from bot.handlers.move.strategy.input_handlers import handle_move_description
+            await handle_move_description(update, context)
 
         elif state_str == 'move_add_asset':
             # Asset selection is callback-only, no text input needed
