@@ -1,7 +1,7 @@
 """
-MOVE Strategy Input Handlers - COMPLETE WITH ATM OFFSET
-Handles all text inputs for MOVE strategy creation
-Includes state validation in all handlers
+MOVE Strategy Input Handlers - OPTIONAL STEPS
+Step 2 (Description) & Step 7 (Target Trigger) are optional
+If Step 7 is skipped, Step 8 is automatically skipped too
 """
 
 import re
@@ -24,7 +24,7 @@ logger = setup_logger(__name__)
 # ============ VALIDATORS ============
 
 def validate_strategy_name(name: str) -> tuple[bool, str]:
-    """Validate strategy name - relaxed rules for trading symbols"""
+    """Validate strategy name"""
     name = name.strip()
     
     if not name:
@@ -81,18 +81,16 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_name':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
         return
     
-    logger.info(f"📥 Strategy name input: '{text}'")
+    logger.info(f"📥 Strategy name: '{text}'")
     
-    # VALIDATE NAME
     valid, error = validate_strategy_name(text)
     if not valid:
         await update.message.reply_text(
@@ -102,17 +100,16 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
         )
         return
     
-    # SAVE & MOVE TO NEXT STATE
     await state_manager.set_state_data(user.id, {'name': text})
     await state_manager.set_state(user.id, 'move_add_description')
     
-    logger.info(f"✅ Strategy name saved: {text}")
+    logger.info(f"✅ Name saved: {text}")
     
     await update.message.reply_text(
-        f"✅ Strategy name saved: <code>{text}</code>\n\n"
-        f"Step 2/8: <b>Description (Optional)</b>\n"
-        f"Enter a description or skip:",
-        reply_markup=get_cancel_keyboard(),
+        f"✅ Name saved: <code>{text}</code>\n\n"
+        f"Step 2/7: <b>Description (Optional)</b>\n"
+        f"Enter description or skip to next step:",
+        reply_markup=get_skip_target_keyboard(),  # ✅ Use skip keyboard
         parse_mode='HTML'
     )
 
@@ -124,34 +121,31 @@ async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_description':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
         return
     
-    # VALIDATE LENGTH
     if len(text) > 500:
         await update.message.reply_text(
             "❌ Description too long (max 500 characters)\n\n"
-            "Please enter a shorter description:",
+            "Please enter shorter description:",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # SAVE & MOVE TO NEXT STATE
-    logger.info(f"📥 Description saved: '{text[:50]}'...")
+    logger.info(f"📥 Description: '{text[:50]}'...")
     
     await state_manager.set_state_data(user.id, {'description': text})
     await state_manager.set_state(user.id, 'move_add_lot_size')
     
     await update.message.reply_text(
         f"✅ Description saved\n\n"
-        f"Step 3/8: <b>Lot Size</b>\n"
+        f"Step 3/7: <b>Lot Size</b>\n"
         f"Enter lot size (1-1000):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -165,10 +159,9 @@ async def handle_move_lot_size(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_lot_size':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
@@ -178,22 +171,21 @@ async def handle_move_lot_size(update: Update, context: ContextTypes.DEFAULT_TYP
     
     if not valid:
         await update.message.reply_text(
-            f"❌ {error}\n\nPlease enter lot size (1-1000):",
+            f"❌ {error}\n\nEnter lot size (1-1000):",
             reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
         return
     
-    # SAVE & MOVE TO NEXT STATE
     await state_manager.set_state_data(user.id, {'lot_size': lot_size})
     await state_manager.set_state(user.id, 'move_add_atm_offset')
     
-    log_user_action(user.id, f"Set lot size: {lot_size}")
-    logger.info(f"✅ Lot size set: {lot_size}")
+    log_user_action(user.id, f"Lot size: {lot_size}")
+    logger.info(f"✅ Lot size: {lot_size}")
     
     await update.message.reply_text(
         f"✅ Lot size: {lot_size}\n\n"
-        f"Step 4/8: <b>ATM Offset</b>\n"
+        f"Step 4/7: <b>ATM Offset</b>\n"
         f"Enter ATM offset (-10 to +10):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -207,10 +199,9 @@ async def handle_move_atm_offset(update: Update, context: ContextTypes.DEFAULT_T
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_atm_offset':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
@@ -226,16 +217,15 @@ async def handle_move_atm_offset(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
     
-    # SAVE & MOVE TO NEXT STATE
     await state_manager.set_state_data(user.id, {'atm_offset': offset})
     await state_manager.set_state(user.id, 'move_add_sl_trigger')
     
-    log_user_action(user.id, f"Set ATM offset: {offset:+d}")
+    log_user_action(user.id, f"ATM offset: {offset:+d}")
     logger.info(f"✅ ATM offset: {offset:+d}")
     
     await update.message.reply_text(
         f"✅ ATM Offset: {offset:+d}\n\n"
-        f"Step 5/8: <b>Stop Loss Trigger %</b>\n"
+        f"Step 5/7: <b>Stop Loss Trigger %</b>\n"
         f"Enter SL trigger (0-100):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -249,10 +239,9 @@ async def handle_move_sl_trigger(update: Update, context: ContextTypes.DEFAULT_T
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_sl_trigger':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
@@ -268,16 +257,15 @@ async def handle_move_sl_trigger(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
     
-    # SAVE & MOVE TO NEXT STATE
     await state_manager.set_state_data(user.id, {'sl_trigger_percent': pct})
     await state_manager.set_state(user.id, 'move_add_sl_limit')
     
-    log_user_action(user.id, f"Set SL trigger: {pct}%")
+    log_user_action(user.id, f"SL trigger: {pct}%")
     logger.info(f"✅ SL trigger: {pct}%")
     
     await update.message.reply_text(
         f"✅ SL Trigger: {pct}%\n\n"
-        f"Step 6/8: <b>Stop Loss Limit %</b>\n"
+        f"Step 6/7: <b>Stop Loss Limit %</b>\n"
         f"Enter SL limit (0-100):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -289,10 +277,9 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_sl_limit':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
@@ -308,18 +295,17 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return
     
-    # SAVE & MOVE TO NEXT STATE
     await state_manager.set_state_data(user.id, {'sl_limit_percent': pct})
     await state_manager.set_state(user.id, 'move_add_target_trigger')
     
-    log_user_action(user.id, f"Set SL limit: {pct}%")
+    log_user_action(user.id, f"SL limit: {pct}%")
     logger.info(f"✅ SL limit: {pct}%")
     
     await update.message.reply_text(
         f"✅ SL Limit: {pct}%\n\n"
-        f"Step 7/8: <b>Target Setup (Optional)</b>\n"
-        f"Enter target trigger % or skip:",
-        reply_markup=get_skip_target_keyboard(),
+        f"Step 7/7: <b>Target Trigger (Optional)</b>\n"
+        f"Enter target trigger % or skip to confirmation:",
+        reply_markup=get_skip_target_keyboard(),  # ✅ Skip keyboard
         parse_mode='HTML'
     )
 
@@ -327,14 +313,13 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @error_handler
 async def handle_move_target_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle target trigger input"""
+    """Handle target trigger - if entered, ask for limit; if skipped, go to confirmation"""
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_target_trigger':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
@@ -350,17 +335,16 @@ async def handle_move_target_trigger(update: Update, context: ContextTypes.DEFAU
         )
         return
     
-    # SAVE & MOVE TO NEXT STATE
+    # ✅ If user enters target trigger, save it and ask for target limit
     await state_manager.set_state_data(user.id, {'target_trigger_percent': pct})
     await state_manager.set_state(user.id, 'move_add_target_limit')
     
-    log_user_action(user.id, f"Set target trigger: {pct}%")
+    log_user_action(user.id, f"Target trigger: {pct}%")
     logger.info(f"✅ Target trigger: {pct}%")
     
     await update.message.reply_text(
         f"✅ Target Trigger: {pct}%\n\n"
-        f"Step 8/8: <b>Target Limit %</b>\n"
-        f"Enter target limit (0-100):",
+        f"Enter Target Limit % (0-100):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
@@ -371,10 +355,9 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
     user = update.effective_user
     text = update.message.text.strip()
     
-    # ✅ STATE VALIDATION
     state = await state_manager.get_state(user.id)
     if state != 'move_add_target_limit':
-        return  # Not our state, exit silently
+        return
     
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
@@ -390,14 +373,13 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
         )
         return
     
-    # SAVE & MOVE TO CONFIRMATION
     await state_manager.set_state_data(user.id, {'target_limit_percent': pct})
     
-    log_user_action(user.id, f"Set target limit: {pct}%")
+    log_user_action(user.id, f"Target limit: {pct}%")
     logger.info(f"✅ Target limit: {pct}%")
     logger.info(f"✅ All inputs complete - moving to confirmation")
     
-    # Import and show confirmation
+    # Show confirmation
     from bot.handlers.move.strategy.create import show_move_confirmation
     await show_move_confirmation(update, context)
 
@@ -415,4 +397,4 @@ __all__ = [
     'handle_move_target_trigger',
     'handle_move_target_limit',
     ]
-        
+    
