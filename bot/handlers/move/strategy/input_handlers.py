@@ -1,6 +1,6 @@
 """
-MOVE Strategy Input Handlers - FIXED & COMPLETE
-Handles text input for MOVE strategy creation flows
+MOVE Strategy Input Handlers - COMPLETE WITH ATM OFFSET
+Handles all text inputs for MOVE strategy creation
 Includes state validation in all handlers
 """
 
@@ -53,6 +53,16 @@ def validate_lot_size(value: str) -> tuple[bool, str, int]:
     except ValueError:
         return False, "Lot size must be a whole number", 0
 
+def validate_atm_offset(value: str) -> tuple[bool, str, int]:
+    """Validate ATM offset (-10 to +10)"""
+    try:
+        offset = int(value.strip())
+        if offset < -10 or offset > 10:
+            return False, "ATM offset must be between -10 and +10", 0
+        return True, "", offset
+    except ValueError:
+        return False, "ATM offset must be a whole number", 0
+
 def validate_percentage(value: str, field_name: str = "Value") -> tuple[bool, str, float]:
     """Validate percentage inputs (0-100)"""
     try:
@@ -100,7 +110,7 @@ async def handle_move_strategy_name(update: Update, context: ContextTypes.DEFAUL
     
     await update.message.reply_text(
         f"✅ Strategy name saved: <code>{text}</code>\n\n"
-        f"Step 2/7: <b>Description (Optional)</b>\n"
+        f"Step 2/8: <b>Description (Optional)</b>\n"
         f"Enter a description or skip:",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -141,7 +151,7 @@ async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_
     
     await update.message.reply_text(
         f"✅ Description saved\n\n"
-        f"Step 3/7: <b>Lot Size</b>\n"
+        f"Step 3/8: <b>Lot Size</b>\n"
         f"Enter lot size (1-1000):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -176,14 +186,56 @@ async def handle_move_lot_size(update: Update, context: ContextTypes.DEFAULT_TYP
     
     # SAVE & MOVE TO NEXT STATE
     await state_manager.set_state_data(user.id, {'lot_size': lot_size})
-    await state_manager.set_state(user.id, 'move_add_sl_trigger')
+    await state_manager.set_state(user.id, 'move_add_atm_offset')
     
     log_user_action(user.id, f"Set lot size: {lot_size}")
     logger.info(f"✅ Lot size set: {lot_size}")
     
     await update.message.reply_text(
         f"✅ Lot size: {lot_size}\n\n"
-        f"Step 4/7: <b>Stop Loss Trigger %</b>\n"
+        f"Step 4/8: <b>ATM Offset</b>\n"
+        f"Enter ATM offset (-10 to +10):",
+        reply_markup=get_cancel_keyboard(),
+        parse_mode='HTML'
+    )
+
+# ============ ATM OFFSET INPUT ============
+
+@error_handler
+async def handle_move_atm_offset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle ATM offset input"""
+    user = update.effective_user
+    text = update.message.text.strip()
+    
+    # ✅ STATE VALIDATION
+    state = await state_manager.get_state(user.id)
+    if state != 'move_add_atm_offset':
+        return  # Not our state, exit silently
+    
+    if not await check_user_authorization(user):
+        await update.message.reply_text("❌ Unauthorized")
+        return
+    
+    valid, error, offset = validate_atm_offset(text)
+    
+    if not valid:
+        await update.message.reply_text(
+            f"❌ {error}\n\nEnter ATM offset (-10 to +10):",
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # SAVE & MOVE TO NEXT STATE
+    await state_manager.set_state_data(user.id, {'atm_offset': offset})
+    await state_manager.set_state(user.id, 'move_add_sl_trigger')
+    
+    log_user_action(user.id, f"Set ATM offset: {offset:+d}")
+    logger.info(f"✅ ATM offset: {offset:+d}")
+    
+    await update.message.reply_text(
+        f"✅ ATM Offset: {offset:+d}\n\n"
+        f"Step 5/8: <b>Stop Loss Trigger %</b>\n"
         f"Enter SL trigger (0-100):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -225,7 +277,7 @@ async def handle_move_sl_trigger(update: Update, context: ContextTypes.DEFAULT_T
     
     await update.message.reply_text(
         f"✅ SL Trigger: {pct}%\n\n"
-        f"Step 5/7: <b>Stop Loss Limit %</b>\n"
+        f"Step 6/8: <b>Stop Loss Limit %</b>\n"
         f"Enter SL limit (0-100):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -265,7 +317,7 @@ async def handle_move_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYP
     
     await update.message.reply_text(
         f"✅ SL Limit: {pct}%\n\n"
-        f"Step 6/7: <b>Target Setup (Optional)</b>\n"
+        f"Step 7/8: <b>Target Setup (Optional)</b>\n"
         f"Enter target trigger % or skip:",
         reply_markup=get_skip_target_keyboard(),
         parse_mode='HTML'
@@ -307,7 +359,7 @@ async def handle_move_target_trigger(update: Update, context: ContextTypes.DEFAU
     
     await update.message.reply_text(
         f"✅ Target Trigger: {pct}%\n\n"
-        f"Step 7/7: <b>Target Limit %</b>\n"
+        f"Step 8/8: <b>Target Limit %</b>\n"
         f"Enter target limit (0-100):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
@@ -343,6 +395,7 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
     
     log_user_action(user.id, f"Set target limit: {pct}%")
     logger.info(f"✅ Target limit: {pct}%")
+    logger.info(f"✅ All inputs complete - moving to confirmation")
     
     # Import and show confirmation
     from bot.handlers.move.strategy.create import show_move_confirmation
@@ -351,12 +404,15 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
 __all__ = [
     'validate_strategy_name',
     'validate_lot_size',
+    'validate_atm_offset',
     'validate_percentage',
     'handle_move_strategy_name',
     'handle_move_description',
     'handle_move_lot_size',
+    'handle_move_atm_offset',
     'handle_move_sl_trigger',
     'handle_move_sl_limit',
     'handle_move_target_trigger',
     'handle_move_target_limit',
     ]
+        
