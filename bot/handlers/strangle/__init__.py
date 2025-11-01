@@ -1,56 +1,35 @@
 """
-MOVE Strategy Handlers Module
-Registers all MOVE strategy callbacks (create, edit, delete, view)
+STRANGLE Strategy Handler Package
+
+Organized modular structure for STRANGLE strategy operations:
+- strategy/: Strategy CRUD operations (create, edit, view, delete)
+- preset/: Trade preset CRUD operations (create, edit, view, delete)
+- trade/: Trade execution (manual, auto)
+
+STRANGLE = Selling Call + Put at different OTM strikes
 """
 
-from telegram.ext import Application, CallbackQueryHandler
-from bot.utils.logger import setup_logger
+from .strategy.create import *
+from .strategy.edit import *
+from .strategy.view import *
+from .strategy.delete import *
+from .preset.create import *
+from .preset.edit import *
+from .preset.view import *
+from .preset.delete import *
+from .trade.manual import *
+from .trade.auto import *
 
-logger = setup_logger(__name__)
-
-
-def register_move_strategy_handlers(application: Application) -> None:
-    """Register MOVE strategy handlers."""
-    
-    try:
-        # Import actual handler modules
-        from bot.handlers.move.strategy.create import handle_move_strategy_create
-        from bot.handlers.move.strategy.edit import handle_move_strategy_edit
-        from bot.handlers.move.strategy.delete import handle_move_strategy_delete
-        from bot.handlers.move.strategy.view import handle_move_strategy_view
-        
-        # Register callbacks
-        application.add_handler(
-            CallbackQueryHandler(
-                handle_move_strategy_create,
-                pattern=r"^move_strategy_create"
-            )
-        )
-        application.add_handler(
-            CallbackQueryHandler(
-                handle_move_strategy_edit,
-                pattern=r"^move_strategy_edit_"
-            )
-        )
-        application.add_handler(
-            CallbackQueryHandler(
-                handle_move_strategy_delete,
-                pattern=r"^move_strategy_delete_"
-            )
-        )
-        application.add_handler(
-            CallbackQueryHandler(
-                handle_move_strategy_view,
-                pattern=r"^move_strategy_view|^move_list"
-            )
-        )
-        
-        logger.info("✅ MOVE strategy handlers registered")
-        
-    except ImportError as e:
-        logger.error(f"Import error in MOVE strategy handlers: {e}")
-    except Exception as e:
-        logger.error(f"Error registering MOVE strategy handlers: {e}")
-
-
-__all__ = ['register_move_strategy_handlers']
+__all__ = [
+    'strangle_strategy_start',
+    'strangle_create_strategy',
+    'strangle_edit_strategy',
+    'strangle_view_strategies',
+    'strangle_delete_strategy',
+    'strangle_preset_create',
+    'strangle_preset_edit',
+    'strangle_preset_view',
+    'strangle_preset_delete',
+    'strangle_manual_trade',
+    'strangle_auto_trade',
+]
