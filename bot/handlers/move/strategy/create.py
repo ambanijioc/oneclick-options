@@ -87,6 +87,8 @@ async def handle_move_add_name_input(update: Update, context: ContextTypes.DEFAU
     logger.info(f"✅ MOVE name: {text}")
     
     await state_manager.set_state(user.id, 'move_add_description')
+    await update.message.reply_text("Step 2/7: Description (Optional)...")
+    return  # ✅ CRITICAL: Return to stop execution
     
     await update.message.reply_text(
         f"✅ <b>Name saved</b>\n\n"
