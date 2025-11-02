@@ -114,9 +114,8 @@ def register_move_strategy_handlers(application: Application):
     # ==================== VIEW STRATEGY HANDLERS (Group 10) ====================
     try:
         from bot.handlers.move.strategy.view import (
-            move_view_callback,
-            move_view_detail_callback,
-            move_list_all_callback
+            view_strategies_list,
+            view_strategy_details
         )
         
         # List all strategies
