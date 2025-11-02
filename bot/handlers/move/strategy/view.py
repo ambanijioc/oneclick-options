@@ -15,7 +15,8 @@ from database.operations.move_strategy_ops import get_move_strategies, get_move_
 from bot.keyboards.move_strategy_keyboards import (
     get_strategies_list_keyboard,
     get_strategy_details_keyboard,
-    get_cancel_keyboard
+    get_cancel_keyboard,
+    get_move_menu_keyboard  # Add this
 )
 
 logger = setup_logger(__name__)
