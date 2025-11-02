@@ -58,19 +58,16 @@ async def move_add_new_strategy_callback(update: Update, context: ContextTypes.D
     await query.answer()
     user = query.from_user
     
-    log_user_action(user.id, "Started MOVE strategy")
-    
-    # Clear existing state
+    # Clear state
     await state_manager.clear_state(user.id)
     await state_manager.set_state(user.id, 'move_add_name')
-    await state_manager.set_state_data(user.id, {'strategy_type': 'move'})
     
     await query.edit_message_text(
         "📝 Add MOVE Strategy\n\n"
         "Step 1/7: Strategy Name\n\n"
         "Enter a unique name for your MOVE strategy:\n\n"
         "Example: BTC 8AM MOVE, ETH Daily MOVE",
-        reply_markup=get_cancel_keyboard(),
+        reply_markup=get_cancel_keyboard(),  # ✅ Only Cancel button
         parse_mode='HTML'
     )
 
@@ -79,19 +76,18 @@ async def handle_move_add_name_input(update: Update, context: ContextTypes.DEFAU
     """Step 1 -> Step 2: Save name, show description prompt"""
     user = update.effective_user
     
-    # Store name
     await state_manager.set_state_data(user.id, {'name': text})
     logger.info(f"✅ MOVE name: {text}")
     
-    # Move to description
     await state_manager.set_state(user.id, 'move_add_description')
     
+    # ✅ NOW show buttons with description step
     await update.message.reply_text(
-        f"✅ <b>Strategy name saved</b>\n\n"
+        f"✅ <b>Name saved</b>\n\n"
         f"<code>{text}</code>\n\n"
-        f"Step 2/7: <b>Description (Optional)</b>\n\n"
-        f"Enter a description or skip:",
-        reply_markup=get_description_skip_keyboard(),
+        f"<b>Step 2/7: Description (Optional)</b>\n\n"
+        f"Enter a description or click skip:",
+        reply_markup=get_description_skip_keyboard(),  # ← Only now show Skip button
         parse_mode='HTML'
     )
 
