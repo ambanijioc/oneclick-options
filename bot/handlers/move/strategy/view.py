@@ -12,6 +12,11 @@ from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.validators.user_validator import check_user_authorization
 from database.operations.move_strategy_ops import get_move_strategies, get_move_strategy
+from bot.keyboards.move_strategy_keyboards import (
+    get_strategies_list_keyboard,
+    get_strategy_details_keyboard,
+    get_cancel_keyboard
+)
 
 logger = setup_logger(__name__)
 
