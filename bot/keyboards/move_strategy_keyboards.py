@@ -1,15 +1,16 @@
 """
-MOVE Strategy Keyboard Layouts
-
+MOVE Strategy Keyboard Layouts - CLEANED & DEDUPED
 All inline keyboard definitions for MOVE strategy management
 """
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+# ========== BASIC KEYBOARDS ==========
+
 def get_move_menu_keyboard() -> InlineKeyboardMarkup:
     """Get MOVE Strategy Management menu keyboard."""
     keyboard = [
-        [InlineKeyboardButton("➕ Add Strategy", callback_data="move_add_strategy")],  # ✅ FIXED
+        [InlineKeyboardButton("➕ Add Strategy", callback_data="move_add_strategy")],
         [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_edit")],
         [InlineKeyboardButton("🗑️ Delete Strategy", callback_data="move_delete")],
         [InlineKeyboardButton("👁️ View Strategies", callback_data="move_view")],
@@ -17,22 +18,31 @@ def get_move_menu_keyboard() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_cancel_keyboard():
+def get_cancel_keyboard() -> InlineKeyboardMarkup:
     """Get simple cancel keyboard."""
     keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]]
     return InlineKeyboardMarkup(keyboard)
 
-def get_asset_keyboard():
+# ========== STEP-BY-STEP KEYBOARDS ==========
+
+def get_description_skip_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard for description step with Skip button (UNIFIED)."""
+    keyboard = [
+        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_asset_keyboard() -> InlineKeyboardMarkup:
     """Get asset selection keyboard."""
     keyboard = [
         [InlineKeyboardButton("₿ BTC", callback_data="move_asset_BTC")],
         [InlineKeyboardButton("Ξ ETH", callback_data="move_asset_ETH")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_expiry_keyboard():
+def get_expiry_keyboard() -> InlineKeyboardMarkup:
     """Get expiry selection keyboard."""
     keyboard = [
         [InlineKeyboardButton("📅 Daily", callback_data="move_expiry_daily")],
@@ -40,70 +50,37 @@ def get_expiry_keyboard():
         [InlineKeyboardButton("📊 Monthly", callback_data="move_expiry_monthly")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_direction_keyboard():
+def get_direction_keyboard() -> InlineKeyboardMarkup:
     """Get direction selection keyboard."""
     keyboard = [
         [InlineKeyboardButton("🟢 Long (Buy)", callback_data="move_direction_long")],
         [InlineKeyboardButton("🔴 Short (Sell)", callback_data="move_direction_short")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_confirmation_keyboard():
+def get_confirmation_keyboard() -> InlineKeyboardMarkup:
     """Get save confirmation keyboard."""
     keyboard = [
         [InlineKeyboardButton("✅ Confirm & Save", callback_data="move_confirm_save")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_skip_target_keyboard():
+def get_skip_target_keyboard() -> InlineKeyboardMarkup:
     """Get keyboard with skip target option."""
     keyboard = [
         [InlineKeyboardButton("⏭️ Skip Target", callback_data="move_skip_target")],
         [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_continue_edit_keyboard(strategy_id):
-    """Get keyboard for continuing edit after update."""
-    keyboard = [
-        [InlineKeyboardButton("✏️ Continue Editing", callback_data=f"move_edit_{strategy_id}")],
-        [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
-    ]
-    
-    return InlineKeyboardMarkup(keyboard)
+# ========== EDIT/MANAGE KEYBOARDS ==========
 
-def get_delete_confirmation_keyboard(item_id, preset_type='strategy'):
-    """Get delete confirmation keyboard for strategy or preset."""
-    if preset_type == 'preset':
-        confirm_callback = f"move_preset_delete_execute_{item_id}"
-        cancel_callback = "menu_move"
-    else:
-        confirm_callback = f"move_delete_confirmed_{item_id}"
-        cancel_callback = "move_delete_list"
-    
-    keyboard = [
-        [InlineKeyboardButton("✅ Yes, Delete", callback_data=confirm_callback)],
-        [InlineKeyboardButton("❌ No, Cancel", callback_data=cancel_callback)]
-    ]
-    
-    return InlineKeyboardMarkup(keyboard)
-
-def get_strategy_list_keyboard(strategies, action="edit"):
-    """
-    Build keyboard for strategy selection (edit or delete).
-    
-    Args:
-        strategies: List of strategy dicts
-        action: "edit" or "delete"
-    """
+def get_strategy_list_keyboard(strategies, action="edit") -> InlineKeyboardMarkup:
+    """Build keyboard for strategy selection (edit or delete)."""
     keyboard = []
     
     for strategy in strategies:
@@ -112,7 +89,6 @@ def get_strategy_list_keyboard(strategies, action="edit"):
         asset = strategy.get('asset', 'N/A')
         direction = strategy.get('direction', 'unknown')
         
-        # Safe capitalize
         direction_display = direction.capitalize() if direction else 'N/A'
         
         if action == "delete":
@@ -124,10 +100,9 @@ def get_strategy_list_keyboard(strategies, action="edit"):
         keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
     
     keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_menu")])
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_edit_fields_keyboard(strategy_id):
+def get_edit_fields_keyboard(strategy_id) -> InlineKeyboardMarkup:
     """Get keyboard for selecting which field to edit."""
     keyboard = [
         [InlineKeyboardButton("📝 Name", callback_data=f"move_edit_field_{strategy_id}_name")],
@@ -142,20 +117,18 @@ def get_edit_fields_keyboard(strategy_id):
         [InlineKeyboardButton("🎯 Target Limit", callback_data=f"move_edit_field_{strategy_id}_target_limit")],
         [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_edit_asset_keyboard(strategy_id):
+def get_edit_asset_keyboard(strategy_id) -> InlineKeyboardMarkup:
     """Get keyboard for editing asset."""
     keyboard = [
         [InlineKeyboardButton("📊 BTC", callback_data=f"move_edit_save_asset_{strategy_id}_BTC")],
         [InlineKeyboardButton("💰 ETH", callback_data=f"move_edit_save_asset_{strategy_id}_ETH")],
         [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_edit_expiry_keyboard(strategy_id):
+def get_edit_expiry_keyboard(strategy_id) -> InlineKeyboardMarkup:
     """Get keyboard for editing expiry."""
     keyboard = [
         [InlineKeyboardButton("📅 Daily", callback_data=f"move_edit_save_expiry_{strategy_id}_daily")],
@@ -163,31 +136,21 @@ def get_edit_expiry_keyboard(strategy_id):
         [InlineKeyboardButton("📊 Monthly", callback_data=f"move_edit_save_expiry_{strategy_id}_monthly")],
         [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_edit_direction_keyboard(strategy_id):
+def get_edit_direction_keyboard(strategy_id) -> InlineKeyboardMarkup:
     """Get keyboard for editing direction."""
     keyboard = [
         [InlineKeyboardButton("🔼 Long", callback_data=f"move_edit_save_direction_{strategy_id}_long")],
         [InlineKeyboardButton("🔽 Short", callback_data=f"move_edit_save_direction_{strategy_id}_short")],
         [InlineKeyboardButton("🔙 Back", callback_data=f"move_edit_{strategy_id}")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-# ============================================
-# PRESET MANAGEMENT KEYBOARDS (MISSING FUNCTIONS)
-# ============================================
+# ========== PRESET KEYBOARDS ==========
 
-def get_preset_list_keyboard(presets, action="view"):
-    """
-    Build keyboard for preset selection (view, edit, or delete).
-    
-    Args:
-        presets: List of preset dicts
-        action: "view", "edit", or "delete"
-    """
+def get_preset_list_keyboard(presets, action="view") -> InlineKeyboardMarkup:
+    """Build keyboard for preset selection (view, edit, or delete)."""
     keyboard = []
     
     for preset in presets:
@@ -207,10 +170,9 @@ def get_preset_list_keyboard(presets, action="view"):
         keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
     
     keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="menu_move")])
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_preset_edit_fields_keyboard():
+def get_preset_edit_fields_keyboard() -> InlineKeyboardMarkup:
     """Get keyboard for selecting preset field to edit."""
     keyboard = [
         [InlineKeyboardButton("📝 Edit Name", callback_data="move_preset_edit_field_name")],
@@ -218,24 +180,38 @@ def get_preset_edit_fields_keyboard():
         [InlineKeyboardButton("🎯 Edit Strategy", callback_data="move_preset_edit_field_strategy")],
         [InlineKeyboardButton("🔙 Back", callback_data="menu_move")]
     ]
-    
     return InlineKeyboardMarkup(keyboard)
 
-def get_description_keyboard():
-    """Keyboard for description step with Skip button."""
+def get_delete_confirmation_keyboard(item_id, preset_type='strategy') -> InlineKeyboardMarkup:
+    """Get delete confirmation keyboard for strategy or preset."""
+    if preset_type == 'preset':
+        confirm_callback = f"move_preset_delete_execute_{item_id}"
+        cancel_callback = "menu_move"
+    else:
+        confirm_callback = f"move_delete_confirmed_{item_id}"
+        cancel_callback = "move_delete_list"
+    
     keyboard = [
-        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
+        [InlineKeyboardButton("✅ Yes, Delete", callback_data=confirm_callback)],
+        [InlineKeyboardButton("❌ No, Cancel", callback_data=cancel_callback)]
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_description_skip_keyboard():
-    """Keyboard with Skip Description button."""
-    keyboard = [
-        [InlineKeyboardButton("⏭️ Skip Description", callback_data="move_skip_description")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="move_cancel")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-    
-    
-            
+__all__ = [
+    'get_move_menu_keyboard',
+    'get_cancel_keyboard',
+    'get_description_skip_keyboard',
+    'get_asset_keyboard',
+    'get_expiry_keyboard',
+    'get_direction_keyboard',
+    'get_confirmation_keyboard',
+    'get_skip_target_keyboard',
+    'get_strategy_list_keyboard',
+    'get_edit_fields_keyboard',
+    'get_edit_asset_keyboard',
+    'get_edit_expiry_keyboard',
+    'get_edit_direction_keyboard',
+    'get_preset_list_keyboard',
+    'get_preset_edit_fields_keyboard',
+    'get_delete_confirmation_keyboard',
+]
