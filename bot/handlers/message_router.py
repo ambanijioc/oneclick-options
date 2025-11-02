@@ -174,7 +174,24 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from bot.handlers.move.preset.edit import handle_move_edit_preset_field
             await handle_move_edit_preset_field(update, context)
             logger.info("✅ Routed to: handle_move_edit_preset_field")
-        
+
+            # ==================== MOVE STRATEGY VIEW (NEW) ====================
+        elif state_str == 'move_view_strategies_list':
+            # This is handled by callback, not text
+            logger.info("📌 State move_view_strategies_list is callback-based")
+            await update.message.reply_text(
+                "ℹ️ Please use the buttons to select a strategy.",
+                parse_mode='HTML'
+            )
+
+        elif state_str == 'move_view_strategy_detail':
+            # This is handled by callback, not text
+            logger.info("📌 State move_view_strategy_detail is callback-based")
+            await update.message.reply_text(
+                "ℹ️ Please use the buttons below.",
+                parse_mode='HTML'
+        )
+
         # ==================== MOVE MANUAL TRADE ====================
         elif state_str == 'move_manual_entry_price':
             from bot.handlers.move.trade.manual import handle_move_manual_entry_price
