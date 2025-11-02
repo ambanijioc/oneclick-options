@@ -103,22 +103,46 @@ async def handle_move_add_name_input(update: Update, context: ContextTypes.DEFAU
 async def handle_move_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Step 2 -> Step 3: Save description, show lot size"""
     user = update.effective_user
-    text = update.message.text
+    text = update.message.text.strip()
+    
+    # Get saved name
+    data = await state_manager.get_state_data(user.id)
+    saved_name = data.get('name', '')
+    
+    # ✅ FIX: Prevent description from being same as name
+    if text == saved_name:
+        await update.message.reply_text(
+            f"❌ Description cannot be the same as the strategy name!\n\n"
+            f"Please enter a different description or skip:",
+            reply_markup=get_description_skip_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # Validate length
+    if len(text) < 2:
+        await update.message.reply_text(
+            "❌ Description must be at least 2 characters.\n\n"
+            "Please enter a valid description or skip:",
+            reply_markup=get_description_skip_keyboard(),
+            parse_mode='HTML'
+        )
+        return
     
     await state_manager.set_state_data(user.id, {'description': text})
     logger.info(f"✅ MOVE description: {text[:50]}")
     
     await state_manager.set_state(user.id, 'move_add_lot_size')
-    data = await state_manager.get_state_data(user.id)
     
     await update.message.reply_text(
         f"✅ <b>Description saved</b>\n\n"
         f"Step 3/7: <b>Lot Size</b>\n"
-        f"Name: <code>{data.get('name')}</code>\n\n"
+        f"Name: <code>{saved_name}</code>\n\n"
         f"Enter lot size (1-1000):",
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
+
 
 @error_handler
 async def move_skip_description_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
