@@ -28,7 +28,7 @@ def register_move_strategy_handlers(application: Application):
         application.add_handler(CallbackQueryHandler(move_add_new_strategy_callback, pattern="^move_add_strategy$"), group=10)
         application.add_handler(CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"), group=10)
         application.add_handler(CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"), group=10)  # ✅ ADD THIS
-        application.add_handler(CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(btc|eth)$"), group=10)
+        application.add_handler(CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(BTC|ETH)$"), group=10)
         application.add_handler(CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"), group=10)
         application.add_handler(CallbackQueryHandler(move_direction_callback, pattern="^move_direction_(long|short)$"), group=10)
         application.add_handler(CallbackQueryHandler(move_confirm_save_callback, pattern="^move_confirm_save$"), group=10)
