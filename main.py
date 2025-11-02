@@ -1,38 +1,12 @@
 """
-Trading Bot Main Application - v2.0 (Production Ready)
-Date: 2025-11-02
+Main application entry point.
+Initializes FastAPI app, sets up webhook, and starts the server.
 
-FastAPI application with comprehensive lifespan management.
-Handles webhook integration, scheduler management, and graceful shutdown.
-
-Architecture:
-┌────────────────────────────────────────────────┐
-│ Startup                                        │
-├────────────────────────────────────────────────┤
-│ 1. Connect Database                            │
-│ 2. Initialize Bot Application                  │
-│ 3. Delete existing webhook + Set new webhook   │
-│ 4. Initialize schedulers (Algo, MOVE)          │
-│ 5. Start keep-alive service                    │
-└────────────────────────────────────────────────┘
-                      ↓
-┌────────────────────────────────────────────────┐
-│ Running - Listen for updates                   │
-├────────────────────────────────────────────────┤
-│ - Process webhook updates                      │
-│ - Execute scheduled tasks                      │
-│ - Monitor health                               │
-└────────────────────────────────────────────────┘
-                      ↓
-┌────────────────────────────────────────────────┐
-│ Shutdown                                       │
-├────────────────────────────────────────────────┤
-│ 1. Cancel background tasks                     │
-│ 2. Stop schedulers (Algo, MOVE)                │
-│ 3. Stop keep-alive service                     │
-│ 4. Shutdown bot & database                     │
-│ 5. Send notifications                          │
-└────────────────────────────────────────────────┘
+FIXES APPLIED:
+- ✅ Global move_scheduler properly managed
+- ✅ Lifespan globals correctly declared
+- ✅ Proper async/await for logging (no fire-and-forget tasks)
+- ✅ Safe error handling in shutdown
 """
 
 import asyncio
@@ -58,303 +32,227 @@ from bot.scheduler.move_scheduler import get_move_scheduler
 logger = setup_logger(__name__)
 
 
-# ============= GLOBAL STATE AT MODULE LEVEL =============
-# ✅ All globals declared here and used in lifespan
+# ============= GLOBALS AT MODULE LEVEL =============
 bot_app: Application = None
-algo_scheduler_task: asyncio.Task = None
-move_scheduler = None
+algo_scheduler_task = None
+move_scheduler = None  # ✅ NEW - Global move scheduler instance
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    ✅ Lifespan context manager for FastAPI startup and shutdown.
+    Lifespan context manager for startup and shutdown events.
     
     Manages:
-    - Database connections
+    - Database connection
     - Bot application initialization
-    - Scheduler management (Algo, MOVE, Job)
+    - Scheduler tasks (algo, move, job)
     - Keep-alive service
-    - Graceful shutdown with error handling
-    
-    All globals are declared and used here.
+    - Clean shutdown
     """
-    global bot_app, algo_scheduler_task, move_scheduler
+    global bot_app, algo_scheduler_task, move_scheduler  # ✅ DECLARE ALL GLOBALS
     
-    # ==================== STARTUP ====================
-    logger.info("=" * 80)
-    logger.info("🤖 TELEGRAM TRADING BOT - STARTUP")
-    logger.info("=" * 80)
-    
-    startup_errors = []
+    # Startup
+    logger.info("=" * 50)
+    logger.info("Starting Telegram Trading Bot...")
+    logger.info("=" * 50)
     
     try:
-        # Step 1: Connect to database
-        logger.info("\n📊 Step 1: Connecting to MongoDB...")
-        try:
-            await connect_db()
-            logger.info("  ✓ MongoDB connected successfully")
-        except Exception as e:
-            msg = f"Database connection failed: {e}"
-            logger.error(f"  ❌ {msg}")
-            startup_errors.append(msg)
-            raise
+        # Connect to database
+        logger.info("Connecting to MongoDB...")
+        await connect_db()
+        logger.info("✓ MongoDB connected successfully")
         
-        # Step 2: Initialize bot application
-        logger.info("\n🤖 Step 2: Initializing bot application...")
-        try:
-            bot_app = await create_application()
-            await bot_app.initialize()
-            logger.info("  ✓ Bot application initialized")
-        except Exception as e:
-            msg = f"Bot initialization failed: {e}"
-            logger.error(f"  ❌ {msg}")
-            startup_errors.append(msg)
-            raise
+        # Initialize bot application
+        logger.info("Initializing bot application...")
+        bot_app = await create_application()
+        await bot_app.initialize()
+        logger.info("✓ Bot application initialized")
 
-        # Step 3: Start state manager cleanup
-        logger.info("\n💾 Step 3: Starting state manager...")
-        try:
-            from bot.utils.state_manager import state_manager
-            await state_manager.start_cleanup_task()
-            logger.info("  ✓ State manager started")
-        except Exception as e:
-            logger.warning(f"  ⚠️ State manager warning: {e}")
+        # Start state manager cleanup task
+        logger.info("Starting state manager...")
+        from bot.utils.state_manager import state_manager
+        await state_manager.start_cleanup_task()
+        logger.info("✓ State manager started")
         
-        # Step 4: Setup webhook
-        logger.info("\n🔗 Step 4: Configuring webhook...")
-        try:
-            # Delete existing webhook
-            logger.info("  • Deleting existing webhook...")
-            await bot_app.bot.delete_webhook(drop_pending_updates=True)
-            logger.info("    ✓ Existing webhook deleted")
-            
-            # Set new webhook
-            webhook_url = settings.get_webhook_endpoint()
-            logger.info(f"  • Setting webhook to: {webhook_url}")
-            await bot_app.bot.set_webhook(
-                url=webhook_url,
-                allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=False
-            )
-            
-            # Verify webhook
-            webhook_info = await bot_app.bot.get_webhook_info()
-            if webhook_info.url == webhook_url:
-                logger.info(f"  ✓ Webhook configured successfully")
-                logger.info(f"    - URL: {webhook_info.url}")
-                logger.info(f"    - Pending updates: {webhook_info.pending_update_count}")
-            else:
-                msg = f"Webhook mismatch. Expected: {webhook_url}, Got: {webhook_info.url}"
-                logger.error(f"  ❌ {msg}")
-                startup_errors.append(msg)
+        # Delete existing webhook
+        logger.info("Deleting existing webhook...")
+        await bot_app.bot.delete_webhook(drop_pending_updates=True)
+        logger.info("✓ Existing webhook deleted")
         
-        except Exception as e:
-            msg = f"Webhook configuration failed: {e}"
-            logger.error(f"  ❌ {msg}")
-            startup_errors.append(msg)
+        # Set new webhook
+        webhook_url = settings.get_webhook_endpoint()
+        logger.info(f"Setting webhook: {webhook_url}")
+        await bot_app.bot.set_webhook(
+            url=webhook_url,
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=False
+        )
         
-        # Step 5: Initialize job scheduler
-        logger.info("\n⏰ Step 5: Initializing job scheduler...")
-        try:
-            await init_scheduler(bot_app)
-            logger.info("  ✓ Job scheduler initialized")
-        except Exception as e:
-            logger.warning(f"  ⚠️ Job scheduler warning: {e}")
+        # Verify webhook
+        webhook_info = await bot_app.bot.get_webhook_info()
+        if webhook_info.url == webhook_url:
+            logger.info(f"✓ Webhook set successfully: {webhook_info.url}")
+            logger.info(f"  Pending updates: {webhook_info.pending_update_count}")
+        else:
+            logger.error(f"✗ Webhook verification failed. Expected: {webhook_url}, Got: {webhook_info.url}")
+            try:
+                await log_to_telegram(f"🔴 CRITICAL: Webhook verification failed!")
+            except Exception as e:
+                logger.warning(f"Failed to send webhook error log: {e}")
         
-        # Step 6: Start algo scheduler
-        logger.info("\n🔄 Step 6: Starting algo scheduler...")
-        try:
-            algo_scheduler_task = asyncio.create_task(start_algo_scheduler(bot_app))
-            logger.info("  ✓ Algo scheduler started (background task)")
-        except Exception as e:
-            logger.warning(f"  ⚠️ Algo scheduler warning: {e}")
+        # Initialize job scheduler (existing scheduler)
+        logger.info("Initializing job scheduler...")
+        await init_scheduler(bot_app)
+        logger.info("✓ Job scheduler initialized")
         
-        # Step 7: Start MOVE scheduler
-        logger.info("\n📈 Step 7: Starting MOVE auto-trade scheduler...")
-        try:
-            move_scheduler = get_move_scheduler(bot_app)
-            await move_scheduler.start()
-            logger.info("  ✓ MOVE scheduler started")
-        except Exception as e:
-            logger.warning(f"  ⚠️ MOVE scheduler warning: {e}")
-        
-        # Step 8: Start keep-alive service
-        logger.info("\n💚 Step 8: Starting keep-alive service...")
-        try:
-            base_url = os.getenv(
-                'RENDER_EXTERNAL_URL',
-                'https://oneclick-options.onrender.com'
-            )
-            logger.info(f"  • Base URL: {base_url}")
-            start_keepalive(base_url)
-            logger.info("  ✓ Keep-alive service started")
-        except Exception as e:
-            logger.warning(f"  ⚠️ Keep-alive warning: {e}")
-        
-        # Startup complete
-        logger.info("\n" + "=" * 80)
-        logger.info("✅ BOT STARTUP COMPLETE - Ready to receive updates!")
-        logger.info("=" * 80 + "\n")
-        
-        # Send startup notification
-        try:
-            message = f"""
-🟢 <b>Bot Started Successfully!</b>
+        # ✅ Start algo scheduler in background
+        logger.info("Starting algo scheduler...")
+        algo_scheduler_task = asyncio.create_task(start_algo_scheduler(bot_app))
+        logger.info("✓ Algo scheduler started in background")
 
-<b>Timestamp:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}
-<b>Webhook:</b> Configured ✓
-<b>Database:</b> Connected ✓
-<b>Schedulers:</b> Algo & MOVE Active ✓
-<b>Keep-Alive:</b> Running ✓
-            """.strip()
-            await log_to_telegram(message)
+        # ✅ Start MOVE auto-trade scheduler (STORE AS GLOBAL)
+        logger.info("Starting MOVE auto-trade scheduler...")
+        move_scheduler = get_move_scheduler(bot_app)
+        await move_scheduler.start()
+        logger.info("✓ MOVE scheduler started")
+        
+        # ✅ Start keep-alive service
+        BASE_URL = os.getenv(
+            'RENDER_EXTERNAL_URL', 
+            'https://oneclick-options.onrender.com'
+        )
+        logger.info(f"Starting keep-alive service for {BASE_URL}...")
+        start_keepalive(BASE_URL)
+        logger.info("✓ Keep-alive service started")
+        
+        logger.info("=" * 50)
+        logger.info("Bot started successfully! Ready to receive updates.")
+        logger.info("=" * 50)
+        
+        # ✅ Await startup notification (no fire-and-forget)
+        try:
+            await log_to_telegram(
+                f"🟢 Bot started successfully!\n"
+                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}\n"
+                f"Webhook: {webhook_url}\n"
+                f"Algo Scheduler: Active\n"
+                f"MOVE Scheduler: Active ✅"
+            )
         except Exception as e:
             logger.warning(f"Failed to send startup notification: {e}")
         
     except Exception as e:
-        logger.critical(f"\n❌ STARTUP FAILED: {e}", exc_info=True)
-        
-        # Send error notification
+        logger.critical(f"Failed to start bot: {e}", exc_info=True)
         try:
-            await log_to_telegram(f"🔴 <b>Startup Failed!</b>\n\nError: {str(e)}")
+            await log_to_telegram(f"🔴 CRITICAL: Failed to start bot!\nError: {str(e)}")
         except Exception as log_err:
             logger.warning(f"Failed to send error notification: {log_err}")
-        
         raise
     
-    # ==================== YIELD (APP RUNNING) ====================
     yield
     
-    # ==================== SHUTDOWN ====================
-    logger.info("\n" + "=" * 80)
-    logger.info("🛑 BOT SHUTDOWN - Cleaning up...")
-    logger.info("=" * 80)
+    # Shutdown
+    logger.info("=" * 50)
+    logger.info("Shutting down bot...")
+    logger.info("=" * 50)
     
-    shutdown_errors = []
-    
-    # Step 1: Stop algo scheduler
-    logger.info("\n🔄 Step 1: Stopping algo scheduler...")
     try:
+        # ✅ Stop algo scheduler (check if running)
         if algo_scheduler_task and not algo_scheduler_task.done():
+            logger.info("Stopping algo scheduler...")
             algo_scheduler_task.cancel()
             try:
                 await algo_scheduler_task
             except asyncio.CancelledError:
                 pass
-            logger.info("  ✓ Algo scheduler stopped")
-        else:
-            logger.info("  ✓ Algo scheduler not running")
-    except Exception as e:
-        msg = f"Algo scheduler shutdown error: {e}"
-        logger.error(f"  ❌ {msg}")
-        shutdown_errors.append(msg)
-    
-    # Step 2: Stop MOVE scheduler
-    logger.info("\n📈 Step 2: Stopping MOVE scheduler...")
-    try:
+            logger.info("✓ Algo scheduler stopped")
+
+        # ✅ Stop MOVE scheduler (use global instance)
         if move_scheduler:
-            await move_scheduler.stop()
-            logger.info("  ✓ MOVE scheduler stopped")
-        else:
-            logger.info("  ✓ MOVE scheduler not running")
-    except Exception as e:
-        msg = f"MOVE scheduler shutdown error: {e}"
-        logger.error(f"  ❌ {msg}")
-        shutdown_errors.append(msg)
-    
-    # Step 3: Stop keep-alive
-    logger.info("\n💚 Step 3: Stopping keep-alive service...")
-    try:
-        await stop_keepalive()
-        logger.info("  ✓ Keep-alive service stopped")
-    except Exception as e:
-        msg = f"Keep-alive shutdown error: {e}"
-        logger.error(f"  ❌ {msg}")
-        shutdown_errors.append(msg)
-    
-    # Step 4: Stop state manager
-    logger.info("\n💾 Step 4: Stopping state manager...")
-    try:
-        from bot.utils.state_manager import state_manager
-        await state_manager.stop_cleanup_task()
-        logger.info("  ✓ State manager stopped")
-    except Exception as e:
-        logger.warning(f"  ⚠️ State manager warning: {e}")
-    
-    # Step 5: Shutdown job scheduler
-    logger.info("\n⏰ Step 5: Shutting down job scheduler...")
-    try:
-        await shutdown_scheduler()
-        logger.info("  ✓ Job scheduler shutdown complete")
-    except Exception as e:
-        msg = f"Job scheduler shutdown error: {e}"
-        logger.error(f"  ❌ {msg}")
-        shutdown_errors.append(msg)
-    
-    # Step 6: Shutdown bot
-    logger.info("\n🤖 Step 6: Shutting down bot application...")
-    try:
+            logger.info("Stopping MOVE scheduler...")
+            try:
+                await move_scheduler.stop()
+                logger.info("✓ MOVE scheduler stopped")
+            except Exception as e:
+                logger.error(f"Error stopping MOVE scheduler: {e}", exc_info=True)
+        
+        # ✅ Stop keep-alive service
+        logger.info("Stopping keep-alive service...")
+        try:
+            await stop_keepalive()
+            logger.info("✓ Keep-alive stopped")
+        except Exception as e:
+            logger.error(f"Error stopping keep-alive: {e}", exc_info=True)
+        
+        # Stop state manager cleanup task
+        logger.info("Stopping state manager...")
+        try:
+            from bot.utils.state_manager import state_manager
+            await state_manager.stop_cleanup_task()
+            logger.info("✓ State manager stopped")
+        except Exception as e:
+            logger.error(f"Error stopping state manager: {e}", exc_info=True)
+        
+        # Shutdown job scheduler
+        logger.info("Shutting down job scheduler...")
+        try:
+            await shutdown_scheduler()
+            logger.info("✓ Job scheduler shutdown complete")
+        except Exception as e:
+            logger.error(f"Error during scheduler shutdown: {e}", exc_info=True)
+        
+        # Shutdown bot application
         if bot_app:
-            await bot_app.shutdown()
-            logger.info("  ✓ Bot shutdown complete")
-        else:
-            logger.info("  ✓ Bot not initialized")
+            logger.info("Shutting down bot application...")
+            try:
+                await bot_app.shutdown()
+                logger.info("✓ Bot shutdown complete")
+            except Exception as e:
+                logger.error(f"Error during bot shutdown: {e}", exc_info=True)
+        
+        # Close database connection
+        logger.info("Closing database connection...")
+        try:
+            await close_db()
+            logger.info("✓ Database connection closed")
+        except Exception as e:
+            logger.error(f"Error closing database: {e}", exc_info=True)
+        
+        logger.info("=" * 50)
+        logger.info("Bot shutdown complete")
+        logger.info("=" * 50)
+        
+        # ✅ Await shutdown notification (no fire-and-forget)
+        try:
+            await log_to_telegram(
+                f"🔴 Bot shutting down\n"
+                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send shutdown notification: {e}")
+        
     except Exception as e:
-        msg = f"Bot shutdown error: {e}"
-        logger.error(f"  ❌ {msg}")
-        shutdown_errors.append(msg)
-    
-    # Step 7: Close database
-    logger.info("\n📊 Step 7: Closing database connection...")
-    try:
-        await close_db()
-        logger.info("  ✓ Database connection closed")
-    except Exception as e:
-        msg = f"Database close error: {e}"
-        logger.error(f"  ❌ {msg}")
-        shutdown_errors.append(msg)
-    
-    # Shutdown complete
-    logger.info("\n" + "=" * 80)
-    if shutdown_errors:
-        logger.warning(f"⚠️ SHUTDOWN COMPLETE WITH {len(shutdown_errors)} ERRORS")
-        for error in shutdown_errors:
-            logger.warning(f"  - {error}")
-    else:
-        logger.info("✅ SHUTDOWN COMPLETE - All services stopped gracefully")
-    logger.info("=" * 80 + "\n")
-    
-    # Send shutdown notification
-    try:
-        await log_to_telegram(
-            f"🔴 <b>Bot Shutting Down</b>\n\n"
-            f"<b>Timestamp:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')}"
-        )
-    except Exception as e:
-        logger.warning(f"Failed to send shutdown notification: {e}")
+        logger.error(f"Error during shutdown: {e}", exc_info=True)
 
 
-# ==================== CREATE FASTAPI APP ====================
+# Create FastAPI application
 app = FastAPI(
     title="Telegram Trading Bot",
-    description="Delta Exchange options trading bot via Telegram",
-    version="2.0.0",
+    description="Options trading bot with Delta Exchange India API",
+    version="1.0.0",
     lifespan=lifespan
 )
 
 
-# ==================== ENDPOINTS ====================
-
 @app.get("/")
 async def root():
-    """Root endpoint - service information."""
+    """Root endpoint - basic info."""
     return {
         "status": "running",
         "service": "Telegram Trading Bot",
-        "version": "2.0.0",
-        "timestamp": datetime.now().isoformat(),
-        "documentation": "/docs"
+        "version": "1.0.0",
+        "timestamp": datetime.now().isoformat()
     }
 
 
@@ -362,12 +260,12 @@ async def root():
 async def health_check(request: Request):
     """
     Universal health check endpoint.
-    Supports multiple methods for maximum compatibility.
+    Supports GET, HEAD, POST, and OPTIONS for maximum compatibility.
     """
     return {
         "status": "ok",
-        "service": "telegram_trading_bot",
         "timestamp": datetime.now().isoformat(),
+        "service": "telegram_trading_bot",
         "method": request.method
     }
 
@@ -375,50 +273,50 @@ async def health_check(request: Request):
 @app.post("/webhook")
 async def webhook_handler(request: Request):
     """
-    ✅ Webhook endpoint for Telegram updates.
-    - Parses JSON update
-    - Processes update sequentially
-    - Always returns 200 OK
+    Webhook endpoint to receive Telegram updates.
+    Processes updates sequentially with proper error handling.
     """
     try:
         # Parse incoming update
         update_data = await request.json()
         update = Update.de_json(update_data, bot_app.bot)
         
-        # Log update
+        # Log incoming update
         update_id = update.update_id if update else "unknown"
         logger.debug(f"Received update: {update_id}")
         
-        # Process update (await for proper ordering)
+        # Process update sequentially (await for proper ordering)
         if update:
             await bot_app.process_update(update)
         
-        # Return 200 immediately
+        # Return 200 OK immediately
         return Response(status_code=200)
         
     except Exception as e:
-        logger.error(f"Error processing webhook: {e}", exc_info=True)
-        # Still return 200 to prevent Telegram retries
+        logger.error(f"Error processing webhook update: {e}", exc_info=True)
+        # Still return 200 to prevent Telegram from retrying
         return Response(status_code=200)
 
 
 @app.get("/webhook/info")
 async def webhook_info():
-    """Get current webhook information (debugging)."""
+    """
+    Get current webhook information (for debugging).
+    """
     try:
-        if not bot_app:
+        if bot_app:
+            info = await bot_app.bot.get_webhook_info()
+            return {
+                "url": info.url,
+                "has_custom_certificate": info.has_custom_certificate,
+                "pending_update_count": info.pending_update_count,
+                "last_error_date": info.last_error_date,
+                "last_error_message": info.last_error_message,
+                "max_connections": info.max_connections,
+                "allowed_updates": info.allowed_updates
+            }
+        else:
             return {"error": "Bot not initialized"}
-        
-        info = await bot_app.bot.get_webhook_info()
-        return {
-            "url": info.url,
-            "has_custom_certificate": info.has_custom_certificate,
-            "pending_update_count": info.pending_update_count,
-            "last_error_date": info.last_error_date,
-            "last_error_message": info.last_error_message,
-            "max_connections": info.max_connections,
-            "allowed_updates": info.allowed_updates
-        }
     except Exception as e:
         logger.error(f"Error getting webhook info: {e}", exc_info=True)
         return {"error": str(e)}
@@ -426,23 +324,19 @@ async def webhook_info():
 
 @app.get("/algo/status")
 async def algo_status():
-    """Get algo scheduler status and active setups."""
+    """Get algo scheduler status."""
     try:
         from database.operations.algo_setup_ops import get_all_active_algo_setups
         
         setups = await get_all_active_algo_setups()
-        is_running = (
-            algo_scheduler_task and 
-            not algo_scheduler_task.done()
-        )
         
         return {
-            "status": "running" if is_running else "stopped",
+            "status": "running" if (algo_scheduler_task and not algo_scheduler_task.done()) else "stopped",
             "active_setups": len(setups),
             "setups": [
                 {
-                    "user_id": s.get('user_id'),
-                    "execution_time": s.get('execution_time'),
+                    "user_id": s['user_id'],
+                    "execution_time": s['execution_time'],
                     "last_execution": s.get('last_execution'),
                     "last_status": s.get('last_execution_status')
                 }
@@ -461,16 +355,18 @@ async def move_scheduler_status():
         from database.operations.move_auto_trade_ops import get_all_active_move_schedules
         
         schedules = await get_all_active_move_schedules()
-        is_running = move_scheduler and move_scheduler.running
+        
+        # ✅ Use global move_scheduler instance
+        scheduler_status = "running" if (move_scheduler and move_scheduler.running) else "stopped"
         
         return {
-            "status": "running" if is_running else "stopped",
+            "status": scheduler_status,
             "active_schedules": len(schedules),
             "schedules": [
                 {
-                    "user_id": s.get('user_id'),
+                    "user_id": s['user_id'],
                     "preset_name": s.get('preset_name'),
-                    "execution_time": s.get('execution_time'),
+                    "execution_time": s['execution_time'],
                     "enabled": s.get('enabled', True),
                     "last_executed": s.get('last_executed')
                 }
@@ -483,15 +379,15 @@ async def move_scheduler_status():
         return {"error": str(e)}
 
 
-# ==================== RUN SERVER ====================
 if __name__ == "__main__":
     import uvicorn
     
+    # Run the server
     uvicorn.run(
         "main:app",
         host=settings.HOST,
         port=settings.PORT,
         log_level=settings.LOG_LEVEL.lower(),
         access_log=True
-    )
-    
+        )
+               
