@@ -121,28 +121,13 @@ def register_move_strategy_handlers(application: Application):
         
         # List all strategies
         application.add_handler(
-            CallbackQueryHandler(
-                move_view_callback,
-                pattern="^move_view_list$"
-            ),
+            CallbackQueryHandler(view_strategies_list, pattern="^move_view_list$"),
             group=10
         )
-        
-        # View strategy details - pattern: move_view_{strategy_id}
+    
+        # ✅ View Strategy Details
         application.add_handler(
-            CallbackQueryHandler(
-                move_view_detail_callback,
-                pattern="^move_view_[a-zA-Z0-9_-]+$"
-            ),
-            group=10
-        )
-        
-        # Summary view
-        application.add_handler(
-            CallbackQueryHandler(
-                move_list_all_callback,
-                pattern="^move_list_all$"
-            ),
+            CallbackQueryHandler(view_strategy_details, pattern="^move_view_strategy_.*"),
             group=10
         )
         
