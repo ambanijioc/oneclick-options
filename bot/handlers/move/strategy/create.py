@@ -103,7 +103,7 @@ async def handle_move_add_name_input(update: Update, context: ContextTypes.DEFAU
 
 @error_handler
 async def handle_move_description_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Step 2 -> Step 3: Save description, show lot size"""
+    """Step 2 -> Step 3: Save description (optional), show lot size"""
     user = update.effective_user
     text = update.message.text.strip()
     
@@ -111,8 +111,22 @@ async def handle_move_description_input(update: Update, context: ContextTypes.DE
     data = await state_manager.get_state_data(user.id)
     saved_name = data.get('name', '')
     
-    # ✅ FIX: Prevent description from being same as name
-    if text == saved_name:
+    # Check if this is a "skip" button or actual text
+    if text.upper() in ['SKIP', 'SKIP DESCRIPTION']:
+        logger.info(f"⏭️ MOVE description: SKIPPED")
+        # Move to next step without saving description
+        await state_manager.set_state(user.id, 'move_add_lot_size')
+        await update.message.reply_text(
+            f"Step 3/7: <b>Lot Size</b>\n"
+            f"Name: <code>{saved_name}</code>\n\n"
+            f"Enter lot size (1-1000):",
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
+        )
+        return
+    
+    # ✅ FIX: Check if description matches name
+    if text.lower() == saved_name.lower():
         await update.message.reply_text(
             f"❌ Description cannot be the same as the strategy name!\n\n"
             f"Please enter a different description or skip:",
@@ -131,9 +145,11 @@ async def handle_move_description_input(update: Update, context: ContextTypes.DE
         )
         return
     
+    # Save description
     await state_manager.set_state_data(user.id, {'description': text})
     logger.info(f"✅ MOVE description: {text[:50]}")
     
+    # Move to next step
     await state_manager.set_state(user.id, 'move_add_lot_size')
     
     await update.message.reply_text(
@@ -144,7 +160,6 @@ async def handle_move_description_input(update: Update, context: ContextTypes.DE
         reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
-
 
 @error_handler
 async def move_skip_description_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
