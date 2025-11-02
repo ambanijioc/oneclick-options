@@ -5,7 +5,7 @@ Author: Ambani Jio
 Date: 2025-11-02
 """
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
@@ -15,8 +15,7 @@ from database.operations.move_strategy_ops import get_move_strategies, get_move_
 from bot.keyboards.move_strategy_keyboards import (
     get_strategies_list_keyboard,
     get_strategy_details_keyboard,
-    get_cancel_keyboard,
-    get_move_menu_keyboard  # Add this
+    get_cancel_keyboard
 )
 
 logger = setup_logger(__name__)
@@ -46,37 +45,17 @@ async def view_strategies_list(update: Update, context: ContextTypes.DEFAULT_TYP
             "📊 <b>Your MOVE Strategies</b>\n\n"
             "❌ No strategies found.\n\n"
             "💡 Create your first strategy to get started!",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("➕ Create Strategy", callback_data="move_strategy_create")],
-                [InlineKeyboardButton("🔙 Back", callback_data="move_menu")]
-            ]),
+            reply_markup=get_cancel_keyboard(),  # Use keyboard function
             parse_mode='HTML'
         )
         logger.info(f"User {user.id}: No strategies found")
         return
     
-    # Build inline keyboard with all strategies
-    keyboard = []
-    for strat in strategies:
-        strategy_id = str(strat.get('id', strat.get('_id', '')))
-        name = strat.get('strategy_name', 'Unnamed')
-        status = '🟢' if strat.get('is_active', False) else '⚫'
-        
-        # Each strategy is a button
-        keyboard.append([
-            InlineKeyboardButton(
-                f"{status} {name}",
-                callback_data=f"move_view_strategy_{strategy_id}"
-            )
-        ])
-    
-    # Add back button
-    keyboard.append([InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")])
-    
+    # Use keyboard builder function
     await query.edit_message_text(
         "📊 <b>Your MOVE Strategies</b>\n\n"
         "✅ Select a strategy to view details:",
-        reply_markup=get_strategies_list_keyboard(strategies),  # Simpler!
+        reply_markup=get_strategies_list_keyboard(strategies),
         parse_mode='HTML'
     )
     
@@ -100,22 +79,21 @@ async def view_strategy_details(update: Update, context: ContextTypes.DEFAULT_TY
     if not callback_data.startswith(prefix):
         logger.error(f"❌ Invalid callback: {callback_data}")
         await query.edit_message_text(
-            "❌ Invalid request.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back", callback_data="move_view_list")]
-            ])
+            "❌ Invalid request.\n\n"
+            "This might be an expired button. Please try again.",
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
         )
         return
     
     strategy_id = callback_data[len(prefix):]
     
     if not strategy_id:
-        logger.error(f"❌ Empty strategy ID")
+        logger.error(f"❌ Empty strategy ID from callback: {callback_data}")
         await query.edit_message_text(
             "❌ Invalid strategy ID.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back", callback_data="move_view_list")]
-            ])
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
         )
         return
     
@@ -130,9 +108,8 @@ async def view_strategy_details(update: Update, context: ContextTypes.DEFAULT_TY
         logger.warning(f"❌ Strategy {strategy_id} not found for user {user.id}")
         await query.edit_message_text(
             "❌ Strategy not found or has been deleted.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back to List", callback_data="move_view_list")]
-            ])
+            reply_markup=get_cancel_keyboard(),
+            parse_mode='HTML'
         )
         return
     
@@ -142,18 +119,10 @@ async def view_strategy_details(update: Update, context: ContextTypes.DEFAULT_TY
     # Format strategy details
     message = format_strategy_details(strategy)
     
-    # Action buttons: Edit | Delete | Back
-    action_keyboard = [
-        [
-            InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_strategy_{strategy_id}"),
-            InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_strategy_{strategy_id}")
-        ],
-        [InlineKeyboardButton("🔙 Back to List", callback_data="move_view_list")]
-    ]
-    
+    # Use keyboard builder function
     await query.edit_message_text(
         message,
-        reply_markup=InlineKeyboardMarkup(action_keyboard),
+        reply_markup=get_strategy_details_keyboard(strategy_id),
         parse_mode='HTML'
     )
     
