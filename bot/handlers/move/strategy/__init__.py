@@ -6,8 +6,12 @@ Manages handler registration for:
 - Risk management (SL/Target setup)
 - Confirmation and cancellation
 - Text input processing via centralized message router
+- Strategy viewing and listing
 
-Key Fix: Single message handler with state-based routing instead of multiple handlers
+Key Architecture:
+- Group 10: Callback Query Handlers (button clicks)
+- Group 11: Message Handler (text input via centralized router)
+- All nested imports with proper error handling
 """
 
 from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
@@ -29,6 +33,8 @@ def register_move_strategy_handlers(application: Application):
     - State machine determines which input handler processes the message
     - No more conflicting handler chains
     """
+    
+    logger.info("🔄 Registering MOVE strategy handlers...")
     
     # ==================== CALLBACK HANDLERS (Group 10) ====================
     try:
@@ -56,31 +62,31 @@ def register_move_strategy_handlers(application: Application):
             group=10
         )
         
-        # ✅ Skip description
+        # ✅ Skip description (Optional step)
         application.add_handler(
             CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"),
             group=10
         )
         
-        # ✅ Skip target
+        # ✅ Skip target (Optional step)
         application.add_handler(
             CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"),
             group=10
         )
         
-        # Asset selection
+        # Asset selection (BTC/ETH)
         application.add_handler(
             CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(BTC|ETH)$"),
             group=10
         )
         
-        # Expiry selection
+        # Expiry selection (daily/weekly)
         application.add_handler(
             CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"),
             group=10
         )
         
-        # Direction selection
+        # Direction selection (long/short)
         application.add_handler(
             CallbackQueryHandler(move_direction_callback, pattern="^move_direction_(long|short)$"),
             group=10
@@ -98,15 +104,57 @@ def register_move_strategy_handlers(application: Application):
             group=10
         )
         
-        logger.info("✅ MOVE strategy callback handlers registered (Group 10)")
+        logger.info("✅ MOVE strategy CREATE callbacks registered (Group 10)")
         
     except ImportError as e:
-        logger.error(f"❌ Error importing MOVE callback handlers: {e}", exc_info=True)
+        logger.error(f"❌ Error importing MOVE create callbacks: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE callback handlers: {e}", exc_info=True)
+        logger.error(f"❌ Error registering MOVE create callbacks: {e}", exc_info=True)
+    
+    # ==================== VIEW STRATEGY HANDLERS (Group 10) ====================
+    try:
+        from bot.handlers.move.strategy.view import (
+            move_view_callback,
+            move_view_detail_callback,
+            move_list_all_callback
+        )
+        
+        # List all strategies
+        application.add_handler(
+            CallbackQueryHandler(
+                move_view_callback,
+                pattern="^move_view_list$"
+            ),
+            group=10
+        )
+        
+        # View strategy details - pattern: move_view_{strategy_id}
+        application.add_handler(
+            CallbackQueryHandler(
+                move_view_detail_callback,
+                pattern="^move_view_[a-zA-Z0-9_-]+$"
+            ),
+            group=10
+        )
+        
+        # Summary view
+        application.add_handler(
+            CallbackQueryHandler(
+                move_list_all_callback,
+                pattern="^move_list_all$"
+            ),
+            group=10
+        )
+        
+        logger.info("✅ MOVE strategy VIEW callbacks registered (Group 10)")
+        
+    except ImportError as e:
+        logger.error(f"❌ Error importing MOVE view callbacks: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"❌ Error registering MOVE view callbacks: {e}", exc_info=True)
     
     # ==================== TEXT INPUT HANDLER (Group 11) ====================
-    # ✅ FIX: SINGLE MESSAGE HANDLER instead of multiple handlers
+    # ✅ KEY FIX: SINGLE MESSAGE HANDLER instead of multiple handlers
     try:
         from bot.handlers.move.strategy.message_router import route_move_message
         
