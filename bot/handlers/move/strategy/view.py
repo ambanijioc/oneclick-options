@@ -26,8 +26,8 @@ def get_strategy_list_keyboard(strategies: list, action: str = 'view') -> Inline
         strategy_id = str(strat.get('id', strat.get('_id', '')))
         name = strat.get('strategy_name', 'Unnamed')
         
-        # Callback format: move_view_{strategy_id}
-        callback_data = f"move_view_{strategy_id}"
+        # ✅ Fixed callback format
+        callback_data = f"move_view_strategy_{strategy_id}"
         
         keyboard.append([
             InlineKeyboardButton(
@@ -38,7 +38,7 @@ def get_strategy_list_keyboard(strategies: list, action: str = 'view') -> Inline
     
     # Back button
     keyboard.append([
-        InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")
+        InlineKeyboardButton("🔙 Back", callback_data="move_menu")
     ])
     
     return InlineKeyboardMarkup(keyboard)
@@ -46,7 +46,7 @@ def get_strategy_list_keyboard(strategies: list, action: str = 'view') -> Inline
 
 @error_handler
 async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show list of MOVE strategies to view - Entry point."""
+    """✅ Show list of MOVE strategies to view - Entry point."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -65,7 +65,7 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "❌ No strategies found.\n\n"
             "Create your first strategy to get started!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
+                [InlineKeyboardButton("🔙 Back", callback_data="move_menu")]
             ]),
             parse_mode='HTML'
         )
@@ -94,30 +94,37 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def move_view_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     ✅ Display detailed MOVE strategy information
-    Callback format: move_view_{strategy_id}
+    Callback format: move_view_strategy_{strategy_id}
     """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # ✅ Extract strategy_id from "move_view_{ID}"
-    callback_data = query.data  # e.g., "move_view_abc123"
-    parts = callback_data.split('_', 2)  # Split into max 3 parts: ['move', 'view', 'ID']
+    # ✅ Extract strategy_id from "move_view_strategy_{ID}"
+    callback_data = query.data
     
-    logger.info(f"USER {user.id} - VIEW DETAIL")
-    logger.info(f"  Raw callback_data: {callback_data}")
-    logger.info(f"  Parts: {parts}")
+    logger.info(f"👤 USER {user.id} - VIEW STRATEGY DETAIL")
+    logger.info(f"  📍 Raw callback_data: {callback_data}")
     
-    # Extract ID safely
-    if len(parts) >= 3:
-        strategy_id = parts[2]
-    else:
-        strategy_id = None
+    # ✅ Safe extraction with prefix matching
+    prefix = "move_view_strategy_"
+    if not callback_data.startswith(prefix):
+        logger.error(f"❌ Invalid callback prefix. Expected: {prefix}, Got: {callback_data}")
+        await query.edit_message_text(
+            "❌ Invalid request.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Back", callback_data="move_view_list")]
+            ]),
+            parse_mode='HTML'
+        )
+        return
     
-    logger.info(f"  Extracted strategy_id: {strategy_id}")
+    strategy_id = callback_data[len(prefix):]  # Remove prefix
     
-    if not strategy_id:
-        logger.warning(f"User {user.id}: Invalid strategy ID format")
+    logger.info(f"  ✅ Extracted strategy_id: {strategy_id}")
+    
+    if not strategy_id or strategy_id.strip() == '':
+        logger.warning(f"❌ Empty strategy ID after extraction")
         await query.edit_message_text(
             "❌ Invalid request.",
             reply_markup=InlineKeyboardMarkup([
@@ -135,7 +142,7 @@ async def move_view_detail_callback(update: Update, context: ContextTypes.DEFAUL
     strategy = await get_move_strategy(user.id, strategy_id)
     
     if not strategy:
-        logger.warning(f"User {user.id}: Strategy {strategy_id} not found")
+        logger.warning(f"❌ USER {user.id}: Strategy {strategy_id} not found in DB")
         await query.edit_message_text(
             "❌ Strategy not found.",
             reply_markup=InlineKeyboardMarkup([
@@ -150,11 +157,11 @@ async def move_view_detail_callback(update: Update, context: ContextTypes.DEFAUL
     # Format strategy details
     message = format_strategy_details(strategy)
     
-    # Action keyboard
+    # ✅ Action keyboard with proper nested callback format
     action_keyboard = [
         [
-            InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_{strategy_id}"),
-            InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_{strategy_id}")
+            InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_strategy_{strategy_id}"),
+            InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_strategy_{strategy_id}")
         ],
         [InlineKeyboardButton("🔙 Back to List", callback_data="move_view_list")]
     ]
@@ -165,11 +172,11 @@ async def move_view_detail_callback(update: Update, context: ContextTypes.DEFAUL
         parse_mode='HTML'
     )
     
-    logger.info(f"User {user.id}: Displayed details for {strategy_id}")
+    logger.info(f"✅ USER {user.id}: Successfully displayed strategy {strategy_id}")
 
 
 def format_strategy_details(strategy: dict) -> str:
-    """Format strategy dict into readable message."""
+    """✅ Format strategy dict into readable message."""
     
     name = strategy.get('strategy_name', 'Unnamed')
     description = strategy.get('description', 'No description')
@@ -192,42 +199,41 @@ def format_strategy_details(strategy: dict) -> str:
     
     # Build message
     message = (
-        f"📊 <b>Strategy Details</b>\n\n"
+        f"📊 <b>Strategy: {name}</b>\n\n"
         
-        f"<b>Basic Information:</b>\n"
-        f"• Name: <code>{name}</code>\n"
-        f"• Description: <code>{description}</code>\n"
-        f"• Status: {status}\n"
-        f"• Created: <code>{created_at}</code>\n\n"
+        f"<b>📋 Basic Information</b>\n"
+        f"├─ Description: <code>{description}</code>\n"
+        f"├─ Status: {status}\n"
+        f"├─ Created: <code>{created_at}</code>\n"
+        f"└─ Asset: <code>{asset}</code>\n\n"
         
-        f"<b>Configuration:</b>\n"
-        f"• Asset: <code>{asset}</code>\n"
-        f"• Expiry: <code>{expiry}</code>\n"
-        f"• Direction: <code>{direction}</code>\n"
-        f"• ATM Offset: <code>{atm_offset:+d}</code>\n"
-        f"• Lot Size: <code>{lot_size}</code>\n\n"
+        f"<b>⚙️ Configuration</b>\n"
+        f"├─ Expiry: <code>{expiry}</code>\n"
+        f"├─ Direction: <code>{direction}</code>\n"
+        f"├─ ATM Offset: <code>{atm_offset:+d}</code>\n"
+        f"└─ Lot Size: <code>{lot_size}</code>\n\n"
         
-        f"<b>Stop Loss Management:</b>\n"
-        f"• Trigger: <code>{sl_trigger}%</code>\n"
-        f"• Limit: <code>{sl_limit}%</code>\n\n"
+        f"<b>🛡️ Stop Loss</b>\n"
+        f"├─ Trigger: <code>{sl_trigger}%</code>\n"
+        f"└─ Limit: <code>{sl_limit}%</code>\n\n"
         
-        f"<b>Target Management:</b>\n"
+        f"<b>🎯 Target</b>\n"
     )
     
     if target_trigger != 'N/A':
         message += (
-            f"• Trigger: <code>{target_trigger}%</code>\n"
-            f"• Limit: <code>{target_limit}%</code>\n"
+            f"├─ Trigger: <code>{target_trigger}%</code>\n"
+            f"└─ Limit: <code>{target_limit}%</code>\n"
         )
     else:
-        message += f"• Status: <code>Not Configured</code>\n"
+        message += f"└─ Status: <code>Not Configured</code>\n"
     
     return message
 
 
 @error_handler
 async def move_list_all_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show summary of all MOVE strategies."""
+    """✅ Show summary of all MOVE strategies."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -243,7 +249,7 @@ async def move_list_all_callback(update: Update, context: ContextTypes.DEFAULT_T
             "📊 <b>Strategy Summary</b>\n\n"
             "No strategies created yet.",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
+                [InlineKeyboardButton("🔙 Back", callback_data="move_menu")]
             ]),
             parse_mode='HTML'
         )
@@ -255,11 +261,11 @@ async def move_list_all_callback(update: Update, context: ContextTypes.DEFAULT_T
     
     summary = (
         f"📋 <b>MOVE Strategy Summary</b>\n\n"
-        f"<b>Overview:</b>\n"
-        f"• Total: {len(strategies)}\n"
-        f"• 🟢 Active: {active_count}\n"
-        f"• ⚫ Inactive: {inactive_count}\n\n"
-        f"<b>List:</b>\n"
+        f"<b>📊 Overview</b>\n"
+        f"├─ Total: {len(strategies)}\n"
+        f"├─ 🟢 Active: {active_count}\n"
+        f"└─ ⚫ Inactive: {inactive_count}\n\n"
+        f"<b>📝 Strategies</b>\n"
     )
     
     for strat in strategies:
@@ -272,10 +278,12 @@ async def move_list_all_callback(update: Update, context: ContextTypes.DEFAULT_T
         summary,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📊 View Details", callback_data="move_view_list")],
-            [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
+            [InlineKeyboardButton("🔙 Back", callback_data="move_menu")]
         ]),
         parse_mode='HTML'
     )
+    
+    logger.info(f"✅ USER {user.id}: Displayed summary of {len(strategies)} strategies")
 
 
 __all__ = [
@@ -284,5 +292,4 @@ __all__ = [
     'move_list_all_callback',
     'get_strategy_list_keyboard',
     'format_strategy_details',
-    ]
-            
+]
