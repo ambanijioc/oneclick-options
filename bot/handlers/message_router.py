@@ -70,42 +70,42 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif state_str == 'move_add_name':
             from bot.handlers.move.strategy.create import handle_move_add_name_input
-            await handle_move_add_name_input(update, context, text)
+            await handle_move_add_name_input(update, context)
             logger.info("✅ Routed to: handle_move_add_name_input")
 
         elif state_str == 'move_add_description':
             from bot.handlers.move.strategy.create import handle_move_description_input
-            await handle_move_description_input(update, context, text)
+            await handle_move_description_input(update, context)
             logger.info("✅ Routed to: handle_move_description_input")
 
         elif state_str == 'move_add_lot_size':
             from bot.handlers.move.strategy.create import handle_move_lot_size_input
-            await handle_move_lot_size_input(update, context, text)
+            await handle_move_lot_size_input(update, context)
             logger.info("✅ Routed to: handle_move_lot_size_input")
 
         elif state_str == 'move_add_atm_offset':
             from bot.handlers.move.strategy.create import handle_move_atm_offset_input
-            await handle_move_atm_offset_input(update, context, text)
+            await handle_move_atm_offset_input(update, context)
             logger.info("✅ Routed to: handle_move_atm_offset_input")
 
         elif state_str == 'move_add_sl_trigger':
             from bot.handlers.move.strategy.create import handle_move_sl_trigger_input
-            await handle_move_sl_trigger_input(update, context, text)
+            await handle_move_sl_trigger_input(update, context)
             logger.info("✅ Routed to: handle_move_sl_trigger_input")
 
         elif state_str == 'move_add_sl_limit':
             from bot.handlers.move.strategy.create import handle_move_sl_limit_input
-            await handle_move_sl_limit_input(update, context, text)
+            await handle_move_sl_limit_input(update, context)
             logger.info("✅ Routed to: handle_move_sl_limit_input")
 
         elif state_str == 'move_add_target_trigger':
             from bot.handlers.move.strategy.create import handle_move_target_trigger_input
-            await handle_move_target_trigger_input(update, context, text)
+            await handle_move_target_trigger_input(update, context)
             logger.info("✅ Routed to: handle_move_target_trigger_input")
 
         elif state_str == 'move_add_target_limit':
             from bot.handlers.move.strategy.create import handle_move_target_limit_input
-            await handle_move_target_limit_input(update, context, text)
+            await handle_move_target_limit_input(update, context)
             logger.info("✅ Routed to: handle_move_target_limit_input")
         
         # ==================== MOVE STRATEGY EDIT STATES ====================
