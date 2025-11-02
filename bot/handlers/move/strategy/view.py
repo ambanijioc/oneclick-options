@@ -76,7 +76,7 @@ async def view_strategies_list(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.edit_message_text(
         "📊 <b>Your MOVE Strategies</b>\n\n"
         "✅ Select a strategy to view details:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=get_strategies_list_keyboard(strategies),  # Simpler!
         parse_mode='HTML'
     )
     
