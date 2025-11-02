@@ -13,7 +13,7 @@ def get_move_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("➕ Add Strategy", callback_data="move_add_strategy")],
         [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_edit")],
         [InlineKeyboardButton("🗑️ Delete Strategy", callback_data="move_delete")],
-        [InlineKeyboardButton("👁️ View Strategies", callback_data="move_view")],
+        [InlineKeyboardButton("👁️ View Strategies", callback_data="move_view_list")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")],
     ]
     return InlineKeyboardMarkup(keyboard)
