@@ -5,7 +5,9 @@ Manages handler registration for:
 - Strategy creation (name, description, asset, expiry, direction)
 - Risk management (SL/Target setup)
 - Confirmation and cancellation
-- Text input processing
+- Text input processing via centralized message router
+
+Key Fix: Single message handler with state-based routing instead of multiple handlers
 """
 
 from telegram.ext import Application, CallbackQueryHandler, MessageHandler, filters
@@ -16,18 +18,19 @@ logger = setup_logger(__name__)
 
 def register_move_strategy_handlers(application: Application):
     """
-    Register all MOVE strategy handlers.
+    Register all MOVE strategy handlers with proper state-based routing.
     
     Handler Groups:
-    - Group 10: Callback Query Handlers (priority)
-    - Group 11: Message Handlers (secondary)
+    - Group 10: Callback Query Handlers (button clicks)
+    - Group 11: Message Handler (text input via centralized router)
     
-    Patterns:
-    - Callbacks: move_* patterns for routing
-    - Messages: Filtered by state machine via message_router
+    Key Improvement:
+    - Only ONE message handler instead of 8 duplicate handlers
+    - State machine determines which input handler processes the message
+    - No more conflicting handler chains
     """
     
-    # ==================== CREATE CALLBACKS ====================
+    # ==================== CALLBACK HANDLERS (Group 10) ====================
     try:
         from bot.handlers.move.strategy.create import (
             move_add_callback,
@@ -53,31 +56,31 @@ def register_move_strategy_handlers(application: Application):
             group=10
         )
         
-        # ✅ SKIP DESCRIPTION - Fixed
+        # ✅ Skip description
         application.add_handler(
             CallbackQueryHandler(move_skip_description_callback, pattern="^move_skip_description$"),
             group=10
         )
         
-        # ✅ SKIP TARGET - Fixed
+        # ✅ Skip target
         application.add_handler(
             CallbackQueryHandler(move_skip_target_callback, pattern="^move_skip_target$"),
             group=10
         )
         
-        # Asset selection (BTC/ETH)
+        # Asset selection
         application.add_handler(
             CallbackQueryHandler(move_asset_callback, pattern="^move_asset_(BTC|ETH)$"),
             group=10
         )
         
-        # Expiry selection (daily/weekly)
+        # Expiry selection
         application.add_handler(
             CallbackQueryHandler(move_expiry_callback, pattern="^move_expiry_(daily|weekly)$"),
             group=10
         )
         
-        # Direction selection (long/short)
+        # Direction selection
         application.add_handler(
             CallbackQueryHandler(move_direction_callback, pattern="^move_direction_(long|short)$"),
             group=10
@@ -95,75 +98,34 @@ def register_move_strategy_handlers(application: Application):
             group=10
         )
         
-        logger.info("✅ MOVE strategy create handlers registered (Group 10)")
+        logger.info("✅ MOVE strategy callback handlers registered (Group 10)")
         
     except ImportError as e:
-        logger.error(f"❌ Error importing MOVE create handlers: {e}", exc_info=True)
+        logger.error(f"❌ Error importing MOVE callback handlers: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE create handlers: {e}", exc_info=True)
+        logger.error(f"❌ Error registering MOVE callback handlers: {e}", exc_info=True)
     
-    # ==================== INPUT TEXT HANDLERS ====================
+    # ==================== TEXT INPUT HANDLER (Group 11) ====================
+    # ✅ FIX: SINGLE MESSAGE HANDLER instead of multiple handlers
     try:
-        from bot.handlers.move.strategy.input_handlers import (
-            handle_move_strategy_name,
-            handle_move_description,           # ✅ Added
-            handle_move_lot_size,
-            handle_move_atm_offset,
-            handle_move_sl_trigger,
-            handle_move_sl_limit,
-            handle_move_target_trigger,
-            handle_move_target_limit
-        )
+        from bot.handlers.move.strategy.message_router import route_move_message
         
-        # All text inputs routed via state machine (message_router)
-        # These handlers check state and validate input
-        
+        # Single handler for ALL MOVE text input
+        # State machine determines which input handler processes the message
         application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_strategy_name),
+            MessageHandler(
+                filters.TEXT & ~filters.COMMAND,  # Match text messages (no commands)
+                route_move_message  # Centralized router by state
+            ),
             group=11
         )
         
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_description),  # ✅ Added
-            group=11
-        )
-        
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_lot_size),
-            group=11
-        )
-        
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_atm_offset),
-            group=11
-        )
-        
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_sl_trigger),
-            group=11
-        )
-        
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_sl_limit),
-            group=11
-        )
-        
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_target_trigger),
-            group=11
-        )
-        
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_target_limit),
-            group=11
-        )
-        
-        logger.info("✅ MOVE strategy input handlers registered (Group 11)")
+        logger.info("✅ MOVE strategy message router registered (Group 11)")
         
     except ImportError as e:
-        logger.warning(f"⚠️ MOVE input handlers not fully available: {e}")
+        logger.error(f"❌ Error importing MOVE message router: {e}", exc_info=True)
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE input handlers: {e}", exc_info=True)
+        logger.error(f"❌ Error registering MOVE message router: {e}", exc_info=True)
 
 
 __all__ = ['register_move_strategy_handlers']
