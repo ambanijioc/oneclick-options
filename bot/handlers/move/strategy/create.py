@@ -72,7 +72,7 @@ async def move_add_new_strategy_callback(update: Update, context: ContextTypes.D
 async def handle_move_add_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Step 1 -> Step 2: Save name, show description prompt"""
     user = update.effective_user
-    text = update.message.text
+    text = update.message.text.strip()
     
     # Validate
     if not text or len(text) < 2:
@@ -83,13 +83,14 @@ async def handle_move_add_name_input(update: Update, context: ContextTypes.DEFAU
         )
         return
     
+    # Save the name
     await state_manager.set_state_data(user.id, {'name': text})
     logger.info(f"✅ MOVE name: {text}")
     
+    # ✅ CRITICAL: Set state BEFORE sending the next prompt
     await state_manager.set_state(user.id, 'move_add_description')
-    await update.message.reply_text("Step 2/7: Description (Optional)...")
-    return  # ✅ CRITICAL: Return to stop execution
     
+    # Now show the description prompt
     await update.message.reply_text(
         f"✅ <b>Name saved</b>\n\n"
         f"<code>{text}</code>\n\n"
@@ -98,6 +99,7 @@ async def handle_move_add_name_input(update: Update, context: ContextTypes.DEFAU
         reply_markup=get_description_skip_keyboard(),
         parse_mode='HTML'
     )
+    # ✅ NO EARLY RETURN - let the function complete naturally
 
 # ==================== STEP 2: DESCRIPTION ====================
 
