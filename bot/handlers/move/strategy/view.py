@@ -45,7 +45,7 @@ async def view_strategies_list(update: Update, context: ContextTypes.DEFAULT_TYP
             "📊 <b>Your MOVE Strategies</b>\n\n"
             "❌ No strategies found.\n\n"
             "💡 Create your first strategy to get started!",
-            reply_markup=get_cancel_keyboard(),  # Use keyboard function
+            reply_markup=get_cancel_keyboard(),
             parse_mode='HTML'
         )
         logger.info(f"User {user.id}: No strategies found")
@@ -198,4 +198,4 @@ __all__ = [
     'view_strategies_list',
     'view_strategy_details',
     'format_strategy_details',
-]
+    ]
