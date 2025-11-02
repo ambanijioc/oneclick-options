@@ -1,10 +1,10 @@
 """
-MOVE Strategy View Handler
-
+MOVE Strategy View Handler - Nested Structure
 Displays detailed MOVE strategy information and status.
+Routes through callbacks in nested structure.
 """
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from bot.utils.logger import setup_logger, log_user_action
@@ -14,16 +14,39 @@ from database.operations.move_strategy_ops import (
     get_move_strategies,
     get_move_strategy
 )
-from bot.keyboards.move_strategy_keyboards import (
-    get_strategy_actions_keyboard,
-    get_move_menu_keyboard
-)
 
 logger = setup_logger(__name__)
 
+
+def get_strategy_list_keyboard(strategies: list, action: str = 'view') -> InlineKeyboardMarkup:
+    """Build keyboard for strategy list."""
+    keyboard = []
+    
+    for strat in strategies:
+        strategy_id = str(strat.get('id', strat.get('_id', '')))
+        name = strat.get('strategy_name', 'Unnamed')
+        
+        # Callback format: move_view_{strategy_id}
+        callback_data = f"move_view_{strategy_id}"
+        
+        keyboard.append([
+            InlineKeyboardButton(
+                f"📋 {name}",
+                callback_data=callback_data
+            )
+        ])
+    
+    # Back button
+    keyboard.append([
+        InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")
+    ])
+    
+    return InlineKeyboardMarkup(keyboard)
+
+
 @error_handler
 async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show list of MOVE strategies to view"""
+    """Show list of MOVE strategies to view - Entry point."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -32,90 +55,127 @@ async def move_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
-    log_user_action(user.id, "Viewed MOVE strategy list")
+    log_user_action(user.id, "move_view_list", "Viewed strategy list")
     
     strategies = await get_move_strategies(user.id)
     
     if not strategies:
         await query.edit_message_text(
-            "📋 No MOVE strategies found.\n\n"
-            "Create your first strategy!",
-            reply_markup=get_move_menu_keyboard(),
+            "📊 <b>Your MOVE Strategies</b>\n\n"
+            "❌ No strategies found.\n\n"
+            "Create your first strategy to get started!",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
+            ]),
             parse_mode='HTML'
         )
+        logger.info(f"User {user.id}: No strategies found")
         return
     
-    # ✅ FIX: Build strategy list with proper formatting
-    strategy_list = "📊 Your MOVE Strategies:\n\n"
+    # Build strategy list
+    strategy_list = "📊 <b>Your MOVE Strategies</b>\n\n"
     for idx, strat in enumerate(strategies, 1):
         name = strat.get('strategy_name', 'Unnamed')
         asset = strat.get('asset', 'N/A')
         status = '🟢' if strat.get('is_active', False) else '⚫'
-        strategy_list += f"{idx}. {status} {name} ({asset})\n"
+        strategy_list += f"{idx}. {status} <code>{name}</code> ({asset})\n"
     
-    strategy_list += "\n✅ Tap a strategy to view details"
+    strategy_list += "\n✅ <i>Select a strategy to view details</i>"
     
     await query.edit_message_text(
         strategy_list,
         reply_markup=get_strategy_list_keyboard(strategies, action='view'),
         parse_mode='HTML'
     )
+    logger.info(f"User {user.id}: Listed {len(strategies)} strategies")
+
 
 @error_handler
 async def move_view_detail_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    ✅ FIX: Display detailed MOVE strategy information
+    ✅ Display detailed MOVE strategy information
     Callback format: move_view_{strategy_id}
     """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # ✅ FIX: Extract strategy_id from "move_view_{ID}"
-    parts = query.data.split('_')  # ['move', 'view', 'ID']
-    strategy_id = parts[2] if len(parts) >= 3 else None
+    # ✅ Extract strategy_id from "move_view_{ID}"
+    callback_data = query.data  # e.g., "move_view_abc123"
+    parts = callback_data.split('_', 2)  # Split into max 3 parts: ['move', 'view', 'ID']
     
-    logger.info(f"VIEW DETAIL - Raw callback_data: {query.data}")
-    logger.info(f"VIEW DETAIL - Extracted strategy_id: {strategy_id}")
+    logger.info(f"USER {user.id} - VIEW DETAIL")
+    logger.info(f"  Raw callback_data: {callback_data}")
+    logger.info(f"  Parts: {parts}")
+    
+    # Extract ID safely
+    if len(parts) >= 3:
+        strategy_id = parts[2]
+    else:
+        strategy_id = None
+    
+    logger.info(f"  Extracted strategy_id: {strategy_id}")
     
     if not strategy_id:
+        logger.warning(f"User {user.id}: Invalid strategy ID format")
         await query.edit_message_text(
             "❌ Invalid request.",
-            reply_markup=get_move_menu_keyboard(),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Back", callback_data="move_view_list")]
+            ]),
             parse_mode='HTML'
         )
         return
     
+    if not await check_user_authorization(user):
+        await query.edit_message_text("❌ Unauthorized access.")
+        return
+    
+    # Fetch strategy details
     strategy = await get_move_strategy(user.id, strategy_id)
     
     if not strategy:
+        logger.warning(f"User {user.id}: Strategy {strategy_id} not found")
         await query.edit_message_text(
             "❌ Strategy not found.",
-            reply_markup=get_move_menu_keyboard(),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Back to List", callback_data="move_view_list")]
+            ]),
             parse_mode='HTML'
         )
         return
     
-    log_user_action(user.id, f"Viewed strategy: {strategy.get('strategy_name')}")
+    log_user_action(user.id, f"move_view_detail_{strategy_id}", f"Viewed: {strategy.get('strategy_name')}")
     
-    # ✅ FIX: Format strategy details
+    # Format strategy details
     message = format_strategy_details(strategy)
+    
+    # Action keyboard
+    action_keyboard = [
+        [
+            InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_{strategy_id}"),
+            InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_{strategy_id}")
+        ],
+        [InlineKeyboardButton("🔙 Back to List", callback_data="move_view_list")]
+    ]
     
     await query.edit_message_text(
         message,
-        reply_markup=get_strategy_actions_keyboard(strategy_id),
+        reply_markup=InlineKeyboardMarkup(action_keyboard),
         parse_mode='HTML'
     )
+    
+    logger.info(f"User {user.id}: Displayed details for {strategy_id}")
+
 
 def format_strategy_details(strategy: dict) -> str:
-    """
-    ✅ FIX: Format strategy dict into readable message
-    """
+    """Format strategy dict into readable message."""
+    
     name = strategy.get('strategy_name', 'Unnamed')
     description = strategy.get('description', 'No description')
     asset = strategy.get('asset', 'N/A')
     expiry = strategy.get('expiry', 'daily').capitalize()
-    direction = strategy.get('direction', 'N/A').capitalize()
+    direction = strategy.get('direction', 'N/A').upper()
     is_active = strategy.get('is_active', False)
     
     atm_offset = strategy.get('atm_offset', 0)
@@ -128,40 +188,46 @@ def format_strategy_details(strategy: dict) -> str:
     
     created_at = strategy.get('created_at', 'N/A')
     
-    status = '🟢 Active' if is_active else '⚫ Inactive'
+    status = '🟢 <b>ACTIVE</b>' if is_active else '⚫ <b>INACTIVE</b>'
     
+    # Build message
     message = (
-        f"📊 <b>MOVE Strategy Details</b>\n\n"
+        f"📊 <b>Strategy Details</b>\n\n"
         
-        f"<b>Basic Info:</b>\n"
-        f"• Name: {name}\n"
-        f"• Description: {description}\n"
+        f"<b>Basic Information:</b>\n"
+        f"• Name: <code>{name}</code>\n"
+        f"• Description: <code>{description}</code>\n"
         f"• Status: {status}\n"
-        f"• Created: {created_at}\n\n"
+        f"• Created: <code>{created_at}</code>\n\n"
         
         f"<b>Configuration:</b>\n"
-        f"• Asset: {asset}\n"
-        f"• Expiry: {expiry}\n"
-        f"• Direction: {direction}\n"
-        f"• ATM Offset: {atm_offset:+d}\n"
-        f"• Lot Size: {lot_size}\n\n"
+        f"• Asset: <code>{asset}</code>\n"
+        f"• Expiry: <code>{expiry}</code>\n"
+        f"• Direction: <code>{direction}</code>\n"
+        f"• ATM Offset: <code>{atm_offset:+d}</code>\n"
+        f"• Lot Size: <code>{lot_size}</code>\n\n"
         
-        f"<b>Stop Loss:</b>\n"
-        f"• Trigger: {sl_trigger}%\n"
-        f"• Limit: {sl_limit}%\n\n"
+        f"<b>Stop Loss Management:</b>\n"
+        f"• Trigger: <code>{sl_trigger}%</code>\n"
+        f"• Limit: <code>{sl_limit}%</code>\n\n"
         
-        f"<b>Target:</b>\n"
-        f"• Trigger: {target_trigger}%\n"
-        f"• Limit: {target_limit}%\n\n"
-        
-        f"<b>Actions:</b>"
+        f"<b>Target Management:</b>\n"
     )
+    
+    if target_trigger != 'N/A':
+        message += (
+            f"• Trigger: <code>{target_trigger}%</code>\n"
+            f"• Limit: <code>{target_limit}%</code>\n"
+        )
+    else:
+        message += f"• Status: <code>Not Configured</code>\n"
     
     return message
 
+
 @error_handler
 async def move_list_all_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show summary of all MOVE strategies"""
+    """Show summary of all MOVE strategies."""
     query = update.callback_query
     await query.answer()
     user = query.from_user
@@ -174,99 +240,49 @@ async def move_list_all_callback(update: Update, context: ContextTypes.DEFAULT_T
     
     if not strategies:
         await query.edit_message_text(
-            "📊 No strategies created yet.",
-            reply_markup=get_move_menu_keyboard(),
+            "📊 <b>Strategy Summary</b>\n\n"
+            "No strategies created yet.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
+            ]),
             parse_mode='HTML'
         )
         return
     
-    # ✅ FIX: Build summary table
-    summary = "📋 <b>MOVE Strategy Summary</b>\n\n"
-    
+    # Build summary
     active_count = sum(1 for s in strategies if s.get('is_active', False))
     inactive_count = len(strategies) - active_count
     
-    summary += (
+    summary = (
+        f"📋 <b>MOVE Strategy Summary</b>\n\n"
         f"<b>Overview:</b>\n"
-        f"• Total Strategies: {len(strategies)}\n"
-        f"• Active: {active_count}\n"
-        f"• Inactive: {inactive_count}\n\n"
-        
-        f"<b>Strategies:</b>\n"
+        f"• Total: {len(strategies)}\n"
+        f"• 🟢 Active: {active_count}\n"
+        f"• ⚫ Inactive: {inactive_count}\n\n"
+        f"<b>List:</b>\n"
     )
     
     for strat in strategies:
         name = strat.get('strategy_name', 'Unnamed')
         asset = strat.get('asset', 'N/A')
         status = '🟢' if strat.get('is_active', False) else '⚫'
-        summary += f"{status} {name} - {asset}\n"
-    
-    summary += (
-        f"\n<i>Use View to see strategy details</i>"
-    )
+        summary += f"{status} <code>{name}</code> - {asset}\n"
     
     await query.edit_message_text(
         summary,
-        reply_markup=get_move_menu_keyboard(),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📊 View Details", callback_data="move_view_list")],
+            [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
+        ]),
         parse_mode='HTML'
     )
 
-@error_handler
-async def move_strategy_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    ✅ FIX: Get detailed status of a single strategy
-    """
-    query = update.callback_query
-    await query.answer()
-    user = query.from_user
-    
-    # Extract from: move_status_{strategy_id}
-    parts = query.data.split('_', 2)
-    strategy_id = parts[2] if len(parts) >= 3 else None
-    
-    if not strategy_id:
-        await query.edit_message_text("❌ Invalid request.")
-        return
-    
-    strategy = await get_move_strategy(user.id, strategy_id)
-    
-    if not strategy:
-        await query.edit_message_text(
-            "❌ Strategy not found.",
-            reply_markup=get_move_menu_keyboard()
-        )
-        return
-    
-    # ✅ FIX: Build status message
-    status_msg = (
-        f"📊 Strategy Status: {strategy.get('strategy_name')}\n\n"
-        f"<b>Runtime Info:</b>\n"
-    )
-    
-    is_active = strategy.get('is_active', False)
-    status_msg += f"• Status: {'🟢 ACTIVE' if is_active else '⚫ INACTIVE'}\n"
-    
-    # Add runtime metrics if available
-    if strategy.get('last_traded'):
-        status_msg += f"• Last Trade: {strategy.get('last_traded')}\n"
-    
-    if strategy.get('pnl'):
-        pnl = strategy.get('pnl')
-        pnl_emoji = '📈' if pnl > 0 else '📉'
-        status_msg += f"• P&L: {pnl_emoji} {pnl}\n"
-    
-    status_msg += f"\n<i>View details for full information</i>"
-    
-    await query.edit_message_text(
-        status_msg,
-        reply_markup=get_move_menu_keyboard(),
-        parse_mode='HTML'
-    )
 
 __all__ = [
     'move_view_callback',
     'move_view_detail_callback',
     'move_list_all_callback',
-    'move_strategy_status',
+    'get_strategy_list_keyboard',
     'format_strategy_details',
-]
+    ]
+            
