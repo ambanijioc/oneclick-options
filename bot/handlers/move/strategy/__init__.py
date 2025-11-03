@@ -136,7 +136,38 @@ def register_move_strategy_handlers(application: Application):
         logger.error(f"❌ Error importing MOVE view callbacks: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"❌ Error registering MOVE view callbacks: {e}", exc_info=True)
-    
+
+    # ==================== DELETE CALLBACKS (Group 10) ====================
+    try:
+        from bot.handlers.move.strategy.delete import (
+            move_delete_callback,
+            move_delete_confirm_callback,
+            move_delete_execute_callback
+        )
+        
+        # Show delete list
+        application.add_handler(
+            CallbackQueryHandler(move_delete_callback, pattern="^move_delete$"),
+            group=10
+        )
+        
+        # Confirm deletion (callback: move_delete_{strategy_id})
+        application.add_handler(
+            CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_[^_]+$"),
+            group=10
+        )
+        
+        # Execute deletion (callback: move_delete_confirmed_{strategy_id})
+        application.add_handler(
+            CallbackQueryHandler(move_delete_execute_callback, pattern="^move_delete_confirmed_.*"),
+            group=10
+        )
+        
+        logger.info("✅ MOVE strategy DELETE callbacks registered (Group 10)")
+        
+    except Exception as e:
+        logger.error(f"❌ Error registering MOVE delete callbacks: {e}", exc_info=True)
+   
     # ==================== TEXT INPUT HANDLER (Group 11) ====================
     # ✅ KEY FIX: SINGLE MESSAGE HANDLER instead of multiple handlers
     try:
