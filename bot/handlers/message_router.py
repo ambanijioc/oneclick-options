@@ -1,5 +1,5 @@
 """
-✅ COMPREHENSIVE MESSAGE ROUTER
+✅ COMPREHENSIVE GLOBAL MESSAGE ROUTER
 Global message router for directing ALL text input based on user state.
 
 Handles:
@@ -10,10 +10,11 @@ Handles:
 - Manual/Auto Presets and Trades
 
 Key Features:
-- Single entry point for all text messages
+- Single entry point for all text messages (Group 11)
 - State-based routing
 - Comprehensive error handling
 - Detailed logging
+- ✅ FIXED: Proper state clearing on errors
 """
 
 from telegram import Update
@@ -33,6 +34,8 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     Routes ALL text messages to appropriate handler based on user's state.
     This is the ONLY MessageHandler for the entire bot.
+    
+    Handler Group: 11 (runs after callback handlers)
     """
     
     try:
@@ -175,9 +178,8 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_move_edit_preset_field(update, context)
             logger.info("✅ Routed to: handle_move_edit_preset_field")
 
-            # ==================== MOVE STRATEGY VIEW (NEW) ====================
+        # ==================== MOVE STRATEGY VIEW (CALLBACK-BASED) ====================
         elif state_str == 'move_view_strategies_list':
-            # This is handled by callback, not text
             logger.info("📌 State move_view_strategies_list is callback-based")
             await update.message.reply_text(
                 "ℹ️ Please use the buttons to select a strategy.",
@@ -185,12 +187,11 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif state_str == 'move_view_strategy_detail':
-            # This is handled by callback, not text
             logger.info("📌 State move_view_strategy_detail is callback-based")
             await update.message.reply_text(
                 "ℹ️ Please use the buttons below.",
                 parse_mode='HTML'
-        )
+            )
 
         # ==================== MOVE MANUAL TRADE ====================
         elif state_str == 'move_manual_entry_price':
@@ -373,6 +374,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "❌ Something went wrong. Please use /start.",
                 parse_mode='HTML'
             )
+            # ✅ FIX 1: Clear state on unhandled error
             await state_manager.clear_state(user.id)
         
         logger.info("=" * 80)
@@ -388,10 +390,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "❌ An error occurred. Please try /start.",
                 parse_mode='HTML'
             )
+            # ✅ FIX 2: Always clear state on exception
             await state_manager.clear_state(update.effective_user.id)
         except Exception as err:
-            logger.error(f"Failed to send error message: {err}")
-
-
-__all__ = ['route_message']
-        
+            logger.error(f"Failed to send error message: {err}"
