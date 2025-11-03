@@ -21,7 +21,7 @@ def register_move_preset_handlers(application: Application):
     logger.info("🎯 Initializing MOVE Preset Handlers (Modular)...")
     
     try:
-        # 1. Register callback handlers (Group 10)
+        # 1. Register callback handlers (Group 15)
         from bot.handlers.move.preset.menu import register_menu_handlers
         from bot.handlers.move.preset.create import register_create_handlers
         from bot.handlers.move.preset.view import register_view_handlers
@@ -34,7 +34,7 @@ def register_move_preset_handlers(application: Application):
         register_edit_handlers(application)
         register_delete_handlers(application)
         
-        logger.info("✓ All preset callback handlers registered (Group 10)")
+        logger.info("✓ All preset callback handlers registered (Group 15)")
         
         # 2. Register text input message handler (Group 11)
         # This should be added in your main bot initialization
@@ -46,25 +46,6 @@ def register_move_preset_handlers(application: Application):
     except Exception as e:
         logger.error(f"❌ Error initializing MOVE preset handlers: {e}", exc_info=True)
         return False
-
-
-# ============ IMPORTANT INTEGRATION NOTE ============
-"""
-In your main bot initialization file (e.g., bot/__init__.py or main.py),
-after the Application is created, add this:
-
-    from bot.handlers.move.preset.input_handlers import route_move_preset_message
-    
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            route_move_preset_message
-        ),
-        group=11  # Same as other text input handlers
-    )
-
-This ensures preset text input is routed correctly.
-"""
 
 
 __all__ = ['register_move_preset_handlers']
