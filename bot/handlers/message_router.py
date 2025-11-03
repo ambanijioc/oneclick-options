@@ -393,4 +393,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # ✅ FIX 2: Always clear state on exception
             await state_manager.clear_state(update.effective_user.id)
         except Exception as err:
-            logger.error(f"Failed to send error message: {err}"
+            logger.error(f"Failed to send error message: {err}")  # ✅ ADDED CLOSING PARENTHESIS
+
+
+__all__ = ['route_message']
