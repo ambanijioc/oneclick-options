@@ -1,21 +1,70 @@
-"""MOVE Preset Handler Submodule"""
+"""MOVE Preset Handler Submodule - Modular Architecture"""
 
-from telegram.ext import Application
+from telegram.ext import Application, MessageHandler, filters
 from bot.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
 def register_move_preset_handlers(application: Application):
-    """Register MOVE preset handlers"""
+    """
+    Register ALL MOVE preset handlers - Modular approach.
+    
+    Splits handlers into:
+    - create.py: Add preset flow
+    - view.py: View presets
+    - edit.py: Edit presets
+    - delete.py: Delete presets
+    - menu.py: Main menu & navigation
+    """
+    
+    logger.info("🎯 Initializing MOVE Preset Handlers (Modular)...")
+    
     try:
-        from bot.handlers.move.preset.create import register_move_preset_handlers as handler_func
-        handler_func(application)
-        logger.info("✓ MOVE preset handlers registered")
+        # 1. Register callback handlers (Group 10)
+        from bot.handlers.move.preset.menu import register_menu_handlers
+        from bot.handlers.move.preset.create import register_create_handlers
+        from bot.handlers.move.preset.view import register_view_handlers
+        from bot.handlers.move.preset.edit import register_edit_handlers
+        from bot.handlers.move.preset.delete import register_delete_handlers
+        
+        register_menu_handlers(application)
+        register_create_handlers(application)
+        register_view_handlers(application)
+        register_edit_handlers(application)
+        register_delete_handlers(application)
+        
+        logger.info("✓ All preset callback handlers registered (Group 10)")
+        
+        # 2. Register text input message handler (Group 11)
+        # This should be added in your main bot initialization
+        # See instruction below
+        
+        logger.info("✅ MOVE preset handlers initialized successfully (MODULAR)")
         return True
+        
     except Exception as e:
-        logger.error(f"❌ MOVE preset handler error: {e}", exc_info=True)
+        logger.error(f"❌ Error initializing MOVE preset handlers: {e}", exc_info=True)
         return False
+
+
+# ============ IMPORTANT INTEGRATION NOTE ============
+"""
+In your main bot initialization file (e.g., bot/__init__.py or main.py),
+after the Application is created, add this:
+
+    from bot.handlers.move.preset.input_handlers import route_move_preset_message
+    
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            route_move_preset_message
+        ),
+        group=11  # Same as other text input handlers
+    )
+
+This ensures preset text input is routed correctly.
+"""
 
 
 __all__ = ['register_move_preset_handlers']
