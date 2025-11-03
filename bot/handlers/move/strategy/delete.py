@@ -16,7 +16,7 @@ from database.operations.move_strategy_ops import (
     delete_move_strategy
 )
 from bot.keyboards.move_strategy_keyboards import (
-    get_strategy_list_keyboard,
+    get_delete_list_keyboard,  # ✅ UPDATED
     get_delete_confirmation_keyboard,
     get_move_menu_keyboard
 )
@@ -34,13 +34,13 @@ async def move_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
-    log_user_action(user.id, "Requested MOVE strategy list for deletion")
+    log_user_action(user.id, "move_delete_list", "Requested MOVE strategy list for deletion")
     
     strategies = await get_move_strategies(user.id)
     
     if not strategies:
         await query.edit_message_text(
-            "📋 No MOVE strategies found.\n\n"
+            "📋 <b>No MOVE Strategies Found</b>\n\n"
             "Nothing to delete!",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
@@ -48,10 +48,10 @@ async def move_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     
     await query.edit_message_text(
-        "🗑️ Delete MOVE Strategy\n\n"
-        "⚠️ This action cannot be undone!\n\n"
+        "🗑️ <b>Delete MOVE Strategy</b>\n\n"
+        "⚠️ <b>Warning:</b> This action cannot be undone!\n\n"
         "Select a strategy to delete:",
-        reply_markup=get_strategy_list_keyboard(strategies, action='delete'),
+        reply_markup=get_delete_list_keyboard(strategies),  # ✅ UPDATED
         parse_mode='HTML'
     )
 
@@ -65,7 +65,7 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
     await query.answer()
     user = query.from_user
     
-    # ✅ FIX: Extract strategy_id from "move_delete_{ID}"
+    # Extract strategy_id from "move_delete_{ID}"
     parts = query.data.split('_')  # ['move', 'delete', 'ID']
     strategy_id = parts[2] if len(parts) >= 3 else None
     
@@ -91,15 +91,23 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
         return
     
     name = strategy.get('strategy_name', 'Unnamed')
+    asset = strategy.get('asset', 'N/A')
+    direction = strategy.get('direction', 'unknown').upper()
+    expiry = strategy.get('expiry', 'daily').capitalize()
     
     await query.edit_message_text(
-        f"🗑️ Delete Strategy Confirmation\n\n"
+        f"🗑️ <b>Delete Strategy Confirmation</b>\n\n"
         f"Are you sure you want to delete:\n\n"
-        f"📌 {name}\n\n"
-        f"⚠️ This action cannot be undone!",
+        f"📌 <b>Name:</b> {name}\n"
+        f"📊 <b>Asset:</b> {asset}\n"
+        f"📅 <b>Expiry:</b> {expiry}\n"
+        f"🎯 <b>Direction:</b> {direction}\n\n"
+        f"⚠️ <b>This action cannot be undone!</b>",
         reply_markup=get_delete_confirmation_keyboard(strategy_id),
         parse_mode='HTML'
     )
+    
+    log_user_action(user.id, f"delete_confirm_{strategy_id}", f"Confirming deletion of: {name}")
 
 @error_handler
 async def move_delete_execute_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -111,7 +119,7 @@ async def move_delete_execute_callback(update: Update, context: ContextTypes.DEF
     await query.answer()
     user = query.from_user
     
-    # ✅ FIX: Extract strategy_id from "move_delete_confirmed_{ID}"
+    # Extract strategy_id from "move_delete_confirmed_{ID}"
     parts = query.data.split('_')  # ['move', 'delete', 'confirmed', 'ID']
     strategy_id = parts[3] if len(parts) >= 4 else None
     
@@ -141,19 +149,19 @@ async def move_delete_execute_callback(update: Update, context: ContextTypes.DEF
     result = await delete_move_strategy(user.id, strategy_id)
     
     if result:
-        log_user_action(user.id, f"Deleted MOVE strategy: {name}")
-        logger.info(f"DELETE EXECUTE - Successfully deleted strategy: {name} (ID: {strategy_id})")
+        log_user_action(user.id, f"delete_execute_{strategy_id}", f"Deleted MOVE strategy: {name}")
+        logger.info(f"✅ DELETE EXECUTE - Successfully deleted strategy: {name} (ID: {strategy_id})")
         
         await query.edit_message_text(
-            f"✅ Strategy Deleted!\n\n"
+            f"✅ <b>Strategy Deleted!</b>\n\n"
             f"'{name}' has been successfully deleted.",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
         )
     else:
-        logger.error(f"DELETE EXECUTE - Failed to delete strategy ID: {strategy_id}")
+        logger.error(f"❌ DELETE EXECUTE - Failed to delete strategy ID: {strategy_id}")
         await query.edit_message_text(
-            "❌ Failed to delete strategy.\n\n"
+            "❌ <b>Failed to Delete Strategy</b>\n\n"
             "Please try again.",
             reply_markup=get_move_menu_keyboard(),
             parse_mode='HTML'
@@ -163,4 +171,4 @@ __all__ = [
     'move_delete_callback',
     'move_delete_confirm_callback',
     'move_delete_execute_callback',
-    ]
+]
