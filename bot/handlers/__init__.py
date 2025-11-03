@@ -1,6 +1,7 @@
 """
 Bot command and callback handlers.
-UPDATED: 2025-11-01 - Handler priority groups to avoid conflicts
+UPDATED: 2025-11-03 - Handler priority groups to avoid conflicts
+ENHANCED: MOVE Preset handlers added (Group 15)
 """
 
 from telegram.ext import Application, MessageHandler, filters, CallbackQueryHandler
@@ -15,7 +16,11 @@ def register_all_handlers(application: Application):
     
     Handler Groups (execution order):
     - Group 0 (default): Commands
-    - Group 10-50: Specific strategy callbacks (MOVE, Straddle, Strangle)
+    - Group 10: MOVE Strategy callbacks
+    - Group 15: MOVE Preset callbacks  ✅ NEW
+    - Group 20: MOVE Trade callbacks
+    - Group 30: Straddle callbacks
+    - Group 40: Strangle callbacks
     - Group 100: General callbacks (API, Balance, etc.)
     - Group 999: Message router (lowest priority - catch-all)
     """
@@ -46,14 +51,14 @@ def register_all_handlers(application: Application):
         except Exception as e:
             logger.error(f"❌ Error registering MOVE strategy handlers: {e}", exc_info=True)
 
-        # ✅ MOVE PRESET HANDLERS (Group 15)
+        # ✅ MOVE PRESET HANDLERS (Group 15) - NEW
         try:
             logger.info("🔍 Registering MOVE preset handlers (Group 15)...")
             from bot.handlers.move.preset import register_move_preset_handlers
             register_move_preset_handlers(application)
             logger.info("✅ MOVE preset handlers registered (Group 15)")
         except ImportError as e:
-            logger.warning(f"⚠️ Move preset handler: {e}")
+            logger.warning(f"⚠️ MOVE preset handler not available: {e}")
         except Exception as e:
             logger.error(f"❌ Error registering MOVE preset handlers: {e}", exc_info=True)
         
@@ -241,7 +246,7 @@ def register_all_handlers(application: Application):
         logger.info("Handler Priority Order:")
         logger.info("  Group 0:   Commands (/start, /help)")
         logger.info("  Group 10:  MOVE Strategy callbacks")
-        logger.info("  Group 15:  MOVE Preset callbacks")
+        logger.info("  Group 15:  MOVE Preset callbacks ✅ NEW")
         logger.info("  Group 20:  MOVE Trade callbacks")
         logger.info("  Group 30:  Straddle callbacks")
         logger.info("  Group 40:  Strangle callbacks")
@@ -255,3 +260,4 @@ def register_all_handlers(application: Application):
 
 
 __all__ = ['register_all_handlers']
+        
