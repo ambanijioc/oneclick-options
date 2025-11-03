@@ -212,7 +212,7 @@ def register_move_strategy_handlers(application: Application):
     # ==================== TEXT INPUT HANDLER (Group 11) ====================
     # ✅ KEY FIX: SINGLE MESSAGE HANDLER instead of multiple handlers
     try:
-        from bot.handlers.move.strategy.message_router import route_move_message
+        from bot.handlers.move.strategy.input_handlers import route_move_message
         
         # Single handler for ALL MOVE text input
         # State machine determines which input handler processes the message
