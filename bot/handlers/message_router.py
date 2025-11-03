@@ -1,21 +1,20 @@
 """
-✅ COMPREHENSIVE GLOBAL MESSAGE ROUTER - CLEANED & DEDUPLICATED
+✅ COMPREHENSIVE GLOBAL MESSAGE ROUTER
 Global message router for directing ALL text input based on user state.
 
 Handles:
 - API Configuration
 - MOVE Strategy (Create, Edit, Trade)
-- MOVE Preset (Creation & Editing) - PRIORITY
 - STRADDLE Strategy
 - STRANGLE Strategy
-- Manual/Auto Trades
+- Manual/Auto Presets and Trades
 
 Key Features:
 - Single entry point for all text messages (Group 11)
-- State-based routing with MOVE Preset priority
-- No duplicate handlers
+- State-based routing
 - Comprehensive error handling
 - Detailed logging
+- ✅ FIXED: Proper state clearing on errors
 """
 
 from telegram import Update
@@ -24,8 +23,10 @@ from telegram.ext import ContextTypes
 from bot.utils.logger import setup_logger
 from bot.utils.state_manager import state_manager
 from bot.utils.error_handler import error_handler
+# At the TOP of file, add import:
 from bot.handlers.move.preset.input_handlers import route_move_preset_message
 
+# In your MESSAGE ROUTING FUNCTION, add this condition:
 logger = setup_logger(__name__)
 
 
@@ -75,33 +76,22 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logger.info(f"🎯 Routing to handler for state: {state_str}")
         
-        # ==================== MOVE PRESET STATES (HIGHEST PRIORITY) ====================
-        # ✅ MOVED TO TOP - These must be checked FIRST with prefix match
-        if state_str.startswith('move_preset_'):
-            await route_move_preset_message(update, context)
-            logger.info(f"✅ Routed to: route_move_preset_message ({state_str})")
-            return  # ✅ CRITICAL: Exit after handling
-        
         # ==================== API CONFIGURATION STATES ====================
         if state_str == 'api_add_name':
             from bot.handlers.api_handler import handle_api_name_input
             await handle_api_name_input(update, context)
-            logger.info("✅ Routed to: handle_api_name_input")
             
         elif state_str == 'api_add_description':
             from bot.handlers.api_handler import handle_api_description_input
             await handle_api_description_input(update, context)
-            logger.info("✅ Routed to: handle_api_description_input")
             
         elif state_str == 'api_add_key':
             from bot.handlers.api_handler import handle_api_key_input
             await handle_api_key_input(update, context)
-            logger.info("✅ Routed to: handle_api_key_input")
             
         elif state_str == 'api_add_secret':
             from bot.handlers.api_handler import handle_api_secret_input
             await handle_api_secret_input(update, context)
-            logger.info("✅ Routed to: handle_api_secret_input")
         
         # ==================== MOVE STRATEGY CREATION ====================
         elif state_str == 'move_add_name':
@@ -180,6 +170,52 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await move_edit_text_input(update, context)
             logger.info("✅ Routed to: move_edit_text_input (target_limit)")
         
+        # ==================== MOVE PRESET STATES ====================
+        elif state_str == 'move_create_preset_name':
+            from bot.handlers.move.preset.create import handle_move_preset_name
+            await handle_move_preset_name(update, context)
+            logger.info("✅ Routed to: handle_move_preset_name")
+        
+        elif state_str == 'move_preset_sl_trigger':
+            from bot.handlers.move.preset.create import handle_move_preset_sl_trigger
+            await handle_move_preset_sl_trigger(update, context)
+            logger.info("✅ Routed to: handle_move_preset_sl_trigger")
+        
+        elif state_str == 'move_preset_sl_limit':
+            from bot.handlers.move.preset.create import handle_move_preset_sl_limit
+            await handle_move_preset_sl_limit(update, context)
+            logger.info("✅ Routed to: handle_move_preset_sl_limit")
+        
+        elif state_str == 'move_preset_target':
+            from bot.handlers.move.preset.create import handle_move_preset_target
+            await handle_move_preset_target(update, context)
+            logger.info("✅ Routed to: handle_move_preset_target")
+        
+        elif state_str == 'move_preset_target_limit':
+            from bot.handlers.move.preset.create import handle_move_preset_target_limit
+            await handle_move_preset_target_limit(update, context)
+            logger.info("✅ Routed to: handle_move_preset_target_limit")
+        
+        elif state_str.startswith('move_edit_preset_'):
+            from bot.handlers.move.preset.edit import handle_move_edit_preset_field
+            await handle_move_edit_preset_field(update, context)
+            logger.info("✅ Routed to: handle_move_edit_preset_field")
+
+        # ==================== MOVE STRATEGY VIEW (CALLBACK-BASED) ====================
+        elif state_str == 'move_view_strategies_list':
+            logger.info("📌 State move_view_strategies_list is callback-based")
+            await update.message.reply_text(
+                "ℹ️ Please use the buttons to select a strategy.",
+                parse_mode='HTML'
+            )
+
+        elif state_str == 'move_view_strategy_detail':
+            logger.info("📌 State move_view_strategy_detail is callback-based")
+            await update.message.reply_text(
+                "ℹ️ Please use the buttons below.",
+                parse_mode='HTML'
+            )
+
         # ==================== MOVE MANUAL TRADE ====================
         elif state_str == 'move_manual_entry_price':
             from bot.handlers.move.trade.manual import handle_move_manual_entry_price
@@ -361,6 +397,7 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "❌ Something went wrong. Please use /start.",
                 parse_mode='HTML'
             )
+            # ✅ FIX 1: Clear state on unhandled error
             await state_manager.clear_state(user.id)
         
         logger.info("=" * 80)
@@ -376,9 +413,35 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "❌ An error occurred. Please try /start.",
                 parse_mode='HTML'
             )
+            # ✅ FIX 2: Always clear state on exception
             await state_manager.clear_state(update.effective_user.id)
         except Exception as err:
-            logger.error(f"Failed to send error message: {err}")
+            logger.error(f"Failed to send error message: {err}")  # ✅ ADDED CLOSING PARENTHESIS
 
 
+@error_handler
+async def route_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Global text message router"""
+    
+    user = update.effective_user
+    current_state = await state_manager.get_state(user.id)
+    
+    logger.info(f"📨 MESSAGE ROUTER: User {user.id}, State: {current_state}")
+    
+    try:
+        # ✅ ADD THIS FIRST - MOVE PRESET HAS PRIORITY
+        if current_state and current_state.startswith('move_preset_'):
+            await route_move_preset_message(update, context)
+            return
+        
+        # Then your existing routing for other strategies...
+        if current_state == 'move_strategy_...':
+            await route_move_strategy_message(update, context)
+        elif current_state == 'straddle_strategy_...':
+            await route_straddle_message(update, context)
+        # ... etc
+        
+    except Exception as e:
+        logger.error(f"❌ Error in message router: {e}", exc_info=True)
+        
 __all__ = ['route_message']
