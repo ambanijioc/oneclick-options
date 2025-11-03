@@ -224,8 +224,8 @@ def get_strategy_details_keyboard(strategy_id: str) -> InlineKeyboardMarkup:
     """Get keyboard for strategy details with Edit/Delete/Back options."""
     keyboard = [
         [
-            InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_strategy_{strategy_id}"),
-            InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_strategy_{strategy_id}")
+            InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_{strategy_id}"),
+            InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_{strategy_id}")
         ],
         [InlineKeyboardButton("🔙 Back to List", callback_data="move_view_list")]
     ]
