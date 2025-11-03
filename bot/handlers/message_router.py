@@ -133,19 +133,39 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # ==================== MOVE STRATEGY EDITING ====================
         elif state_str == 'move_edit_name':
-            from bot.handlers.move.strategy.input_handlers import handle_move_edit_name_input
-            await handle_move_edit_name_input(update, context, text)
-            logger.info("✅ Routed to: handle_move_edit_name_input")
-        
+            from bot.handlers.move.strategy.edit import move_edit_text_input
+            await move_edit_text_input(update, context)
+            logger.info("✅ Routed to: move_edit_text_input (name)")
+
         elif state_str == 'move_edit_description':
-            from bot.handlers.move.strategy.input_handlers import handle_move_edit_description_input
-            await handle_move_edit_description_input(update, context, text)
-            logger.info("✅ Routed to: handle_move_edit_description_input")
-        
-        elif state_str == 'move_edit_lot_size':
-            from bot.handlers.move.strategy.input_handlers import handle_move_edit_lot_size_input
-            await handle_move_edit_lot_size_input(update, context, text)
-            logger.info("✅ Routed to: handle_move_edit_lot_size_input")
+            from bot.handlers.move.strategy.edit import move_edit_text_input
+            await move_edit_text_input(update, context)
+            logger.info("✅ Routed to: move_edit_text_input (description)")
+
+        elif state_str == 'move_edit_atm_offset':
+            from bot.handlers.move.strategy.edit import move_edit_text_input
+            await move_edit_text_input(update, context)
+            logger.info("✅ Routed to: move_edit_text_input (atm_offset)")
+
+        elif state_str == 'move_edit_sl_trigger':
+            from bot.handlers.move.strategy.edit import move_edit_text_input
+            await move_edit_text_input(update, context)
+            logger.info("✅ Routed to: move_edit_text_input (sl_trigger)")
+
+        elif state_str == 'move_edit_sl_limit':
+            from bot.handlers.move.strategy.edit import move_edit_text_input
+            await move_edit_text_input(update, context)
+            logger.info("✅ Routed to: move_edit_text_input (sl_limit)")
+
+        elif state_str == 'move_edit_target_trigger':
+            from bot.handlers.move.strategy.edit import move_edit_text_input
+            await move_edit_text_input(update, context)
+            logger.info("✅ Routed to: move_edit_text_input (target_trigger)")
+
+        elif state_str == 'move_edit_target_limit':
+            from bot.handlers.move.strategy.edit import move_edit_text_input
+            await move_edit_text_input(update, context)
+            logger.info("✅ Routed to: move_edit_text_input (target_limit)")
         
         # ==================== MOVE PRESET STATES ====================
         elif state_str == 'move_create_preset_name':
