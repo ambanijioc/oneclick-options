@@ -2,6 +2,7 @@
 MOVE Trade Preset Database Operations
 
 Handle MOVE preset creation, updates, and retrievals.
+UPDATED: 2025-11-03
 """
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -21,12 +22,14 @@ async def create_move_preset(
     try:
         preset_doc = {
             'user_id': user_id,
-            'name': preset_data.get('name'),
-            'entry_price': preset_data.get('entry_price'),
-            'lot_size': preset_data.get('lot_size'),
-            'sl_price': preset_data.get('sl_price'),
-            'target_price': preset_data.get('target_price'),
-            'direction': preset_data.get('direction'),
+            'preset_name': preset_data.get('preset_name'),
+            'description': preset_data.get('description'),
+            'api_id': preset_data.get('api_id'),
+            'strategy_id': preset_data.get('strategy_id'),
+            'sl_trigger': preset_data.get('sl_trigger'),
+            'sl_limit': preset_data.get('sl_limit'),
+            'target_trigger': preset_data.get('target_trigger'),
+            'target_limit': preset_data.get('target_limit'),
             'created_at': datetime.utcnow(),
             'updated_at': datetime.utcnow(),
         }
@@ -41,14 +44,40 @@ async def create_move_preset(
         raise
 
 
+async def get_preset_details(
+    db: AsyncIOMotorDatabase,
+    preset_id: str
+) -> dict:
+    """
+    Get preset details by ID (for viewing).
+    
+    Args:
+        db: Database connection
+        preset_id: ObjectId string of preset
+        
+    Returns:
+        dict: Preset document or empty dict
+    """
+    try:
+        if not preset_id:
+            return {}
+        preset = await db.move_presets.find_one({'_id': ObjectId(preset_id)})
+        return preset if preset else {}
+    except Exception as e:
+        logger.error(f"❌ Error fetching preset details: {e}")
+        return {}
+
+
 async def get_move_preset(
     db: AsyncIOMotorDatabase,
     preset_id: str
 ) -> dict:
     """Get a MOVE preset by ID"""
     try:
+        if not preset_id:
+            return {}
         preset = await db.move_presets.find_one({'_id': ObjectId(preset_id)})
-        return preset or {}
+        return preset if preset else {}
     except Exception as e:
         logger.error(f"❌ Error fetching MOVE preset: {e}")
         return {}
@@ -61,7 +90,7 @@ async def get_user_move_presets(
     """Get all MOVE presets for a user"""
     try:
         presets = await db.move_presets.find({'user_id': user_id}).to_list(None)
-        return presets or []
+        return presets if presets else []
     except Exception as e:
         logger.error(f"❌ Error fetching MOVE presets: {e}")
         return []
@@ -74,6 +103,9 @@ async def update_move_preset(
 ) -> bool:
     """Update a MOVE preset"""
     try:
+        if not preset_id:
+            return False
+            
         updates['updated_at'] = datetime.utcnow()
         
         result = await db.move_presets.update_one(
@@ -98,6 +130,9 @@ async def delete_move_preset(
 ) -> bool:
     """Delete a MOVE preset"""
     try:
+        if not preset_id:
+            return False
+            
         result = await db.move_presets.delete_one({'_id': ObjectId(preset_id)})
         
         if result.deleted_count > 0:
@@ -111,8 +146,10 @@ async def delete_move_preset(
         raise
 
 
+# ✅ MUST EXPORT get_preset_details
 __all__ = [
     'create_move_preset',
+    'get_preset_details',        # ✅ EXPORT - Required by view.py
     'get_move_preset',
     'get_user_move_presets',
     'update_move_preset',
