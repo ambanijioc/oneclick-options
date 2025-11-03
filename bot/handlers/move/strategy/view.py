@@ -14,12 +14,16 @@ from bot.validators.user_validator import check_user_authorization
 from database.operations.move_strategy_ops import (
     get_move_strategies,
     get_move_strategy,
-    delete_move_strategy
 )
 from bot.keyboards.move_strategy_keyboards import (
     get_strategies_list_keyboard,
     get_strategy_details_keyboard,
     get_cancel_keyboard
+)
+# ✅ Import delete handlers from delete.py (NO MORE DUPLICATES!)
+from bot.handlers.move.strategy.delete import (
+    move_delete_confirm_callback,
+    move_delete_execute_callback
 )
 
 logger = setup_logger(__name__)
@@ -133,163 +137,6 @@ async def view_strategy_details(update: Update, context: ContextTypes.DEFAULT_TY
     logger.info(f"✅ User {user.id}: Displayed strategy {strategy_id} details")
 
 
-# ========== DELETE HANDLERS (Added to view.py) ==========
-
-@error_handler
-async def delete_strategy_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    ✅ STEP 3: Show delete confirmation
-    Callback: move_delete_{strategy_id}
-    """
-    query = update.callback_query
-    await query.answer()
-    user = query.from_user
-    
-    # Extract strategy_id from "move_delete_{ID}"
-    parts = query.data.split('_')  # ['move', 'delete', 'ID']
-    strategy_id = parts[2] if len(parts) >= 3 else None
-    
-    logger.info(f"DELETE CONFIRM - Raw callback_data: {query.data}")
-    logger.info(f"DELETE CONFIRM - Extracted strategy_id: {strategy_id}")
-    
-    if not strategy_id:
-        await query.edit_message_text(
-            "❌ Invalid request.",
-            reply_markup=get_cancel_keyboard(),
-            parse_mode='HTML'
-        )
-        return
-    
-    strategy = await get_move_strategy(user.id, strategy_id)
-    
-    if not strategy:
-        await query.edit_message_text(
-            "❌ Strategy not found.",
-            reply_markup=get_cancel_keyboard(),
-            parse_mode='HTML'
-        )
-        return
-    
-    name = strategy.get('strategy_name', 'Unnamed')
-    asset = strategy.get('asset', 'N/A')
-    direction = (strategy.get('direction') or 'unknown').upper()
-    expiry = (strategy.get('expiry') or 'daily').capitalize()
-    
-    # Show confirmation keyboard
-    keyboard = [
-        [
-            InlineKeyboardButton("✅ Yes, Delete", callback_data=f"move_delete_confirmed_{strategy_id}"),
-            InlineKeyboardButton("❌ Cancel", callback_data="move_view_list")
-        ]
-    ]
-    
-    await query.edit_message_text(
-        f"🗑️ <b>Delete Strategy Confirmation</b>\n\n"
-        f"Are you sure you want to delete:\n\n"
-        f"📌 <b>Name:</b> {name}\n"
-        f"📊 <b>Asset:</b> {asset}\n"
-        f"📅 <b>Expiry:</b> {expiry}\n"
-        f"🎯 <b>Direction:</b> {direction}\n\n"
-        f"⚠️ <b>This action cannot be undone!</b>",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
-    )
-    
-    log_user_action(user.id, f"delete_confirm_{strategy_id}", f"Confirming deletion of: {name}")
-
-
-@error_handler
-async def delete_strategy_execute(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    ✅ STEP 4: Execute strategy deletion
-    Callback: move_delete_confirmed_{strategy_id}
-    """
-    query = update.callback_query
-    await query.answer()
-    user = query.from_user
-    
-    # Extract strategy_id from "move_delete_confirmed_{ID}"
-    parts = query.data.split('_')  # ['move', 'delete', 'confirmed', 'ID']
-    strategy_id = parts[3] if len(parts) >= 4 else None
-    
-    logger.info(f"DELETE EXECUTE - Raw callback_data: {query.data}")
-    logger.info(f"DELETE EXECUTE - Extracted strategy_id: {strategy_id}")
-    
-    if not strategy_id:
-        await query.edit_message_text(
-            "❌ Invalid request.",
-            reply_markup=get_cancel_keyboard(),
-            parse_mode='HTML'
-        )
-        return
-    
-    strategy = await get_move_strategy(user.id, strategy_id)
-    
-    if not strategy:
-        await query.edit_message_text(
-            "❌ Strategy not found or already deleted.",
-            reply_markup=get_cancel_keyboard(),
-            parse_mode='HTML'
-        )
-        return
-    
-    name = strategy.get('strategy_name', 'Unnamed')
-    
-    # Delete from database
-    result = await delete_move_strategy(user.id, strategy_id)
-    
-    if result:
-        log_user_action(user.id, f"delete_execute_{strategy_id}", f"Deleted MOVE strategy: {name}")
-        logger.info(f"✅ DELETE EXECUTE - Successfully deleted strategy: {name} (ID: {strategy_id})")
-        
-        await query.edit_message_text(
-            f"✅ <b>Strategy Deleted!</b>\n\n"
-            f"'{name}' has been successfully deleted.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📈 View Strategies", callback_data="move_view_list")],
-                [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")]
-            ]),
-            parse_mode='HTML'
-        )
-    else:
-        logger.error(f"❌ DELETE EXECUTE - Failed to delete strategy ID: {strategy_id}")
-        await query.edit_message_text(
-            "❌ <b>Failed to Delete Strategy</b>\n\n"
-            "Please try again.",
-            reply_markup=get_cancel_keyboard(),
-            parse_mode='HTML'
-        )
-
-
-# In view.py - just import and route to delete.py
-
-from bot.handlers.move.strategy.delete import (
-    move_delete_confirm_callback,
-    move_delete_execute_callback
-)
-
-# Then in your view keyboard, use the SAME callback_data patterns:
-
-def get_strategy_details_keyboard(strategy_id: str) -> InlineKeyboardMarkup:
-    """Strategy details keyboard with Delete option"""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_{strategy_id}")],
-        [InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_{strategy_id}")],  # ✅ Same pattern
-        [InlineKeyboardButton("🔙 Back", callback_data="move_view_list")]
-    ])
-
-# Then create wrapper functions:
-
-async def view_delete_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Route view delete to the menu delete handler"""
-    # Just call the existing delete handler from delete.py
-    await move_delete_confirm_callback(update, context)
-
-async def view_delete_execute(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Route view delete execute to the menu delete handler"""
-    await move_delete_execute_callback(update, context)
-
-
 def format_strategy_details(strategy: dict) -> str:
     """
     ✅ Format strategy details into readable HTML message
@@ -355,10 +202,11 @@ def format_strategy_details(strategy: dict) -> str:
     return message
 
 
+# ✅ EXPORT ONLY WHAT'S NEEDED
 __all__ = [
     'view_strategies_list',
     'view_strategy_details',
-    'delete_strategy_confirm',      # ✅ NEW
-    'delete_strategy_execute',       # ✅ NEW
+    'move_delete_confirm_callback',      # ✅ Imported from delete.py
+    'move_delete_execute_callback',       # ✅ Imported from delete.py
     'format_strategy_details',
     ]
