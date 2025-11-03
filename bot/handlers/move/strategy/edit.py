@@ -5,7 +5,7 @@ Handles editing existing MOVE strategies.
 """
 
 from telegram import Update, BadRequest
-from telegram.ext import ContextTypes, CallbackQueryHandler, Application
+from telegram.ext import ContextTypes, CallbackQueryHandler, MessageHandler, filters, Application
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
@@ -20,9 +20,6 @@ from bot.keyboards.move_strategy_keyboards import (
     get_strategy_list_keyboard,
     get_edit_fields_keyboard,
     get_move_menu_keyboard,
-    get_asset_keyboard,
-    get_expiry_keyboard,
-    get_direction_keyboard,
     get_cancel_keyboard,
     get_continue_edit_keyboard,
     get_edit_asset_keyboard,
@@ -43,7 +40,7 @@ async def move_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.edit_message_text("❌ Unauthorized access.")
         return
     
-    log_user_action(user.id, "Requested MOVE strategy list for editing")
+    log_user_action(user.id, "move_edit", "Requested MOVE strategy list for editing")
     
     strategies = await get_move_strategies(user.id)
     
@@ -73,7 +70,7 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
     await query.answer()
     user = query.from_user
     
-    # ✅ FIX: Extract strategy_id from "move_edit_{ID}"
+    # Extract strategy_id from "move_edit_{ID}"
     parts = query.data.split('_')  # ['move', 'edit', 'ID']
     strategy_id = parts[2] if len(parts) >= 3 else None
     
@@ -104,7 +101,7 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         'strategy_data': strategy
     })
     
-    # ✅ FIX: Pass strategy_id to keyboard function
+    # Pass strategy_id to keyboard function
     keyboard = get_edit_fields_keyboard(strategy_id)
     
     try:
@@ -136,7 +133,7 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
     user = query.from_user
     
     # Extract: move_edit_field_{ID}_{field} -> ['move', 'edit', 'field', 'ID', 'field_name']
-    parts = query.data.split('_', 4)  # ✅ FIX: Limit splits to preserve field names
+    parts = query.data.split('_', 4)  # Limit splits to preserve field names
     strategy_id = parts[3] if len(parts) >= 4 else None
     field = parts[4] if len(parts) >= 5 else None
     
@@ -150,7 +147,10 @@ async def move_edit_field_callback(update: Update, context: ContextTypes.DEFAULT
         )
         return
     
-    await state_manager.set_state_data(user.id, {'editing_field': field, 'editing_strategy_id': strategy_id})
+    await state_manager.set_state_data(user.id, {
+        'editing_field': field,
+        'editing_strategy_id': strategy_id
+    })
     data = await state_manager.get_state_data(user.id)
     strategy = data.get('strategy_data', {})
     
@@ -269,7 +269,7 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
     result = await update_move_strategy(user.id, strategy_id, update_data)
     
     if result:
-        log_user_action(user.id, f"Updated MOVE strategy {strategy_id} - {db_field}: {new_value}")
+        log_user_action(user.id, f"move_edit_save_{field}", f"Updated {field}: {new_value}")
         
         await query.edit_message_text(
             f"✅ Strategy Updated!\n\n"
@@ -284,6 +284,76 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=get_move_menu_keyboard()
         )
 
+
+# ✅ TEXT INPUT HANDLER FOR EDITS
+@error_handler
+async def move_edit_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    ✅ NEW: Handle text input for name, description, atm_offset edits
+    """
+    user = update.message.from_user
+    text = update.message.text
+    
+    data = await state_manager.get_state_data(user.id)
+    state = await state_manager.get_state(user.id)
+    strategy_id = data.get('editing_strategy_id')
+    field = data.get('editing_field')
+    
+    if not strategy_id or not field:
+        await update.message.reply_text("❌ Edit session expired. Please try again.")
+        return
+    
+    # Map state to field and validate
+    if state == 'move_edit_name':
+        if len(text) < 3 or len(text) > 100:
+            await update.message.reply_text("❌ Name must be 3-100 characters. Try again:")
+            return
+        update_field = 'strategy_name'
+        new_value = text.strip()
+        
+    elif state == 'move_edit_description':
+        if len(text) < 5 or len(text) > 500:
+            await update.message.reply_text("❌ Description must be 5-500 characters. Try again:")
+            return
+        update_field = 'description'
+        new_value = text.strip()
+        
+    elif state == 'move_edit_atm_offset':
+        try:
+            offset = int(text)
+            if not -10 <= offset <= 10:
+                await update.message.reply_text("❌ ATM Offset must be between -10 and +10. Try again:")
+                return
+            update_field = 'atm_offset'
+            new_value = offset
+        except ValueError:
+            await update.message.reply_text("❌ Please enter a valid number. Try again:")
+            return
+    else:
+        await update.message.reply_text("❌ Invalid edit state.")
+        return
+    
+    # Update strategy in database
+    result = await update_move_strategy(user.id, strategy_id, {update_field: new_value})
+    
+    if result:
+        log_user_action(user.id, f"move_edit_text_{field}", f"Updated {field}: {new_value}")
+        
+        # Clear state
+        await state_manager.set_state(user.id, None)
+        await state_manager.set_state_data(user.id, {})
+        
+        await update.message.reply_text(
+            f"✅ Strategy Updated!\n\n"
+            f"{field.capitalize()} changed to: <code>{new_value}</code>\n\n"
+            f"What else would you like to edit?",
+            reply_markup=get_edit_fields_keyboard(strategy_id),
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text("❌ Failed to update strategy. Try again:")
+
+
 # ✅ REGISTRATION FUNCTION
 def register_move_edit_handlers(app: Application):
     """Register MOVE strategy edit handlers"""
@@ -292,6 +362,12 @@ def register_move_edit_handlers(app: Application):
     app.add_handler(CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"))
     app.add_handler(CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"))
     
+    # ✅ NEW: Text input handler for name/description/atm_offset
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        move_edit_text_input
+    ))
+    
     logger.info("✓ MOVE edit handlers registered")
 
 __all__ = [
@@ -299,5 +375,6 @@ __all__ = [
     'move_edit_select_callback',
     'move_edit_field_callback',
     'move_edit_save_callback',
+    'move_edit_text_input',
     'register_move_edit_handlers',
-]
+            ]
