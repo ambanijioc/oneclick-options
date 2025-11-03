@@ -2,7 +2,7 @@
 MOVE Trade Preset Keyboards - COMPLETE & FIXED
 All inline keyboard definitions for MOVE preset management.
 
-UPDATED: 2025-11-03
+UPDATED: 2025-11-03 - Final working version with all handlers aligned
 """
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -13,7 +13,7 @@ logger = setup_logger(__name__)
 
 # ==================== MAIN MENU ====================
 
-def get_move_preset_menu_keyboard():
+def get_move_preset_menu_keyboard() -> InlineKeyboardMarkup:
     """Main MOVE Trade Presets menu - 5 options."""
     keyboard = [
         [InlineKeyboardButton("➕ Add Preset", callback_data="move_preset_add")],
@@ -27,9 +27,9 @@ def get_move_preset_menu_keyboard():
 
 # ==================== API/STRATEGY SELECTION ====================
 
-def get_api_selection_keyboard(apis):
+def get_api_selection_keyboard(apis: list) -> InlineKeyboardMarkup:
     """Get keyboard for API selection during preset creation."""
-    if not apis:
+    if not apis or not isinstance(apis, list):
         keyboard = [
             [InlineKeyboardButton("❌ No APIs Found", callback_data="no_action")],
             [InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")],
@@ -39,19 +39,20 @@ def get_api_selection_keyboard(apis):
     keyboard = []
     for api in apis:
         api_name = api.get('api_name', f"API {api.get('_id', 'Unknown')}")
+        api_id = str(api.get('_id', ''))
         keyboard.append([
             InlineKeyboardButton(
                 f"🔌 {api_name}",
-                callback_data=f"move_preset_api_{api.get('_id')}"
+                callback_data=f"move_preset_api_{api_id}"
             )
         ])
     keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")])
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_strategy_selection_keyboard(strategies):
+def get_strategy_selection_keyboard(strategies: list) -> InlineKeyboardMarkup:
     """Get keyboard for strategy selection during preset creation."""
-    if not strategies:
+    if not strategies or not isinstance(strategies, list):
         keyboard = [
             [InlineKeyboardButton("❌ No Strategies Found", callback_data="no_action")],
             [InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")],
@@ -61,10 +62,11 @@ def get_strategy_selection_keyboard(strategies):
     keyboard = []
     for strategy in strategies:
         strategy_name = strategy.get('strategy_name', f"Strategy {strategy.get('_id', 'Unknown')}")
+        strategy_id = str(strategy.get('_id', ''))
         keyboard.append([
             InlineKeyboardButton(
                 f"📊 {strategy_name}",
-                callback_data=f"move_preset_strategy_{strategy.get('_id')}"
+                callback_data=f"move_preset_strategy_{strategy_id}"
             )
         ])
     keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")])
@@ -73,7 +75,7 @@ def get_strategy_selection_keyboard(strategies):
 
 # ==================== CONFIRMATION ============
 
-def get_preset_confirmation_keyboard():
+def get_preset_confirmation_keyboard() -> InlineKeyboardMarkup:
     """Confirmation keyboard for saving preset."""
     keyboard = [
         [
@@ -86,7 +88,7 @@ def get_preset_confirmation_keyboard():
 
 # ==================== PRESET LISTS ====================
 
-def get_preset_list_keyboard(presets: list, action="view"):
+def get_preset_list_keyboard(presets: list, action: str = "view") -> InlineKeyboardMarkup:
     """
     Show available presets as inline keyboard.
     
@@ -97,7 +99,8 @@ def get_preset_list_keyboard(presets: list, action="view"):
     Returns:
         InlineKeyboardMarkup with preset buttons
     """
-    if not presets:
+    # ✅ CRITICAL: Type checking and safety
+    if not presets or not isinstance(presets, list):
         keyboard = [
             [InlineKeyboardButton("❌ No Presets Found", callback_data="no_action")],
             [InlineKeyboardButton("🔙 Back", callback_data="move_preset_menu")],
@@ -106,9 +109,24 @@ def get_preset_list_keyboard(presets: list, action="view"):
     
     keyboard = []
     for preset in presets:
-        preset_id = preset.get('_id')
-        preset_name = preset.get('preset_name', f"Preset {preset_id}")
-        callback = f"move_preset_{action}_{preset_id}"
+        # ✅ Validate preset is dict
+        if not isinstance(preset, dict):
+            logger.warning(f"⚠️ Invalid preset object: {preset}")
+            continue
+        
+        preset_id = str(preset.get('_id', ''))
+        preset_name = preset.get('preset_name', f"Preset {preset_id[:8]}")
+        
+        # ✅ Build callback data
+        if action == "view":
+            callback = f"move_preset_view_{preset_id}"
+        elif action == "edit":
+            callback = f"move_preset_edit_{preset_id}"
+        elif action == "delete":
+            callback = f"move_preset_delete_{preset_id}"
+        else:
+            callback = f"move_preset_view_{preset_id}"
+        
         keyboard.append([
             InlineKeyboardButton(f"🎯 {preset_name}", callback_data=callback)
         ])
@@ -119,7 +137,7 @@ def get_preset_list_keyboard(presets: list, action="view"):
 
 # ==================== PRESET DETAILS ============
 
-def get_preset_details_keyboard(preset_id=None):
+def get_preset_details_keyboard(preset_id: str = None) -> InlineKeyboardMarkup:
     """Back button for preset details view."""
     keyboard = [
         [InlineKeyboardButton("🔙 Back to Presets", callback_data="move_preset_view_list")],
@@ -130,7 +148,7 @@ def get_preset_details_keyboard(preset_id=None):
 
 # ==================== PRESET EDIT OPTIONS ============
 
-def get_preset_edit_options_keyboard(preset_id):
+def get_preset_edit_options_keyboard(preset_id: str) -> InlineKeyboardMarkup:
     """Edit options for each preset field."""
     keyboard = [
         [InlineKeyboardButton("✏️ Name", callback_data=f"move_preset_edit_name_{preset_id}")],
@@ -145,7 +163,7 @@ def get_preset_edit_options_keyboard(preset_id):
 
 # ==================== DELETE CONFIRMATION ============
 
-def get_delete_confirmation_keyboard(preset_id):
+def get_delete_confirmation_keyboard(preset_id: str) -> InlineKeyboardMarkup:
     """Confirmation for deleting preset."""
     keyboard = [
         [
@@ -166,7 +184,7 @@ def get_delete_confirmation_keyboard(preset_id):
 
 # ==================== CANCEL KEYBOARD ============
 
-def get_cancel_keyboard(back_callback="move_preset_menu"):
+def get_cancel_keyboard(back_callback: str = "move_preset_menu") -> InlineKeyboardMarkup:
     """Cancel button for input prompts."""
     keyboard = [
         [InlineKeyboardButton("❌ Cancel", callback_data=back_callback)],
@@ -186,4 +204,4 @@ __all__ = [
     'get_preset_edit_options_keyboard',
     'get_delete_confirmation_keyboard',
     'get_cancel_keyboard',
-]
+    ]
