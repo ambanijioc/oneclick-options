@@ -23,7 +23,10 @@ from telegram.ext import ContextTypes
 from bot.utils.logger import setup_logger
 from bot.utils.state_manager import state_manager
 from bot.utils.error_handler import error_handler
+# At the TOP of file, add import:
+from bot.handlers.move.preset.input_handlers import route_move_preset_message
 
+# In your MESSAGE ROUTING FUNCTION, add this condition:
 logger = setup_logger(__name__)
 
 
@@ -416,4 +419,29 @@ async def route_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Failed to send error message: {err}")  # ✅ ADDED CLOSING PARENTHESIS
 
 
+@error_handler
+async def route_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Global text message router"""
+    
+    user = update.effective_user
+    current_state = await state_manager.get_state(user.id)
+    
+    logger.info(f"📨 MESSAGE ROUTER: User {user.id}, State: {current_state}")
+    
+    try:
+        # ✅ ADD THIS FIRST - MOVE PRESET HAS PRIORITY
+        if current_state and current_state.startswith('move_preset_'):
+            await route_move_preset_message(update, context)
+            return
+        
+        # Then your existing routing for other strategies...
+        if current_state == 'move_strategy_...':
+            await route_move_strategy_message(update, context)
+        elif current_state == 'straddle_strategy_...':
+            await route_straddle_message(update, context)
+        # ... etc
+        
+    except Exception as e:
+        logger.error(f"❌ Error in message router: {e}", exc_info=True)
+        
 __all__ = ['route_message']
