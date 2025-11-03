@@ -1,5 +1,12 @@
 """
 MOVE Strategy Input Handlers - Complete Implementation
+
+✅ ARCHITECTURE:
+- Validators: Input validation functions
+- Step handlers: 8 steps for CREATE flow (Steps 1-8)
+- route_move_message(): Central router that dispatches based on user state
+- Handles EDIT states automatically (delegated to edit_text_input.py)
+
 Step 2 (Description) & Step 7 (Target Trigger) are OPTIONAL
 If user skips Step 7, Step 8 is automatically skipped too
 """
@@ -124,8 +131,6 @@ async def handle_move_description(update: Update, context: ContextTypes.DEFAULT_
     if not await check_user_authorization(user):
         await update.message.reply_text("❌ Unauthorized")
         return
-    
-    # ✅ FIXED: No validation comparing description to name!
     
     if len(text) > 500:
         from bot.keyboards.move_strategy_keyboards import get_cancel_keyboard
@@ -400,23 +405,30 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
     
     log_user_action(user.id, f"Target limit: {pct}%")
     logger.info(f"✅ Step 8 complete - Target limit: {pct}%")
-    logger.info(f"✅ All steps complete - Moving to confirmation")
+    logger.info(f"✅ All CREATE steps complete - Moving to confirmation")
     
     # Show confirmation
     from bot.handlers.move.strategy.create import show_move_confirmation
     await show_move_confirmation(update, context)
 
-# ============ MESSAGE ROUTER (Add this to END of move_input_handlers.py) ============
 
+# ============ CENTRAL MESSAGE ROUTER ============
+
+@error_handler
 async def route_move_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Central router for ALL MOVE strategy text input messages.
-    Routes based on current user state to appropriate handler function.
+    ✅ CENTRAL ROUTER FOR ALL MOVE STRATEGY TEXT INPUT
     
-    This function acts as a state machine dispatcher:
+    This is the state machine dispatcher for MOVE strategies:
     - Gets current user state from state_manager
-    - Routes to correct input handler based on state
-    - Handles non-matching states gracefully
+    - Routes to correct handler based on state
+    - Handles both CREATE and EDIT flows
+    - Silently ignores non-MOVE states
+    
+    Architecture:
+    1. Check if state is EDIT-related → delegate to edit_text_input.py
+    2. Check if state is CREATE-related → handle locally
+    3. Unknown state → silently ignore (no error)
     """
     
     user = update.effective_user
@@ -426,9 +438,17 @@ async def route_move_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Get current user state
         current_state = await state_manager.get_state(user.id)
         
-        logger.info(f"📨 Router: User {user.id}, State: {current_state}")
+        logger.info(f"📨 ROUTER: User {user.id}, State: {current_state}")
         
-        # Route based on state - dispatch to appropriate handler
+        # ✅ EDIT STATES - Delegate to edit_text_input.py
+        if current_state in ['move_edit_name', 'move_edit_description', 'move_edit_atm_offset',
+                             'move_edit_sl_trigger', 'move_edit_sl_limit', 
+                             'move_edit_target_trigger', 'move_edit_target_limit']:
+            logger.info(f"   → EDIT state detected, delegating to edit handler")
+            from bot.handlers.move.strategy.edit_text_input import handle_move_edit_text_input
+            return await handle_move_edit_text_input(update, context)
+        
+        # ✅ CREATE STATES - Handle locally
         if current_state == 'move_add_name':
             await handle_move_strategy_name(update, context)
             
@@ -454,8 +474,9 @@ async def route_move_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await handle_move_target_limit(update, context)
             
         else:
-            # No relevant state - silently ignore (not an error)
-            logger.debug(f"⏭️ No routing for state: {current_state}")
+            # No relevant MOVE state - silently ignore
+            # (could be other strategies, API config, etc.)
+            logger.debug(f"   ⏭️ No routing for state: {current_state}")
             
     except Exception as e:
         logger.error(f"❌ Error in message router: {e}", exc_info=True)
@@ -463,7 +484,8 @@ async def route_move_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "❌ Error processing your message. Please try again.",
             parse_mode='HTML'
         )
-        
+
+
 __all__ = [
     'validate_strategy_name',
     'validate_lot_size',
@@ -477,6 +499,6 @@ __all__ = [
     'handle_move_sl_limit',
     'handle_move_target_trigger',
     'handle_move_target_limit',
-    'route_move_message',  # ✅ ADD THIS
-    ]
+    'route_move_message',  # ✅ EXPORT THIS
+        ]
     
