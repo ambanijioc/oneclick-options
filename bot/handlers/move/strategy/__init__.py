@@ -138,7 +138,7 @@ def register_move_strategy_handlers(application: Application):
         logger.error(f"❌ Error registering MOVE view callbacks: {e}", exc_info=True)
 
     # ==================== EDIT CALLBACKS (Group 10) ====================
-    # ✅ FIXED: Reordered by specificity (most specific first)
+    # ✅ FIXED: Patterns ordered by SPECIFICITY (most specific LAST for Telegram!)
     try:
         from bot.handlers.move.strategy.edit import (
             move_edit_callback,
@@ -147,27 +147,28 @@ def register_move_strategy_handlers(application: Application):
             move_edit_save_callback
         )
         
-        # Entry point - "Edit Strategy" button FROM MAIN MENU
+        # 1️⃣ Entry point - "Edit Strategy" button FROM MAIN MENU (move_edit)
         application.add_handler(
             CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"),
             group=10
         )
         
-        # ✅ MOST SPECIFIC FIRST - Select field to edit
-        application.add_handler(
-            CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"),
-            group=10
-        )
-        
-        # ✅ SPECIFIC - Save callback-based edits (asset, expiry, direction)
+        # 2️⃣ SPECIFIC - Save callback-based edits (move_edit_save_*)
         application.add_handler(
             CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"),
             group=10
         )
         
-        # ✅ GENERIC LAST - Select strategy to edit (catches move_edit_{id})
+        # 3️⃣ SPECIFIC - Select field to edit (move_edit_field_*)
         application.add_handler(
-            CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_.*"),
+            CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"),
+            group=10
+        )
+        
+        # 4️⃣ GENERIC LAST - Select strategy to edit (move_edit_{id})
+        # This pattern MUST be LAST because it's the most generic!
+        application.add_handler(
+            CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"),
             group=10
         )
         
