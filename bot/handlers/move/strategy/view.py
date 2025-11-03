@@ -261,6 +261,35 @@ async def delete_strategy_execute(update: Update, context: ContextTypes.DEFAULT_
         )
 
 
+# In view.py - just import and route to delete.py
+
+from bot.handlers.move.strategy.delete import (
+    move_delete_confirm_callback,
+    move_delete_execute_callback
+)
+
+# Then in your view keyboard, use the SAME callback_data patterns:
+
+def get_strategy_details_keyboard(strategy_id: str) -> InlineKeyboardMarkup:
+    """Strategy details keyboard with Delete option"""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Edit", callback_data=f"move_edit_{strategy_id}")],
+        [InlineKeyboardButton("🗑️ Delete", callback_data=f"move_delete_{strategy_id}")],  # ✅ Same pattern
+        [InlineKeyboardButton("🔙 Back", callback_data="move_view_list")]
+    ])
+
+# Then create wrapper functions:
+
+async def view_delete_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Route view delete to the menu delete handler"""
+    # Just call the existing delete handler from delete.py
+    await move_delete_confirm_callback(update, context)
+
+async def view_delete_execute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Route view delete execute to the menu delete handler"""
+    await move_delete_execute_callback(update, context)
+
+
 def format_strategy_details(strategy: dict) -> str:
     """
     ✅ Format strategy details into readable HTML message
