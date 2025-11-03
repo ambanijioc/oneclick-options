@@ -406,6 +406,64 @@ async def handle_move_target_limit(update: Update, context: ContextTypes.DEFAULT
     from bot.handlers.move.strategy.create import show_move_confirmation
     await show_move_confirmation(update, context)
 
+# ============ MESSAGE ROUTER (Add this to END of move_input_handlers.py) ============
+
+async def route_move_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Central router for ALL MOVE strategy text input messages.
+    Routes based on current user state to appropriate handler function.
+    
+    This function acts as a state machine dispatcher:
+    - Gets current user state from state_manager
+    - Routes to correct input handler based on state
+    - Handles non-matching states gracefully
+    """
+    
+    user = update.effective_user
+    text = update.message.text.strip()
+    
+    try:
+        # Get current user state
+        current_state = await state_manager.get_state(user.id)
+        
+        logger.info(f"📨 Router: User {user.id}, State: {current_state}")
+        
+        # Route based on state - dispatch to appropriate handler
+        if current_state == 'move_add_name':
+            await handle_move_strategy_name(update, context)
+            
+        elif current_state == 'move_add_description':
+            await handle_move_description(update, context)
+            
+        elif current_state == 'move_add_lot_size':
+            await handle_move_lot_size(update, context)
+            
+        elif current_state == 'move_add_atm_offset':
+            await handle_move_atm_offset(update, context)
+            
+        elif current_state == 'move_add_sl_trigger':
+            await handle_move_sl_trigger(update, context)
+            
+        elif current_state == 'move_add_sl_limit':
+            await handle_move_sl_limit(update, context)
+            
+        elif current_state == 'move_add_target_trigger':
+            await handle_move_target_trigger(update, context)
+            
+        elif current_state == 'move_add_target_limit':
+            await handle_move_target_limit(update, context)
+            
+        else:
+            # No relevant state - silently ignore (not an error)
+            logger.debug(f"⏭️ No routing for state: {current_state}")
+            
+    except Exception as e:
+        logger.error(f"❌ Error in message router: {e}", exc_info=True)
+        await update.message.reply_text(
+            "❌ Error processing your message. Please try again.",
+            parse_mode='HTML'
+        )
+        
 __all__ = [
     'validate_strategy_name',
     'validate_lot_size',
@@ -419,5 +477,6 @@ __all__ = [
     'handle_move_sl_limit',
     'handle_move_target_trigger',
     'handle_move_target_limit',
+    'route_move_message',  # ✅ ADD THIS
     ]
     
