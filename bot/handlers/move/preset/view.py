@@ -1,97 +1,108 @@
 """
-MOVE Preset View Handler
-
-Displays list of all MOVE presets and their details.
+MOVE Trade Preset - View Handlers
+Handles preset viewing functionality.
 """
 
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 
-from bot.utils.logger import setup_logger, log_user_action
+from bot.utils.logger import setup_logger
 from bot.utils.error_handler import error_handler
-from bot.validators.user_validator import check_user_authorization
-from database.operations.move_trade_preset_ops import (
-    get_move_trade_presets,
-    get_move_trade_preset_by_id,
-)
-from bot.keyboards.move_strategy_keyboards import (
+from database.operations.move_preset_ops import get_preset_details
+from bot.keyboards.move_preset_keyboards import (
     get_preset_list_keyboard,
-    get_move_menu_keyboard
+    get_preset_details_keyboard,
 )
 
 logger = setup_logger(__name__)
 
+
+# ============ VIEW PRESET FLOW ============
+
 @error_handler
-async def move_preset_view_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show list of all MOVE presets."""
+async def move_preset_view_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """VIEW: Show list of presets"""
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    if not await check_user_authorization(user):
-        await query.edit_message_text("❌ Unauthorized access.")
-        return
+    logger.info(f"👁️ VIEW PRESET LIST - User {user.id}")
     
-    log_user_action(user.id, "Requested MOVE presets list")
-    
-    presets = await get_move_trade_presets(user.id)
-    
-    if not presets:
-        await query.edit_message_text(
-            "📋 No MOVE presets found.\n\n"
-            "Create your first preset!",
-            reply_markup=get_move_menu_keyboard(),
-            parse_mode='HTML'
-        )
-        return
+    keyboard = await get_preset_list_keyboard(user.id, action="view")
     
     await query.edit_message_text(
-        "📋 Your MOVE Presets\n\n"
-        f"Total: {len(presets)} presets\n\n"
+        "👁️ <b>View Presets</b>\n\n"
         "Select a preset to view details:",
-        reply_markup=get_preset_list_keyboard(presets, action='view'),
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
+
 
 @error_handler
 async def move_preset_view_details_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show detailed view of selected preset."""
+    """VIEW: Show preset details"""
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    preset_id = query.data.split('_')[-1]
+    # Extract preset ID from callback
+    callback = query.data  # "move_preset_view_{preset_id}"
+    preset_id = callback.split('_')[-1]
     
-    preset = await get_move_trade_preset_by_id(preset_id)
+    logger.info(f"📊 VIEW PRESET DETAILS - Preset {preset_id}")
+    
+    preset = await get_preset_details(user.id, preset_id)
     
     if not preset:
-        await query.edit_message_text(
-            "❌ Preset not found.",
-            reply_markup=get_move_menu_keyboard(),
-            parse_mode='HTML'
-        )
+        await query.answer("❌ Preset not found", show_alert=True)
         return
     
-    name = preset.get('preset_name', 'Unnamed')
-    api_id = preset.get('api_id', 'N/A')
-    strategy_id = preset.get('strategy_id', 'N/A')
-    created_at = preset.get('created_at', 'N/A')
-    
-    text = (
-        f"📋 MOVE Preset Details\n\n"
-        f"📌 Name: {name}\n"
-        f"🔑 API: {api_id}\n"
-        f"📊 Strategy: {strategy_id}\n"
-        f"📅 Created: {created_at}\n"
+    details_text = (
+        f"📊 <b>{preset['name']}</b>\n\n"
+        f"<b>Description:</b> {preset.get('description', 'N/A')}\n"
+        f"<b>API:</b> {preset.get('api_name', 'N/A')}\n"
+        f"<b>Strategy:</b> {preset.get('strategy_name', 'N/A')}\n"
+        f"<b>SL Trigger:</b> {preset.get('sl_trigger_percent', 'N/A')}%\n"
+        f"<b>SL Limit:</b> {preset.get('sl_limit_percent', 'N/A')}%\n"
+        f"<b>Target Trigger:</b> {preset.get('target_trigger_percent', 'N/A')}%\n"
+        f"<b>Target Limit:</b> {preset.get('target_limit_percent', 'N/A')}%\n"
+        f"<b>Created:</b> {preset.get('created_at', 'N/A')}"
     )
     
     await query.edit_message_text(
-        text,
-        reply_markup=get_move_menu_keyboard(),
+        details_text,
+        reply_markup=get_preset_details_keyboard(),
         parse_mode='HTML'
     )
 
+
+# ============ REGISTRATION ============
+
+def register_view_handlers(application: Application):
+    """Register VIEW preset handlers"""
+    
+    logger.info("👁️ Registering VIEW preset handlers...")
+    
+    try:
+        application.add_handler(
+            CallbackQueryHandler(move_preset_view_list_callback, pattern="^move_preset_view_list$"),
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_preset_view_details_callback, pattern="^move_preset_view_.*"),
+            group=10
+        )
+        
+        logger.info("✅ VIEW preset handlers registered")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error registering VIEW handlers: {e}", exc_info=True)
+        return False
+
+
 __all__ = [
-    'move_preset_view_callback',
+    'register_view_handlers',
+    'move_preset_view_list_callback',
     'move_preset_view_details_callback',
 ]
