@@ -10,8 +10,12 @@ def register_move_trade_handlers(application: Application):
     """Register all MOVE trade handlers"""
     
     # ✅ Import and register manual trade handlers
-    from bot.handlers.move.trade.manual import register_move_manual_trade_handlers
-    register_move_manual_trade_handlers(application)
+    try:
+        from bot.handlers.move.trade.manual import register_move_manual_trade_handlers
+        register_move_manual_trade_handlers(application)
+        logger.info("✅ MOVE Manual Trade handlers registered")
+    except Exception as e:
+        logger.error(f"❌ MOVE Manual Trade handler import failed: {e}")
     
     logger.info("✅ MOVE Trade handlers registered")
 
