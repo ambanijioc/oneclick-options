@@ -1,292 +1,225 @@
 """
-MOVE Trade Preset Creation Handler
-
-Handles creating preset configurations for MOVE strategies.
-Presets allow quick application of pre-defined settings to multiple trades.
+MOVE Trade Preset - Create Handlers
+Handles preset creation flow and callbacks.
 """
 
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
 from bot.utils.state_manager import state_manager
 from bot.validators.user_validator import check_user_authorization
 from database.operations.move_preset_ops import create_move_preset
-from bot.keyboards.move_preset_keyboards import get_preset_menu_keyboard
+from bot.keyboards.move_preset_keyboards import (
+    get_api_selection_keyboard,
+    get_strategy_selection_keyboard,
+    get_preset_confirmation_keyboard,
+    get_cancel_keyboard,
+    get_move_preset_menu_keyboard,
+)
 
 logger = setup_logger(__name__)
 
 
+# ============ ADD PRESET FLOW ============
+
 @error_handler
-async def move_create_preset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start MOVE preset creation flow"""
+async def move_preset_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start ADD preset flow - Step 1: Name"""
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
+    logger.info(f"➕ ADD PRESET STARTED - User {user.id}")
+    
     if not await check_user_authorization(user):
-        await query.edit_message_text("❌ Unauthorized access.")
+        await query.edit_message_text("❌ Unauthorized")
         return
     
-    log_user_action(user.id, "Started creating MOVE preset")
+    await state_manager.set_state(user.id, 'move_preset_add_name')
+    await state_manager.set_state_data(user.id, {})
     
-    await state_manager.set_state(user.id, 'move_create_preset_name')
-    await state_manager.set_state_data(user.id, {'preset_data': {}})
+    log_user_action(user.id, "Started adding MOVE preset")
     
     await query.edit_message_text(
-        "📝 Create MOVE Trade Preset\n\n"
-        "Step 1/4: Preset Name\n\n"
-        "Enter a unique name for this preset:\n"
-        "(e.g., 'Conservative', 'Aggressive')",
+        "📝 <b>Create MOVE Trade Preset</b>\n\n"
+        "<b>Step 1/2: Preset Name</b>\n\n"
+        "Enter a unique name for this preset:",
+        reply_markup=get_cancel_keyboard(),
         parse_mode='HTML'
     )
 
 
 @error_handler
-async def handle_move_preset_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle preset name input"""
-    user = update.effective_user
-    text = update.message.text.strip()
+async def move_preset_api_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ADD Preset: Show API selection"""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
     
-    if not await check_user_authorization(user):
-        await update.message.reply_text("❌ Unauthorized")
+    logger.info(f"🔌 SELECT API - User {user.id}")
+    
+    # Check state
+    state = await state_manager.get_state(user.id)
+    if state != 'move_preset_ready':
+        logger.warning(f"Wrong state for API selection: {state}")
+        await query.answer("❌ Invalid state", show_alert=True)
         return
     
-    if not text or len(text) < 3 or len(text) > 50:
-        await update.message.reply_text(
-            "❌ Name must be 3-50 characters long\n\n"
-            "Please try again:",
-            parse_mode='HTML'
-        )
-        return
+    keyboard = await get_api_selection_keyboard(user.id)
     
-    await state_manager.set_state_data(user.id, {'preset_name': text})
-    await state_manager.set_state(user.id, 'move_preset_sl_trigger')
-    
-    await update.message.reply_text(
-        f"✅ Preset name: <b>{text}</b>\n\n"
-        f"Step 2/4: Stop Loss Trigger (%)\n\n"
-        f"Enter the SL trigger percentage (0-100):",
+    await query.edit_message_text(
+        "🔌 <b>Select API</b>\n\n"
+        "Choose the API for this preset:",
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
 
 
 @error_handler
-async def handle_move_preset_sl_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle SL trigger percentage"""
-    user = update.effective_user
-    text = update.message.text.strip()
+async def move_preset_api_selected_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ADD Preset: API selected"""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
     
-    try:
-        sl_trigger = float(text)
-        if not (0 <= sl_trigger <= 100):
-            raise ValueError("Out of range")
-    except (ValueError, TypeError):
-        await update.message.reply_text(
-            "❌ Please enter a valid number (0-100)"
-        )
-        return
+    # Extract API ID from callback
+    callback = query.data  # "move_preset_api_{api_id}"
+    api_id = callback.split('_')[-1]
     
-    await state_manager.set_state_data(user.id, {'sl_trigger_percent': sl_trigger})
-    await state_manager.set_state(user.id, 'move_preset_sl_limit')
+    logger.info(f"✓ API Selected: {api_id}")
     
-    await update.message.reply_text(
-        f"✅ SL Trigger: <b>{sl_trigger}%</b>\n\n"
-        f"Step 3/4: Stop Loss Limit (%)\n\n"
-        f"Enter the SL limit percentage (usually lower than trigger):",
+    data = await state_manager.get_state_data(user.id)
+    data['api_id'] = api_id
+    await state_manager.set_state_data(user.id, data)
+    await state_manager.set_state(user.id, 'move_preset_select_strategy')
+    
+    # Show strategy selection
+    keyboard = await get_strategy_selection_keyboard(user.id)
+    
+    await query.edit_message_text(
+        "✅ <b>API Selected</b>\n\n"
+        "📊 <b>Select Strategy</b>\n\n"
+        "Choose a strategy for this preset:",
+        reply_markup=keyboard,
         parse_mode='HTML'
     )
 
 
 @error_handler
-async def handle_move_preset_sl_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle SL limit percentage"""
-    user = update.effective_user
-    text = update.message.text.strip()
+async def move_preset_strategy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ADD Preset: Strategy selected"""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
     
-    try:
-        sl_limit = float(text)
-        if not (0 <= sl_limit <= 100):
-            raise ValueError("Out of range")
-    except (ValueError, TypeError):
-        await update.message.reply_text(
-            "❌ Please enter a valid number (0-100)"
-        )
-        return
+    # Extract strategy ID from callback
+    callback = query.data  # "move_preset_strategy_{strategy_id}"
+    strategy_id = callback.split('_')[-1]
     
-    await state_manager.set_state_data(user.id, {'sl_limit_percent': sl_limit})
-    await state_manager.set_state(user.id, 'move_preset_target')
+    logger.info(f"✓ Strategy Selected: {strategy_id}")
     
-    await update.message.reply_text(
-        f"✅ SL Limit: <b>{sl_limit}%</b>\n\n"
-        f"Step 4/4: Target Trigger (%) [Optional]\n\n"
-        f"Enter target trigger % or type 'skip':",
+    data = await state_manager.get_state_data(user.id)
+    data['strategy_id'] = strategy_id
+    await state_manager.set_state_data(user.id, data)
+    
+    # Show confirmation
+    await query.edit_message_text(
+        f"✅ <b>All Details Set!</b>\n\n"
+        f"<b>Name:</b> {data['preset_name']}\n"
+        f"<b>Description:</b> {data.get('preset_description', 'None')}\n"
+        f"<b>API:</b> {data['api_id']}\n"
+        f"<b>Strategy:</b> {data['strategy_id']}\n\n"
+        f"Ready to save?",
+        reply_markup=get_preset_confirmation_keyboard(),
         parse_mode='HTML'
     )
 
 
 @error_handler
-async def handle_move_preset_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle target trigger percentage"""
-    user = update.effective_user
-    text = update.message.text.strip().lower()
+async def move_preset_save_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ADD Preset: Save new preset"""
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    
+    logger.info(f"💾 SAVE PRESET - User {user.id}")
     
     data = await state_manager.get_state_data(user.id)
     
-    if text == 'skip':
-        result = await create_move_preset(
-            user.id,
-            data['preset_name'],
-            data['sl_trigger_percent'],
-            data['sl_limit_percent'],
-            None,
-            None
-        )
-        
-        if result:
-            await update.message.reply_text(
-                f"✅ Preset '<b>{data['preset_name']}</b>' created successfully!\n\n"
-                f"📊 You can now use this preset for quick trade setup.",
-                reply_markup=get_preset_menu_keyboard(),
-                parse_mode='HTML'
-            )
-            log_user_action(user.id, f"Created MOVE preset: {data['preset_name']}")
-        else:
-            await update.message.reply_text(
-                "❌ Failed to create preset",
-                reply_markup=get_preset_menu_keyboard()
-            )
-        
-        await state_manager.clear_state(user.id)
-        return
-    
-    try:
-        target_trigger = float(text)
-        if not (0 <= target_trigger <= 100):
-            raise ValueError("Out of range")
-        
-        data['target_trigger_percent'] = target_trigger
-        await state_manager.set_state_data(user.id, data)
-        await state_manager.set_state(user.id, 'move_preset_target_limit')
-        
-        await update.message.reply_text(
-            f"✅ Target Trigger: <b>{target_trigger}%</b>\n\n"
-            f"Enter target limit percentage:",
-            parse_mode='HTML'
-        )
-        
-    except (ValueError, TypeError):
-        await update.message.reply_text(
-            "❌ Please enter a valid number or 'skip'"
-        )
-
-
-@error_handler
-async def handle_move_preset_target_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle target limit percentage"""
-    user = update.effective_user
-    text = update.message.text.strip()
-    
-    data = await state_manager.get_state_data(user.id)
-    
-    try:
-        target_limit = float(text)
-        if not (0 <= target_limit <= 100):
-            raise ValueError("Out of range")
-    except (ValueError, TypeError):
-        await update.message.reply_text(
-            "❌ Please enter a valid number"
-        )
-        return
-    
-    # Create preset with target
+    # Create preset in database
     result = await create_move_preset(
-        user.id,
-        data['preset_name'],
-        data['sl_trigger_percent'],
-        data['sl_limit_percent'],
-        data['target_trigger_percent'],
-        target_limit
+        user_id=user.id,
+        name=data['preset_name'],
+        description=data.get('preset_description'),
+        api_id=data.get('api_id'),
+        strategy_id=data.get('strategy_id'),
+        sl_trigger_percent=data.get('sl_trigger_percent'),
+        sl_limit_percent=data.get('sl_limit_percent'),
+        target_trigger_percent=data.get('target_trigger_percent'),
+        target_limit_percent=data.get('target_limit_percent'),
     )
     
     if result:
-        await update.message.reply_text(
-            f"✅ Preset '<b>{data['preset_name']}</b>' created successfully!\n\n"
-            f"📊 You can now use this preset for quick trade setup.",
-            reply_markup=get_preset_menu_keyboard(),
+        logger.info(f"✅ Preset saved successfully: {data['preset_name']}")
+        log_user_action(user.id, f"Created preset: {data['preset_name']}")
+        
+        await query.edit_message_text(
+            f"✅ <b>Preset '{data['preset_name']}' created successfully!</b>\n\n"
+            f"📊 You can now use this preset for quick trades.",
+            reply_markup=get_move_preset_menu_keyboard(),
             parse_mode='HTML'
         )
-        log_user_action(user.id, f"Created MOVE preset: {data['preset_name']}")
     else:
-        await update.message.reply_text(
-            "❌ Failed to create preset",
-            reply_markup=get_preset_menu_keyboard()
+        logger.error(f"❌ Failed to save preset")
+        await query.edit_message_text(
+            "❌ <b>Failed to save preset</b>\n\n"
+            "Please try again.",
+            reply_markup=get_move_preset_menu_keyboard(),
+            parse_mode='HTML'
         )
     
     await state_manager.clear_state(user.id)
 
 
-async def handle_move_preset_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    ✅ REQUIRED EXPORT: Main entry point for preset creation
-    This function is imported by __init__.py
-    """
-    if update.callback_query:
-        await move_create_preset_callback(update, context)
-    else:
-        await update.message.reply_text("❌ Invalid request")
+# ============ REGISTRATION ============
 
-
-def register_move_preset_handlers(application):
-    """
-    ✅ REQUIRED EXPORT: Register all MOVE preset handlers with the application
-    """
+def register_create_handlers(application: Application):
+    """Register CREATE preset handlers"""
+    
+    logger.info("📝 Registering CREATE preset handlers...")
+    
     try:
-        from telegram.ext import ConversationHandler, MessageFilter, MessageHandler, filters
-        
-        logger.info("Registering MOVE preset handlers...")
-        
-        # Conversation handler for preset creation flow
-        preset_conversation = ConversationHandler(
-            entry_points=[],  # Entry points registered in parent
-            states={
-                'move_create_preset_name': [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_preset_name)
-                ],
-                'move_preset_sl_trigger': [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_preset_sl_trigger)
-                ],
-                'move_preset_sl_limit': [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_preset_sl_limit)
-                ],
-                'move_preset_target': [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_preset_target)
-                ],
-                'move_preset_target_limit': [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_move_preset_target_limit)
-                ],
-            },
-            fallbacks=[]
+        application.add_handler(
+            CallbackQueryHandler(move_preset_add_callback, pattern="^move_preset_add$"),
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_preset_api_selected_callback, pattern="^move_preset_api_.*"),
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_preset_strategy_callback, pattern="^move_preset_strategy_.*"),
+            group=10
+        )
+        application.add_handler(
+            CallbackQueryHandler(move_preset_save_callback, pattern="^move_preset_save$"),
+            group=10
         )
         
-        application.add_handler(preset_conversation)
-        logger.info("✅ MOVE preset handlers registered successfully")
+        logger.info("✅ CREATE preset handlers registered")
         return True
         
     except Exception as e:
-        logger.error(f"❌ Error registering MOVE preset handlers: {e}")
+        logger.error(f"❌ Error registering CREATE handlers: {e}", exc_info=True)
         return False
 
 
-# ✅ REQUIRED EXPORTS
 __all__ = [
-    'handle_move_preset_create',
-    'register_move_preset_handlers',
-    'move_create_preset_callback',
-    'handle_move_preset_name',
-    'handle_move_preset_sl_trigger',
-    'handle_move_preset_sl_limit',
-    'handle_move_preset_target',
-    'handle_move_preset_target_limit',
-]
+    'register_create_handlers',
+    'move_preset_add_callback',
+    'move_preset_api_selected_callback',
+    'move_preset_strategy_callback',
+    'move_preset_save_callback',
+    ]
