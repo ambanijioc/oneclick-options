@@ -92,8 +92,9 @@ async def move_delete_confirm_callback(update: Update, context: ContextTypes.DEF
     
     name = strategy.get('strategy_name', 'Unnamed')
     asset = strategy.get('asset', 'N/A')
-    direction = strategy.get('direction', 'unknown').upper()
-    expiry = strategy.get('expiry', 'daily').capitalize()
+    # ✅ FIX: Safe null handling
+    direction = (strategy.get('direction') or 'unknown').upper()
+    expiry = (strategy.get('expiry') or 'daily').capitalize()
     
     await query.edit_message_text(
         f"🗑️ <b>Delete Strategy Confirmation</b>\n\n"
