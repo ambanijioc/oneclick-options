@@ -5,7 +5,8 @@ Handles editing existing MOVE strategies.
 All text input routing goes through input_handlers.py
 """
 
-from telegram import Update, BadRequest
+from telegram import Update
+from telegram.error import BadRequest  # ✅ CORRECT (v22.5+)
 from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 
 from bot.utils.logger import setup_logger, log_user_action
