@@ -23,7 +23,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🎯 Strangle Strategy", callback_data="menu_strangle_strategy")],
         [InlineKeyboardButton("🎯 Move Strategy", callback_data="move_menu")],
         [InlineKeyboardButton("📋 Manual Trade Presets", callback_data="menu_manual_trade_presets")],
-        [InlineKeyboardButton("🎯 Move Trade Presets", callback_data="menu_move_preset")],
+        [InlineKeyboardButton("🎯 Move Trade Presets", callback_data="move_preset_menu")],
         [InlineKeyboardButton("🎯 Manual Trade", callback_data="menu_manual_trade")],
         [InlineKeyboardButton("🎯 Manual Move Trade", callback_data="menu_manual_move_trade")],
         [InlineKeyboardButton("⏰ Auto Trade", callback_data="menu_auto_trade")],
