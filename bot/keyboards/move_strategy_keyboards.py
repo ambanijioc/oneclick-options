@@ -242,7 +242,8 @@ def get_delete_list_keyboard(strategies) -> InlineKeyboardMarkup:
         strategy_id = str(strategy.get('id', strategy.get('_id', '')))
         name = strategy.get('strategy_name', 'Unnamed')
         asset = strategy.get('asset', 'N/A')
-        direction = strategy.get('direction', 'unknown').capitalize()
+        # ✅ FIX: Safe null handling for direction
+        direction = (strategy.get('direction') or 'unknown').capitalize()
         
         keyboard.append([
             InlineKeyboardButton(
