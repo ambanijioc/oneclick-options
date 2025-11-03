@@ -1,11 +1,12 @@
 """
-MOVE Strategy Edit Handler
+MOVE Strategy Edit Handler - CALLBACK ONLY
 
 Handles editing existing MOVE strategies.
+All text input routing goes through input_handlers.py
 """
 
 from telegram import Update, BadRequest
-from telegram.ext import ContextTypes, CallbackQueryHandler, MessageHandler, filters, Application
+from telegram.ext import ContextTypes, CallbackQueryHandler, Application
 
 from bot.utils.logger import setup_logger, log_user_action
 from bot.utils.error_handler import error_handler
@@ -370,105 +371,14 @@ async def move_edit_save_callback(update: Update, context: ContextTypes.DEFAULT_
         logger.info("=" * 60)
 
 
-# ✅ TEXT INPUT HANDLER FOR EDITS
-@error_handler
-async def move_edit_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle text input for name, description, atm_offset edits
-    """
-    user = update.message.from_user
-    text = update.message.text
-    
-    logger.info("=" * 60)
-    logger.info("🔵 MOVE EDIT TEXT INPUT - TRIGGERED")
-    logger.info(f"   User: {user.id}")
-    logger.info(f"   Input Text: {text[:50]}..." if len(text) > 50 else f"   Input Text: {text}")
-    
-    try:
-        data = await state_manager.get_state_data(user.id)
-        state = await state_manager.get_state(user.id)
-        strategy_id = data.get('editing_strategy_id')
-        field = data.get('editing_field')
-        
-        logger.info(f"   State: {state}")
-        logger.info(f"   Strategy ID: {strategy_id}, Field: {field}")
-        
-        if not strategy_id or not field:
-            logger.warning(f"   ❌ Edit session expired or invalid state")
-            await update.message.reply_text("❌ Edit session expired. Please try again.")
-            return
-        
-        # Map state to field and validate
-        if state == 'move_edit_name':
-            logger.info(f"   ℹ️ Processing NAME field input")
-            if len(text) < 3 or len(text) > 100:
-                logger.warning(f"   ❌ Name length invalid: {len(text)}")
-                await update.message.reply_text("❌ Name must be 3-100 characters. Try again:")
-                return
-            update_field = 'strategy_name'
-            new_value = text.strip()
-            
-        elif state == 'move_edit_description':
-            logger.info(f"   ℹ️ Processing DESCRIPTION field input")
-            if len(text) < 5 or len(text) > 500:
-                logger.warning(f"   ❌ Description length invalid: {len(text)}")
-                await update.message.reply_text("❌ Description must be 5-500 characters. Try again:")
-                return
-            update_field = 'description'
-            new_value = text.strip()
-            
-        elif state == 'move_edit_atm_offset':
-            logger.info(f"   ℹ️ Processing ATM_OFFSET field input")
-            try:
-                offset = int(text)
-                if not -10 <= offset <= 10:
-                    logger.warning(f"   ❌ ATM Offset out of range: {offset}")
-                    await update.message.reply_text("❌ ATM Offset must be between -10 and +10. Try again:")
-                    return
-                update_field = 'atm_offset'
-                new_value = offset
-            except ValueError:
-                logger.warning(f"   ❌ ATM Offset not a valid number: {text}")
-                await update.message.reply_text("❌ Please enter a valid number. Try again:")
-                return
-        else:
-            logger.warning(f"   ❌ Invalid edit state: {state}")
-            await update.message.reply_text("❌ Invalid edit state.")
-            return
-        
-        # Update strategy in database
-        logger.info(f"   Updating database: {update_field} = {new_value}")
-        result = await update_move_strategy(user.id, strategy_id, {update_field: new_value})
-        
-        if result:
-            logger.info(f"   ✅ Update successful")
-            log_user_action(user.id, f"move_edit_text_{field}", f"Updated {field}: {new_value}")
-            
-            # Clear state
-            await state_manager.set_state(user.id, None)
-            await state_manager.set_state_data(user.id, {})
-            logger.info(f"   ✓ State cleared")
-            
-            await update.message.reply_text(
-                f"✅ Strategy Updated!\n\n"
-                f"{field.capitalize()} changed to: <code>{new_value}</code>\n\n"
-                f"What else would you like to edit?",
-                reply_markup=get_edit_fields_keyboard(strategy_id),
-                parse_mode='HTML'
-            )
-        else:
-            logger.warning(f"   ❌ Update failed")
-            await update.message.reply_text("❌ Failed to update strategy. Try again:")
-    except Exception as e:
-        logger.error(f"   ❌ Error in move_edit_text_input: {str(e)}", exc_info=True)
-        raise
-    finally:
-        logger.info("=" * 60)
-
-
-# ✅ REGISTRATION FUNCTION
+# ✅ REGISTRATION FUNCTION - CALLBACK ONLY (NO TEXT HANDLER)
 def register_move_edit_handlers(app: Application):
-    """Register MOVE strategy edit handlers"""
+    """
+    Register MOVE strategy edit handlers (callbacks only).
+    
+    ✅ KEY: Text input is handled by input_handlers.py route_move_message()
+    NOT here! This prevents handler conflicts in Group 11.
+    """
     
     logger.info("📋 Registering MOVE edit handlers...")
     
@@ -498,13 +408,10 @@ def register_move_edit_handlers(app: Application):
     )
     logger.info("   ✓ Handler 4: move_edit_[24-char-id]")
     
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, move_edit_text_input),
-        group=11
-    )
-    logger.info("   ✓ Handler 5: Text input (group 11)")
+    # ✅ NO MESSAGE HANDLER REGISTERED HERE!
+    # Text input routing is handled by input_handlers.py route_move_message()
     
-    logger.info("✅ MOVE edit handlers registered successfully!")
+    logger.info("✅ MOVE edit handlers (callback only) registered successfully!")
 
 
 __all__ = [
@@ -512,7 +419,5 @@ __all__ = [
     'move_edit_select_callback',
     'move_edit_field_callback',
     'move_edit_save_callback',
-    'move_edit_text_input',
     'register_move_edit_handlers',
-]
-            
+        ]
