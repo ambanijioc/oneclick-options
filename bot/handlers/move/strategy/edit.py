@@ -356,12 +356,12 @@ async def move_edit_text_input(update: Update, context: ContextTypes.DEFAULT_TYP
 # ✅ REGISTRATION FUNCTION
 def register_move_edit_handlers(app: Application):
     """Register MOVE strategy edit handlers"""
-    app.add_handler(CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"))
-    app.add_handler(CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"))
+    # This handles BOTH "move_edit" (show list) AND "move_edit_{ID}" (select strategy)
+    app.add_handler(CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit"))
+    
     app.add_handler(CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"))
     app.add_handler(CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"))
     
-    # ✅ NEW: Text input handler for name/description/atm_offset
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
         move_edit_text_input
