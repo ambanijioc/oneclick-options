@@ -64,18 +64,19 @@ async def move_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle strategy selection for editing.
-    Callback data format: move_edit_{strategy_id}
+    First call shows list, second call with move_edit_{ID} shows details.
     """
     query = update.callback_query
     await query.answer()
     user = query.from_user
     
-    # Extract strategy_id from "move_edit_{ID}"
-    parts = query.data.split('_')  # ['move', 'edit', 'ID']
-    strategy_id = parts[2] if len(parts) >= 3 else None
+    # CASE 1: Initial move_edit call (show list)
+    if query.data == "move_edit":
+        return await move_edit_callback(update, context)
     
-    logger.info(f"EDIT SELECT - Raw callback_data: {query.data}")
-    logger.info(f"EDIT SELECT - Extracted strategy_id: {strategy_id}")
+    # CASE 2: move_edit_{strategy_id} call (select specific strategy)
+    parts = query.data.split('_')
+    strategy_id = parts[2] if len(parts) >= 3 else None
     
     if not strategy_id:
         await query.edit_message_text(
@@ -95,13 +96,11 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         )
         return
     
-    # Store strategy ID in state
     await state_manager.set_state_data(user.id, {
         'editing_strategy_id': strategy_id,
         'strategy_data': strategy
     })
     
-    # Pass strategy_id to keyboard function
     keyboard = get_edit_fields_keyboard(strategy_id)
     
     try:
@@ -118,7 +117,7 @@ async def move_edit_select_callback(update: Update, context: ContextTypes.DEFAUL
         )
     except BadRequest as e:
         if "message is not modified" in str(e).lower():
-            logger.warning("Message not modified - content identical")
+            logger.warning("Message not modified")
         else:
             raise
 
