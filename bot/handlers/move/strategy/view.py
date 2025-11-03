@@ -146,15 +146,15 @@ def format_strategy_details(strategy: dict) -> str:
     name = strategy.get('strategy_name', 'Unnamed')
     description = strategy.get('description', 'No description')
     asset = strategy.get('asset', 'N/A')
-    expiry = strategy.get('expiry', 'daily').capitalize()
-    direction = strategy.get('direction', 'N/A').upper()
+    expiry = (strategy.get('expiry') or 'daily').capitalize()
+    direction = (strategy.get('direction') or 'N/A').upper()  # ✅ SAFE!
     is_active = strategy.get('is_active', False)
     
     # Configuration
     atm_offset = strategy.get('atm_offset', 0)
     lot_size = strategy.get('lot_size', 'N/A')
     
-    # Risk Management
+    # Risk Management - ✅ ALL SAFE
     sl_trigger = strategy.get('sl_trigger_percent', 'N/A')
     sl_limit = strategy.get('sl_limit_percent', 'N/A')
     target_trigger = strategy.get('target_trigger_percent', 'N/A')
