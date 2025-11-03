@@ -356,18 +356,36 @@ async def move_edit_text_input(update: Update, context: ContextTypes.DEFAULT_TYP
 # ✅ REGISTRATION FUNCTION
 def register_move_edit_handlers(app: Application):
     """Register MOVE strategy edit handlers"""
-    # This handles BOTH "move_edit" (show list) AND "move_edit_{ID}" (select strategy)
-    app.add_handler(CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit"))
     
-    app.add_handler(CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"))
-    app.add_handler(CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"))
+    # Most specific FIRST
+    app.add_handler(
+        CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"),
+        group=10
+    )
     
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        move_edit_text_input
-    ))
+    app.add_handler(
+        CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"),
+        group=10
+    )
+    
+    app.add_handler(
+        CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"),
+        group=10
+    )
+    
+    # Most generic LAST
+    app.add_handler(
+        CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"),
+        group=10
+    )
+    
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, move_edit_text_input),
+        group=11
+    )
     
     logger.info("✓ MOVE edit handlers registered")
+
 
 __all__ = [
     'move_edit_callback',
