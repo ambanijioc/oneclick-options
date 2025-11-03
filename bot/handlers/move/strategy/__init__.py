@@ -137,6 +137,47 @@ def register_move_strategy_handlers(application: Application):
     except Exception as e:
         logger.error(f"❌ Error registering MOVE view callbacks: {e}", exc_info=True)
 
+    # ==================== EDIT CALLBACKS (Group 10) ====================
+    # ✅ NEW: Added edit handlers
+    try:
+        from bot.handlers.move.strategy.edit import (
+            move_edit_callback,
+            move_edit_select_callback,
+            move_edit_field_callback,
+            move_edit_save_callback
+        )
+        
+        # Entry point - "Edit Strategy" button
+        application.add_handler(
+            CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"),
+            group=10
+        )
+        
+        # Select strategy to edit
+        application.add_handler(
+            CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"),
+            group=10
+        )
+        
+        # Select field to edit
+        application.add_handler(
+            CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"),
+            group=10
+        )
+        
+        # Save callback-based edits (asset, expiry, direction)
+        application.add_handler(
+            CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"),
+            group=10
+        )
+        
+        logger.info("✅ MOVE strategy EDIT callbacks registered (Group 10)")
+        
+    except ImportError as e:
+        logger.error(f"❌ Error importing MOVE edit callbacks: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"❌ Error registering MOVE edit callbacks: {e}", exc_info=True)
+
     # ==================== DELETE CALLBACKS (Group 10) ====================
     try:
         from bot.handlers.move.strategy.delete import (
@@ -189,6 +230,8 @@ def register_move_strategy_handlers(application: Application):
         logger.error(f"❌ Error importing MOVE message router: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"❌ Error registering MOVE message router: {e}", exc_info=True)
+    
+    logger.info("✅ ALL MOVE strategy handlers registered successfully!")
 
 
 __all__ = ['register_move_strategy_handlers']
