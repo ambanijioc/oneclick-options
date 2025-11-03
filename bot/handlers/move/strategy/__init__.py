@@ -138,7 +138,7 @@ def register_move_strategy_handlers(application: Application):
         logger.error(f"❌ Error registering MOVE view callbacks: {e}", exc_info=True)
 
     # ==================== EDIT CALLBACKS (Group 10) ====================
-    # ✅ NEW: Added edit handlers
+    # ✅ FIXED: Reordered by specificity (most specific first)
     try:
         from bot.handlers.move.strategy.edit import (
             move_edit_callback,
@@ -147,27 +147,27 @@ def register_move_strategy_handlers(application: Application):
             move_edit_save_callback
         )
         
-        # Entry point - "Edit Strategy" button
+        # Entry point - "Edit Strategy" button FROM MAIN MENU
         application.add_handler(
             CallbackQueryHandler(move_edit_callback, pattern="^move_edit$"),
             group=10
         )
         
-        # Select strategy to edit
-        application.add_handler(
-            CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_[0-9a-f]{24}$"),
-            group=10
-        )
-        
-        # Select field to edit
+        # ✅ MOST SPECIFIC FIRST - Select field to edit
         application.add_handler(
             CallbackQueryHandler(move_edit_field_callback, pattern="^move_edit_field_"),
             group=10
         )
         
-        # Save callback-based edits (asset, expiry, direction)
+        # ✅ SPECIFIC - Save callback-based edits (asset, expiry, direction)
         application.add_handler(
             CallbackQueryHandler(move_edit_save_callback, pattern="^move_edit_save_"),
+            group=10
+        )
+        
+        # ✅ GENERIC LAST - Select strategy to edit (catches move_edit_{id})
+        application.add_handler(
+            CallbackQueryHandler(move_edit_select_callback, pattern="^move_edit_.*"),
             group=10
         )
         
@@ -192,15 +192,15 @@ def register_move_strategy_handlers(application: Application):
             group=10
         )
         
-        # Confirm deletion (callback: move_delete_{strategy_id})
+        # ✅ SPECIFIC FIRST - Execute deletion (callback: move_delete_confirmed_{strategy_id})
         application.add_handler(
-            CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_[^_]+$"),
+            CallbackQueryHandler(move_delete_execute_callback, pattern="^move_delete_confirmed_.*"),
             group=10
         )
         
-        # Execute deletion (callback: move_delete_confirmed_{strategy_id})
+        # ✅ GENERIC LAST - Confirm deletion (callback: move_delete_{strategy_id})
         application.add_handler(
-            CallbackQueryHandler(move_delete_execute_callback, pattern="^move_delete_confirmed_.*"),
+            CallbackQueryHandler(move_delete_confirm_callback, pattern="^move_delete_[^_]+$"),
             group=10
         )
         
