@@ -230,7 +230,40 @@ def get_strategy_details_keyboard(strategy_id: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🔙 Back to List", callback_data="move_view_list")]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+# ========== DELETE KEYBOARDS ==========
+
+def get_delete_list_keyboard(strategies) -> InlineKeyboardMarkup:
+    """Build keyboard for deleting strategies with ❌ icons."""
+    keyboard = []
     
+    for strategy in strategies:
+        strategy_id = str(strategy.get('id', strategy.get('_id', '')))
+        name = strategy.get('strategy_name', 'Unnamed')
+        asset = strategy.get('asset', 'N/A')
+        direction = strategy.get('direction', 'unknown').capitalize()
+        
+        keyboard.append([
+            InlineKeyboardButton(
+                f"❌ {name} ({asset} - {direction})",
+                callback_data=f"move_delete_{strategy_id}"
+            )
+        ])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Back to Menu", callback_data="move_menu")])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_delete_confirmation_keyboard(strategy_id: str) -> InlineKeyboardMarkup:
+    """Get delete confirmation keyboard."""
+    keyboard = [
+        [InlineKeyboardButton("✅ Yes, Delete", callback_data=f"move_delete_confirmed_{strategy_id}")],
+        [InlineKeyboardButton("❌ No, Cancel", callback_data="move_view_list")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 __all__ = [
     'get_move_menu_keyboard',
     'get_cancel_keyboard',
@@ -247,7 +280,8 @@ __all__ = [
     'get_edit_direction_keyboard',
     'get_preset_list_keyboard',
     'get_preset_edit_fields_keyboard',
-    'get_delete_confirmation_keyboard',
+    'get_delete_list_keyboard',          # ✅ NEW
+    'get_delete_confirmation_keyboard',  # ✅ NEW
     'get_strategies_list_keyboard',
     'get_strategy_details_keyboard',
 ]
