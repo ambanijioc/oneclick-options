@@ -1,9 +1,12 @@
 """
-MOVE Trade Preset Keyboards
+MOVE Trade Preset Keyboards - FIXED
 All inline keyboard definitions for preset management.
 """
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from bot.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # ============ MAIN MENU ============
 
@@ -16,60 +19,6 @@ def get_move_preset_menu_keyboard():
         [InlineKeyboardButton("🗑️ Delete Preset", callback_data="move_preset_delete_list")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="move_back_main")],
     ]
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ============ API SELECTION ============
-
-async def get_api_selection_keyboard(user_id):
-    """Show available APIs as inline keyboard for selection"""
-    # TODO: Fetch available APIs from database for user_id
-    # This is a placeholder - adjust based on your API database structure
-    
-    apis = await get_user_apis(user_id)  # Your database function
-    
-    if not apis:
-        keyboard = [
-            [InlineKeyboardButton("❌ No APIs Found", callback_data="no_action")],
-            [InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")],
-        ]
-        return InlineKeyboardMarkup(keyboard)
-    
-    keyboard = []
-    for api in apis:
-        keyboard.append([
-            InlineKeyboardButton(f"🔌 {api['name']}", callback_data=f"move_preset_api_{api['id']}")
-        ])
-    
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")])
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ============ STRATEGY SELECTION ============
-
-async def get_strategy_selection_keyboard(user_id):
-    """Show available MOVE strategies as inline keyboard for selection"""
-    # TODO: Fetch predefined strategies from database
-    
-    strategies = await get_user_move_strategies(user_id)  # Your database function
-    
-    if not strategies:
-        keyboard = [
-            [InlineKeyboardButton("❌ No Strategies Found", callback_data="no_action")],
-            [InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")],
-        ]
-        return InlineKeyboardMarkup(keyboard)
-    
-    keyboard = []
-    for strategy in strategies:
-        keyboard.append([
-            InlineKeyboardButton(
-                f"📊 {strategy['name']}", 
-                callback_data=f"move_preset_strategy_{strategy['id']}"
-            )
-        ])
-    
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")])
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -86,14 +35,16 @@ def get_preset_confirmation_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
-# ============ VIEW PRESET ============
+# ============ VIEW PRESET (NON-ASYNC) ============
 
-async def get_preset_list_keyboard(user_id, action="view"):
-    """Show available presets as inline keyboard"""
-    # action: "view", "edit", "delete"
+def get_preset_list_keyboard(presets: list, action="view"):
+    """
+    Show available presets as inline keyboard.
     
-    presets = await get_user_presets(user_id)  # Your database function
-    
+    Args:
+        presets: List of preset dicts with 'id' and 'name'
+        action: "view", "edit", or "delete"
+    """
     if not presets:
         keyboard = [
             [InlineKeyboardButton("❌ No Presets Found", callback_data="no_action")],
@@ -125,18 +76,18 @@ def get_preset_details_keyboard():
 
 # ============ PRESET EDIT OPTIONS ============
 
-def get_preset_edit_options_keyboard():
+def get_preset_edit_options_keyboard(preset_id):
     """Edit options for each preset field"""
     keyboard = [
-        [InlineKeyboardButton("✏️ Edit Name", callback_data="move_preset_edit_name")],
-        [InlineKeyboardButton("✏️ Edit Description", callback_data="move_preset_edit_description")],
-        [InlineKeyboardButton("✏️ Edit API", callback_data="move_preset_edit_api")],
-        [InlineKeyboardButton("✏️ Edit Strategy", callback_data="move_preset_edit_strategy")],
-        [InlineKeyboardButton("✏️ Edit SL Trigger", callback_data="move_preset_edit_sl_trigger")],
-        [InlineKeyboardButton("✏️ Edit SL Limit", callback_data="move_preset_edit_sl_limit")],
-        [InlineKeyboardButton("✏️ Edit Target Trigger", callback_data="move_preset_edit_target_trigger")],
-        [InlineKeyboardButton("✏️ Edit Target Limit", callback_data="move_preset_edit_target_limit")],
-        [InlineKeyboardButton("💾 Save Changes", callback_data="move_preset_save_changes")],
+        [InlineKeyboardButton("✏️ Edit Name", callback_data=f"move_preset_edit_name_{preset_id}")],
+        [InlineKeyboardButton("✏️ Edit Description", callback_data=f"move_preset_edit_description_{preset_id}")],
+        [InlineKeyboardButton("✏️ Edit API", callback_data=f"move_preset_edit_api_{preset_id}")],
+        [InlineKeyboardButton("✏️ Edit Strategy", callback_data=f"move_preset_edit_strategy_{preset_id}")],
+        [InlineKeyboardButton("✏️ Edit SL Trigger", callback_data=f"move_preset_edit_sl_trigger_{preset_id}")],
+        [InlineKeyboardButton("✏️ Edit SL Limit", callback_data=f"move_preset_edit_sl_limit_{preset_id}")],
+        [InlineKeyboardButton("✏️ Edit Target Trigger", callback_data=f"move_preset_edit_target_trigger_{preset_id}")],
+        [InlineKeyboardButton("✏️ Edit Target Limit", callback_data=f"move_preset_edit_target_limit_{preset_id}")],
+        [InlineKeyboardButton("💾 Save Changes", callback_data=f"move_preset_save_changes_{preset_id}")],
         [InlineKeyboardButton("🔙 Back", callback_data="move_preset_edit_list")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -173,8 +124,6 @@ def get_cancel_keyboard():
 
 __all__ = [
     'get_move_preset_menu_keyboard',
-    'get_api_selection_keyboard',
-    'get_strategy_selection_keyboard',
     'get_preset_confirmation_keyboard',
     'get_preset_list_keyboard',
     'get_preset_details_keyboard',
