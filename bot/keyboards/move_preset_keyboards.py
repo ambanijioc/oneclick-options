@@ -1,189 +1,145 @@
 """
-MOVE Trade Preset Keyboards - COMPLETE & FIXED
-All inline keyboard definitions for MOVE preset management.
+MOVE Trade Preset Database Operations
 
-UPDATED: 2025-11-03
+Handle MOVE preset creation, updates, and retrievals.
 """
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from datetime import datetime
+from bson import ObjectId
 from bot.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
-# ==================== MAIN MENU ====================
-
-def get_move_preset_menu_keyboard():
-    """Main MOVE Trade Presets menu - 5 options."""
-    keyboard = [
-        [InlineKeyboardButton("➕ Add Preset", callback_data="move_preset_add")],
-        [InlineKeyboardButton("📝 Edit Preset", callback_data="move_preset_edit_list")],
-        [InlineKeyboardButton("👁️ View Preset", callback_data="move_preset_view_list")],
-        [InlineKeyboardButton("🗑️ Delete Preset", callback_data="move_preset_delete_list")],
-        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="menu_main")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ==================== API/STRATEGY SELECTION ====================
-
-def get_api_selection_keyboard(apis):
-    """Get keyboard for API selection during preset creation."""
-    if not apis:
-        keyboard = [
-            [InlineKeyboardButton("❌ No APIs Found", callback_data="no_action")],
-            [InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")],
-        ]
-        return InlineKeyboardMarkup(keyboard)
-    
-    keyboard = []
-    for api in apis:
-        api_name = api.get('api_name', f"API {api.get('_id', 'Unknown')}")
-        keyboard.append([
-            InlineKeyboardButton(
-                f"🔌 {api_name}",
-                callback_data=f"move_preset_api_{api.get('_id')}"
-            )
-        ])
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")])
-    return InlineKeyboardMarkup(keyboard)
+async def create_move_preset(
+    db: AsyncIOMotorDatabase,
+    user_id: int,
+    preset_data: dict
+) -> str:
+    """Create a MOVE preset"""
+    try:
+        preset_doc = {
+            'user_id': user_id,
+            'preset_name': preset_data.get('preset_name'),
+            'description': preset_data.get('description'),
+            'api_id': preset_data.get('api_id'),
+            'strategy_id': preset_data.get('strategy_id'),
+            'sl_trigger': preset_data.get('sl_trigger'),
+            'sl_limit': preset_data.get('sl_limit'),
+            'target_trigger': preset_data.get('target_trigger'),
+            'target_limit': preset_data.get('target_limit'),
+            'created_at': datetime.utcnow(),
+            'updated_at': datetime.utcnow(),
+        }
+        
+        result = await db.move_presets.insert_one(preset_doc)
+        logger.info(f"✅ MOVE preset created: {result.inserted_id}")
+        
+        return str(result.inserted_id)
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating MOVE preset: {e}")
+        raise
 
 
-def get_strategy_selection_keyboard(strategies):
-    """Get keyboard for strategy selection during preset creation."""
-    if not strategies:
-        keyboard = [
-            [InlineKeyboardButton("❌ No Strategies Found", callback_data="no_action")],
-            [InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")],
-        ]
-        return InlineKeyboardMarkup(keyboard)
-    
-    keyboard = []
-    for strategy in strategies:
-        strategy_name = strategy.get('strategy_name', f"Strategy {strategy.get('_id', 'Unknown')}")
-        keyboard.append([
-            InlineKeyboardButton(
-                f"📊 {strategy_name}",
-                callback_data=f"move_preset_strategy_{strategy.get('_id')}"
-            )
-        ])
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_preset_add")])
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ==================== CONFIRMATION ============
-
-def get_preset_confirmation_keyboard():
-    """Confirmation keyboard for saving preset."""
-    keyboard = [
-        [
-            InlineKeyboardButton("✅ Save Preset", callback_data="move_preset_save"),
-            InlineKeyboardButton("❌ Cancel", callback_data="move_preset_add"),
-        ],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ==================== PRESET LISTS ====================
-
-def get_preset_list_keyboard(presets: list, action="view"):
+async def get_preset_details(
+    db: AsyncIOMotorDatabase,
+    preset_id: str
+) -> dict:
     """
-    Show available presets as inline keyboard.
+    Get preset details by ID (for viewing).
     
     Args:
-        presets: List of preset dicts with '_id' and 'preset_name'
-        action: "view", "edit", or "delete"
-    
+        db: Database connection
+        preset_id: ObjectId string of preset
+        
     Returns:
-        InlineKeyboardMarkup with preset buttons
+        dict: Preset document or empty dict
     """
-    if not presets:
-        keyboard = [
-            [InlineKeyboardButton("❌ No Presets Found", callback_data="no_action")],
-            [InlineKeyboardButton("🔙 Back", callback_data="move_preset_menu")],
-        ]
-        return InlineKeyboardMarkup(keyboard)
-    
-    keyboard = []
-    for preset in presets:
-        preset_id = preset.get('_id')
-        preset_name = preset.get('preset_name', f"Preset {preset_id}")
-        callback = f"move_preset_{action}_{preset_id}"
-        keyboard.append([
-            InlineKeyboardButton(f"🎯 {preset_name}", callback_data=callback)
-        ])
-    
-    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="move_preset_menu")])
-    return InlineKeyboardMarkup(keyboard)
+    try:
+        preset = await db.move_presets.find_one({'_id': ObjectId(preset_id)})
+        return preset or {}
+    except Exception as e:
+        logger.error(f"❌ Error fetching preset details: {e}")
+        return {}
 
 
-# ==================== PRESET DETAILS ============
-
-def get_preset_details_keyboard(preset_id=None):
-    """Back button for preset details view."""
-    keyboard = [
-        [InlineKeyboardButton("🔙 Back to Presets", callback_data="move_preset_view_list")],
-        [InlineKeyboardButton("🔙 Back to Menu", callback_data="move_preset_menu")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ==================== PRESET EDIT OPTIONS ============
-
-def get_preset_edit_options_keyboard(preset_id):
-    """Edit options for each preset field."""
-    keyboard = [
-        [InlineKeyboardButton("✏️ Name", callback_data=f"move_preset_edit_name_{preset_id}")],
-        [InlineKeyboardButton("✏️ Description", callback_data=f"move_preset_edit_description_{preset_id}")],
-        [InlineKeyboardButton("✏️ API", callback_data=f"move_preset_edit_api_{preset_id}")],
-        [InlineKeyboardButton("✏️ Strategy", callback_data=f"move_preset_edit_strategy_{preset_id}")],
-        [InlineKeyboardButton("💾 Save Changes", callback_data=f"move_preset_save_changes_{preset_id}")],
-        [InlineKeyboardButton("🔙 Back", callback_data="move_preset_edit_list")],
-    ]
-    return InlineKeyboardMarkup(keyboard)
+async def get_move_preset(
+    db: AsyncIOMotorDatabase,
+    preset_id: str
+) -> dict:
+    """Get a MOVE preset by ID"""
+    try:
+        preset = await db.move_presets.find_one({'_id': ObjectId(preset_id)})
+        return preset or {}
+    except Exception as e:
+        logger.error(f"❌ Error fetching MOVE preset: {e}")
+        return {}
 
 
-# ==================== DELETE CONFIRMATION ============
-
-def get_delete_confirmation_keyboard(preset_id):
-    """Confirmation for deleting preset."""
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "✅ Confirm Delete",
-                callback_data=f"move_preset_delete_confirm_{preset_id}"
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "❌ Cancel",
-                callback_data="move_preset_delete_list"
-            ),
-        ],
-    ]
-    return InlineKeyboardMarkup(keyboard)
+async def get_user_move_presets(
+    db: AsyncIOMotorDatabase,
+    user_id: int
+) -> list:
+    """Get all MOVE presets for a user"""
+    try:
+        presets = await db.move_presets.find({'user_id': user_id}).to_list(None)
+        return presets or []
+    except Exception as e:
+        logger.error(f"❌ Error fetching MOVE presets: {e}")
+        return []
 
 
-# ==================== CANCEL KEYBOARD ============
+async def update_move_preset(
+    db: AsyncIOMotorDatabase,
+    preset_id: str,
+    updates: dict
+) -> bool:
+    """Update a MOVE preset"""
+    try:
+        updates['updated_at'] = datetime.utcnow()
+        
+        result = await db.move_presets.update_one(
+            {'_id': ObjectId(preset_id)},
+            {'$set': updates}
+        )
+        
+        if result.modified_count > 0:
+            logger.info(f"✅ MOVE preset {preset_id} updated")
+            return True
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"❌ Error updating MOVE preset: {e}")
+        raise
 
-def get_cancel_keyboard(back_callback="move_preset_menu"):
-    """Cancel button for input prompts."""
-    keyboard = [
-        [InlineKeyboardButton("❌ Cancel", callback_data=back_callback)],
-    ]
-    return InlineKeyboardMarkup(keyboard)
 
+async def delete_move_preset(
+    db: AsyncIOMotorDatabase,
+    preset_id: str
+) -> bool:
+    """Delete a MOVE preset"""
+    try:
+        result = await db.move_presets.delete_one({'_id': ObjectId(preset_id)})
+        
+        if result.deleted_count > 0:
+            logger.info(f"✅ MOVE preset {preset_id} deleted")
+            return True
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"❌ Error deleting MOVE preset: {e}")
+        raise
 
-# ==================== EXPORTS ============
 
 __all__ = [
-    'get_move_preset_menu_keyboard',
-    'get_api_selection_keyboard',
-    'get_strategy_selection_keyboard',
-    'get_preset_confirmation_keyboard',
-    'get_preset_list_keyboard',
-    'get_preset_details_keyboard',
-    'get_preset_edit_options_keyboard',
-    'get_delete_confirmation_keyboard',
-    'get_cancel_keyboard',
+    'create_move_preset',
+    'get_preset_details',      # ✅ ADDED - for view handlers
+    'get_move_preset',
+    'get_user_move_presets',
+    'update_move_preset',
+    'delete_move_preset',
 ]
