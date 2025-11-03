@@ -18,8 +18,8 @@ def register_move_trade_handlers(application: Application):
     
     # ✅ Import and register manual trade handlers
     try:
-        from bot.handlers.move.trade.manual import register_move_manual_trade_handlers
-        register_move_manual_trade_handlers(application)
+        from bot.handlers.move.trade.manual import register_move_manual_trade_handlers as _register_manual
+        _register_manual(application)
         logger.info("✅ MOVE Manual Trade handlers registered")
     except ImportError as e:
         logger.warning(f"⚠️ MOVE Manual Trade handlers not available: {e}")
@@ -28,8 +28,8 @@ def register_move_trade_handlers(application: Application):
     
     # ✅ Import and register auto trade handlers
     try:
-        from bot.handlers.move.trade.auto import register_move_auto_trade_handlers
-        register_move_auto_trade_handlers(application)
+        from bot.handlers.move.trade.auto import register_move_auto_trade_handlers as _register_auto
+        _register_auto(application)
         logger.info("✅ MOVE Auto Trade handlers registered")
     except ImportError:
         logger.warning("⚠️ MOVE Auto Trade handlers not available")
@@ -39,21 +39,29 @@ def register_move_trade_handlers(application: Application):
     logger.info("✅ All MOVE Trade handlers registered")
 
 
-# ✅ EXPORT for direct import in main handler registration
+# ✅ EXPORT for direct imports in main handler registration
 def register_move_manual_trade_handlers(application: Application):
-    """
-    Wrapper for manual trade handler registration.
-    Allows direct import from this module.
-    """
+    """Wrapper for manual trade handler registration"""
     try:
-        from bot.handlers.move.trade.manual import register_move_manual_trade_handlers as _register
-        return _register(application)
+        from bot.handlers.move.trade.manual import register_move_manual_trade_handlers as _reg
+        return _reg(application)
     except ImportError:
-        logger.warning("⚠️ Manual trade handler module not found")
+        logger.warning("⚠️ Manual trade handler not found")
+        return None
+
+
+def register_move_auto_trade_handlers(application: Application):
+    """Wrapper for auto trade handler registration"""
+    try:
+        from bot.handlers.move.trade.auto import register_move_auto_trade_handlers as _reg
+        return _reg(application)
+    except ImportError:
+        logger.warning("⚠️ Auto trade handler not found")
         return None
 
 
 __all__ = [
     'register_move_trade_handlers',
-    'register_move_manual_trade_handlers',  # ✅ EXPORT - for main handler
+    'register_move_manual_trade_handlers',  # ✅ EXPORT
+    'register_move_auto_trade_handlers',     # ✅ EXPORT
 ]
